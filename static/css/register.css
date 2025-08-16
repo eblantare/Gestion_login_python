@@ -1,0 +1,30 @@
+.register-form {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #004d40;
+}
+
+.register-form label {
+  font-weight: 600;
+}
+
+.register-form small {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.flash-messages .alert {
+  margin-bottom: 1rem;
+  border-radius: 0.4rem;
+}
+
+.btn-success {
+  background-color: #00796b !important;
+  border-color: #00796b !important;
+}
+
+.btn-success:hover {
+  background-color: #004d40 !important;
+  border-color: #004d40 !important;
+}
+
+

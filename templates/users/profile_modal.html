@@ -1,0 +1,25 @@
+<div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="profileModalLabel">Mon profil</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Nom:</strong>{{ current_user.nom }}</p>
+                <p><strong>Prenoms:</strong>{{ current_user.prenoms}}</p>
+                <p><strong>Email:</strong>{{ current_user.email }}</p>
+                <p><strong>Username:</strong>{{ current_user.username }}</p>
+                <p><strong>Téléphone:</strong>{{ current_user.telephone }}</p>
+                <p><strong>Role:</strong>{{ current_user.role }}</p>
+                {% if current_user.photo_filename %}
+                    <img src="{{ url_for('static', filename='upload/' ~current_user.photo_filename) }}" 
+                    alt="{{ current_user.nom}}" class="img-fluid rounded mt-2 profile-photo">
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
