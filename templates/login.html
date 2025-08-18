@@ -39,7 +39,10 @@
                     </div>
                     <div class="mb-3 input-group">
                         <span class="form-label"><i class="bi bi-lock"></i></span>
-                        <input type="password" name="password" class="form-control" placeholder="Mot de passe" required>
+                        <input type="password" name="password" id="password" class="form-control" placeholder="Mot de passe" required>
+                        <small class="form-text text-muted" id="passwordHelp" style="display: none;">
+                               Doit contenir au moins 1 majuscule, 1 chiffre et 1 caractère spécial
+                        </small>
                     </div>
 
                     <div class="mb-3 form-check">
@@ -56,6 +59,7 @@
             </div>
         </div>
       </div>
+      <script src="{{ url_for('static', filename = 'js/password_validation.js') }}"></script>
     </body>
 
 </html>

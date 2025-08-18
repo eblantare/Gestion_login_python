@@ -50,6 +50,7 @@
                     <th scope="col">Nom d'uttilisateur</th>
                     <th scope="col">Role</th>
                     <th scope="col">Photo</th>
+                    <th scope="col">Statut</th>
                     <th scope="col">Actions</th>
                 </tr>
             </thead>
@@ -72,6 +73,13 @@
                             {% else %}
                             {% endif %}
                         </td>
+                        <td>
+                            {% if user.is_locked %}
+                                <span class="badge bg-danger">Bloqué</span>
+                            {% else %}
+                                <span class="badge bg-danger">Actif</span>
+                            {% endif %}
+                        </td>
                        <td class="table-actions">
                        <!-- Icônes actions -->
                         <!-- voir détails -->
@@ -79,7 +87,7 @@
                         <button class="btn btn-link text-info" data-bs-toggle="modal" data-bs-target="#detailModal-{{ user.id }}" >
                            <i class="bi bi-eye"></i>
                        </button>
-                    {% if current_user.role | lower in ['admin', 'administrateur']  %}
+                       {% if current_user.role | lower in ['admin', 'administrateur']  %}
                      <!-- Modifier -->
                         <button class="btn btn-link text-warning" data-bs-toggle="modal" data-bs-target="#editModal-{{ user.id }}">
                         <i class="bi bi-pencil-square"></i>
@@ -89,7 +97,7 @@
                         <button class="btn btn-link text-danger" data-bs-toggle="modal" data-bs-target="#deleteModal-{{ user.id }}">
                         <i class="bi bi-trash"></i>
                         </button>
-                    {% endif %}
+                      {% endif %}
                       </td>
 
                 </tr>

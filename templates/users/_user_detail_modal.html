@@ -17,6 +17,18 @@
         <p><strong>Nom d'utilisateur :</strong> {{ user.username }}</p>
         <p><strong>Rôle :</strong> {{ user.role }}</p>
       </div>
+      <div class="alert {% if user.locked_until and user.locked_until > utcnow() %}alert-danger{% else %}alert-success{% endif %}">
+         {% if user.is_locked %}
+             🔒 Compte bloqué jusqu’à {{ user.locked_until.strftime('%d/%m/%Y %H:%M') }}
+             {% if current_user.is_authenticated and (current_user.role | lower in ['admin', 'administrateur']) %}
+                 <form method="post" action="{{ url_for('user_unlock', id = user.id) }}" class="mt-2">
+                    <button type="submit" class="btn btn-sm btn-outline-light">Débloquer maintenant</button>
+                 </form>
+             {% endif %}
+             {% else %}
+                      ✅ Compte actif
+          {% endif %}
+      </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
       </div>

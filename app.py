@@ -15,19 +15,20 @@ from flask_login import LoginManager ,login_user,current_user,login_required
 from flask_mail import Mail,Message
 from itsdangerous import URLSafeTimedSerializer
 from sqlalchemy.exc import IntegrityError
-# from sqlalchemy import event
-# from sqlalchemy.engine import Engine
+from datetime import datetime,timedelta, timezone
+from functools import wraps
 
 
 
-def password_is_strong(password):
-         # Doit contenir au moins :
-    # - une majuscule [A-Z]
-    # - un chiffre [0-9]
-    # - un caractère spécial [^A-Za-z0-9]
-    # - longueur minimum de 8 caractères
-     pattern = r'^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$'
-     return re.match(pattern, password) is not None
+
+# def password_is_strong(password):
+#          # Doit contenir au moins :
+#     # - une majuscule [A-Z]
+#     # - un chiffre [0-9]
+#     # - un caractère spécial [^A-Za-z0-9]
+#     # - longueur minimum de 8 caractères
+#      pattern = r'^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$'
+#      return re.match(pattern, password) is not None
 
 
 #charger le fichier .env
@@ -46,6 +47,12 @@ app.config['MAIL_PASSWORD'] = 'hcztvxjoazwschge'
 app.config['MAIL_USE_TLS'] = False
 app.config['MAIL_USE_SSL'] = True
 
+#Infos de limitation de nombre de tentative
+LOCK_WINDOW_MINUTES = 45
+MAX_FAILED_ATTEMPTS = 5
+ADMIN_ROLE = {"administrateur", "admin"}
+
+#Paramètre  :forgot_password et envoie par mail
 mail = Mail(app)
 serializer = URLSafeTimedSerializer(app.secret_key)
 
@@ -119,17 +126,67 @@ def login():
              flash("Nom d'utilisateur ou mot de passe incorrect ❌", "danger")
              return render_template("login.html")
         
+        #🔓Déblocage automatique si l'échéance est passée
+        if user.locked_until and user.locked_until <= datetime.now(timezone.utc):
+             user.failed_attempts = 0
+             user.locked_until = None
+             db.session.commit()
+        
+        # 🚫 Si toujours bloqué
+        if user.locked_until and user.locked_until > datetime.now(timezone.utc):
+             until = user.locked_until.strftime("%d%m%Y %H:%M")
+             flash(f"Compte bloqué jusqu'à {until}🔓 ", "danger")
+             return render_template("login.html")
         #Vérification de mot de passe hashé
         if user.check_password(password):
+             user.failed_attempts = 0
+             user.locked_until = None
+             db.session.commit()
              login_user(user)
-          #    flash(f"Bienvenue {user.username} 🎉", "success")
+             flash("Connexion réussie ✅", "success")
              return redirect(url_for("home"))
         else:
-            flash("Nom d'utilisateur ou mot de passe incorrect ❌", "danger")
-            return render_template("login.html")  # rester sur login si erreur
-
+            user.failed_attempts = (user.failed_attempts or 0) + 1
+            if user.failed_attempts >= MAX_FAILED_ATTEMPTS:
+                 user.locked_until = datetime.now(timezone.utc)+timedelta(minutes=LOCK_WINDOW_MINUTES)
+                 flash(f"Trop de tentatives échouées ❌. Compte bloqué {LOCK_WINDOW_MINUTES}minutes." "danger")
+            else:
+                 flash(f"Mot de passe incorrect ❌ (tentative {user.failed_attempts}/{MAX_FAILED_ATTEMPTS})", "danger")
+            db.session.commit()
+            return render_template("login.html")
     # Si c'est un GET → afficher le formulaire
     return render_template("login.html")
+
+#Petit décorateur pour restreindre aux admin
+def admin_required(f):
+     @wraps(f)
+     def wrapper(*args, **kwargs):
+          if not current_user.is_authenticated or current_user.role.lower() not in ["admin","administrateur"]:
+               abort(403)
+          return f(*args, **kwargs)
+     return wrapper
+          
+#Route de déblocage
+@app.route("/user/<int:id>/unlock", methods = ["POST"])
+@login_required
+@admin_required
+def user_unlock(id):
+     user = Utilisateur.query.get_or_404(id)
+     
+     #réinitialisation
+     user.failed_attempts = 0
+     user.locked_until = None
+     db.session.commit() 
+
+     flash(f"Le compte de {user.username} a été débloque ✅.", "success")
+     #on revient sur la liste
+     return redirect(url_for("listUsers"))
+
+
+#Ceci permet de pouvoir utiliser utccnow()
+@app.context_processor
+def inject_utils():
+     return {"utcnow": lambda:datetime.now(timezone.utc)}
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -261,6 +318,15 @@ def listUsers():
     total_users = query.count()
     total_pages = ceil(total_users / per_page)
     users = query.order_by(Utilisateur.id).offset((page-1)*per_page).limit(per_page).all()
+
+    # 👉 Ici tu ajoutes la logique "is_locked"
+    for user in users:
+         if user.locked_until:
+              # Si locked_until est naive, on lui assigne UTC
+              if user.locked_until.tzinfo is None:
+                   user.locked_until = user.locked_until.replace(tzinfo = timezone.utc)
+           #calculer is_locked
+         user.is_locked = user.locked_until and user.locked_until > datetime.now(timezone.utc)
     
     return render_template(
          "listUsers.html",
@@ -373,6 +439,10 @@ def reset_password(token):
           flash("Mot de passe réinitialisé avec succès.", "success")
           return redirect(url_for("login"))
      return render_template("reset_password.html")
+
+#admin pour le déblocage 
+def is_admin(user) -> bool:
+     return (user.role or "").strip().lower in ADMIN_ROLE
      
 
 # =========================
