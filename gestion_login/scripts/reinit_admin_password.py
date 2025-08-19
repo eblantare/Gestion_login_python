@@ -1,6 +1,6 @@
 from app import app
 from extensions import db
-from entity.entities import Utilisateur
+from .models import Utilisateur
 from werkzeug.security import generate_password_hash
 
 ADMIN_USERNAME = "admin"

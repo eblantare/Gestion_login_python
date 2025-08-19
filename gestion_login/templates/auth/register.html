@@ -9,16 +9,16 @@
 </div>
 
 <!-- Modale Bootstrap -->
-<div class="modal fade" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true">
+<div class="modal fade" id="registerModal"  aria-labelledby="registerModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title title-highlight" id="registerModalLabel">Créer un compte</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer" tabindex="-1" aria-disabled="true"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer" aria-disabled="true"></button>
       </div>
 
       <div class="modal-body">
-        <form class="register-form" id="registerForm" method="POST" enctype="multipart/form-data" action="{{ url_for('register') }}">
+        <form class="register-form" id="registerForm" method="POST" enctype="multipart/form-data" action="{{ url_for('auth.register') }}">
           <!-- {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %} -->
             <ul id="formErrors" class="mb-3 text-danger"></ul>
@@ -32,23 +32,23 @@
 
           <div class="form-group mb-3">
             <!-- <label for="nom">Nom *</label> -->
-            <input type="text" name="nom" class="form-control" placeholder="Nom" required  tabindex="-1">
+            <input type="text" name="nom" class="form-control" placeholder="Nom" required >
           </div>
 
           <div class="form-group mb-3">
             <!-- <label for="prenoms">Prénoms *</label> -->
-            <input type="text" name="prenoms" class="form-control" placeholder="Prénoms" required  tabindex="-1">
+            <input type="text" name="prenoms" class="form-control" placeholder="Prénoms" required  >
           </div>
 
           <div class="form-group mb-3">
             <!-- <label for="username">Nom d'utilisateur *</label> -->
-            <input type="text" name="username" class="form-control" placeholder="Nom d'utilisateur" required  tabindex="-1">
+            <input type="text" name="username" class="form-control" placeholder="Nom d'utilisateur" required >
           </div>
 
           <div class="form-group mb-3">
             <!-- <label for="telephone">Téléphone *</label> -->
              <div class="input-group">
-               <input type="text" name="telephone" class="form-control" placeholder="Téléphone" required  tabindex="-1">
+               <input type="text" name="telephone" class="form-control" placeholder="Téléphone" required >
                <span class="input-group-text validation-icon"></span>
              </div>
           </div>
@@ -56,7 +56,7 @@
           <div class="form-group mb-3">
             <!-- <label for="email">Email *</label> -->
             <div class="input-group">
-               <input type="email" name="email" class="form-control" placeholder="Email" required  tabindex="-1">
+               <input type="email" name="email" class="form-control" placeholder="Email" required >
                <span class="input-group-text validation-icon"></span>
             </div>
           </div>
@@ -64,7 +64,7 @@
           <div class="form-group mb-3">
             <!-- <label for="password">Mot de passe *</label> -->
             <div class="input-group">
-              <input type="password" name="password" class="form-control" placeholder="Mot de passe" required  tabindex="-1">
+              <input type="password" name="password" class="form-control" placeholder="Mot de passe" required >
               <span class="input-group-text validation-icon"></span>
             </div>
             <small class="form-text text-muted">
@@ -74,7 +74,7 @@
 
           <div class="form-group mb-3">
             <!-- <label for="role">Role *</label> -->
-            <select name="role" class="form-select" tabindex="-1" required>
+            <select name="role" class="form-select"  required>
               <option value="">--Sélectionner--</option>
               <option value="admin">Administrateur</option>
               <option value="user">Utilisateur</option>
@@ -83,11 +83,11 @@
 
           <div class="form-group mb-3">
             <!-- <label for="photo">Photo de Profil</label> -->
-            <input type="file" name="photo" class="form-control" accept=".jpg,.jpeg,.png,.gif"  tabindex="-1">
+            <input type="file" name="photo" class="form-control" accept=".jpg,.jpeg,.png,.gif" >
           </div>
-           <button type="submit" class="btn btn-success w-100" tabindex="-1" aria-disabled="true">Ajouter</button>
+           <button type="submit" class="btn btn-success w-100"  aria-disabled="true">Ajouter</button>
           <!-- <p class="mt-3 text-center login-link-text">
-            Déjà un compte ?<a tabindex="-1" aria-disabled="true" href="{{ url_for('login') }}">Se connecter</a>
+            Déjà un compte ?<a tabindex="-1" aria-disabled="true" href="{{ url_for('auth.login') }}">Se connecter</a>
           </p> -->
         </form>
       </div>

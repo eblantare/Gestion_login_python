@@ -1,7 +1,7 @@
 import hashlib
 from app import app;
 from extensions import db
-from entity.entities import Utilisateur
+from models import Utilisateur
 
 def create_admin():
     with app.app_context():

@@ -5,8 +5,9 @@
         <h5 class="modal-title" id="editModalLabel-{{ user.id }}">Modifier utilisateur</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
       </div>
-      <form method="POST" action="{{ url_for('user_edit', id=user.id) }}">
+      <form method="POST" action="{{ url_for('auth.user_edit', id=user.id) }}">
         <div class="modal-body">
+          <input type="text" name="id" value="{{ user.id }}" class="form-control mb-2" placeholder="ID" disabled>
           <input type="text" name="nom" value="{{ user.nom }}" class="form-control mb-2" placeholder="Nom">
           <input type="text" name="prenoms" value="{{ user.prenoms }}" class="form-control mb-2" placeholder="Prénoms">
           <input type="email" name="email" value="{{ user.email }}" class="form-control mb-2" placeholder="Email">

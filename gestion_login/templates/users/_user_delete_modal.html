@@ -9,7 +9,7 @@
         Voulez-vous vraiment supprimer l'utilisateur <strong>{{ user.nom }} {{ user.prenoms }}</strong> ?
       </div>
       <div class="modal-footer">
-        <form action="{{ url_for('user_delete', id=user.id) }}" method="POST">
+        <form action="{{ url_for('auth.user_delete', id=user.id) }}" method="POST">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
           <button type="submit" class="btn btn-danger">Supprimer</button>
         </form>

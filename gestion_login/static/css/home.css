@@ -145,3 +145,12 @@ footer {
     object-fit: cover; /* Recadre sans déformer */
     border-radius: 6px; /* coins arrondis*/
 }
+
+.table td, 
+.table th {
+    white-space: nowrap;       /* Empêche le retour à la ligne */
+    overflow: hidden;          /* Cache le texte qui dépasse */
+    text-overflow: ellipsis;   /* Affiche "..." si ça dépasse */
+    max-width: 200px;          /* Largeur max de chaque cellule */
+    vertical-align: middle;    /* Centre le contenu verticalement */
+}
