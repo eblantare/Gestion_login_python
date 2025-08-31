@@ -1,0 +1,33 @@
+/* Empêcher débordement des colonnes */
+#table-eleves td,
+#table-eleves th {
+    white-space: nowrap;/*tout reste sur une ligne*/
+    overflow: hidden; /*cache le surplus*/
+    text-overflow: ellipsis;  /* ajoute "..." si trop long */
+    max-width: 159px; /* limite la largeur des cellules */
+    vertical-align: middle;
+}
+
+/* Bouton changer état arrondi et réduit */
+.btn-changer-etat{
+    padding: 2px 10px ; /* Petits boutons  */
+    font-size: 12px;
+    border-radius: 50px; /* Arrondi cylindrique */
+    background-color: #0d6efd;/* Bleu bootstrap */
+    border:none;
+}
+
+.btn-changer-etat:hover{
+    background-color: #0b5ed7;
+}
+
+   /* Actions compactes */
+.btn-sm {
+    padding: 2px 6px;
+    font-size: 12px;
+    border-radius: 50%;
+}
+.bs-large{
+    width: 140px;
+
+}

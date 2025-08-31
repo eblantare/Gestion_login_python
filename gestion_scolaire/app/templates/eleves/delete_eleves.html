@@ -1,0 +1,17 @@
+<!-- Modal Suppression -->
+<div class="modal fade" id="deleteModal">
+  <div class="modal-dialog">
+    <form id="deleteForm" class="modal-content">
+      <input type="hidden" id="delete_id">
+      <div class="modal-header bg-danger text-white"><h5>Confirmer la suppression</h5></div>
+      <div class="modal-body">
+        <p>Voulez-vous vraiment supprimer cet élève ?</p>
+        <p id="delete_info" class="fw-bold text-danger"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Annuler</button>
+        <button class="btn btn-danger" type="submit">Supprimer</button>
+      </div>
+    </form>
+  </div>
+</div>

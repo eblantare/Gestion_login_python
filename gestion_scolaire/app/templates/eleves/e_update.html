@@ -1,0 +1,37 @@
+<!-- Modal Edition -->
+<div class="modal fade" id="editModal">
+  <div class="modal-dialog">
+    <form id="editForm" class="modal-content needs-validation" novalidate>
+      <input type="hidden" name="id" id="edit_id">
+      <div class="modal-header"><h5>Modifier un élève</h5></div>
+      <div class="modal-body">
+        <input id="edit_matricule" name="matricule" class="form-control mb-2" placeholder="Matricule" required>
+        <input id="edit_nom" name="nom" class="form-control mb-2" placeholder="Nom" required>
+        <input id="edit_prenoms" name="prenoms" class="form-control mb-2" placeholder="Prénoms" required>
+        <input type="date" id="edit_date_naissance" name="date_naissance" class="form-control mb-2" required>
+        <select id="edit_sexe" name="sexe" class="form-control mb-2" required>
+          <option value="">-- Sexe --</option>
+          <option>Masculin</option>
+          <option>Féminin</option>
+        </select>
+        <select id="edit_status" name="status" class="form-control mb-2" required>
+          <option value="">-- Status --</option>
+          <option>Nouveau</option>
+          <option>Ancien</option>
+        </select>
+        <select id="edit_classe" name="classe" class="form-control mb-2" required>
+          <option value="">-- Classe --</option>
+          <option>6èm</option>
+          <option>5èm</option>
+          <option>4èm</option>
+          <option>3èm</option>
+        </select>
+
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+        <button class="btn btn-warning">Modifier</button>
+      </div>
+    </form>
+  </div>
+</div>

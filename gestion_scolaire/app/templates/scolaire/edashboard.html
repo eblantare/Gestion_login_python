@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Dossiers école{% endblock %}
+
+{% block content %}
+<div class="card shadow-lg p-4 text-dark">
+    <h2 class="text-center text-primary">DOSSIERS ECOLE</h2>
+
+
+        <nav class="navbar navbar-expand-lg navbar-dark bg-primary px-4">
+            <a class="navbar-brand" href="#">My application</a>
+            <div class="ms-auto">
+               <span class="text-white me-3">Bienvenue 👋,<strong>{{username}} </strong></span>
+            </div>
+        </nav>
+
+        <div class="container py-5" >
+
+
+        <div class="card shadow-lg p-4">
+            <h2 class="text-center text-primary">LES MENUS</h2>
+
+        <div class="row mt-4">
+            <div class="col-md-3">
+                <div class="card border-primary">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">📊 Elèves</h5>
+                        <p class="card-text">Consultez .</p>
+                        <a href="{{ url_for('eleves.liste_eleves') }}" class="btn btn-primary btn-sm">Voir</a>
+                    </div>
+                </div>
+            </div>
+
+        <div class="col-md-3">
+            <div class="card border-success">
+                <div class="card-border text-center">
+                    <h5 class="card-title">⚙ Notes </h5>
+                    <p class="card-text">Consultez</p>
+                    <a href="#" class="btn btn-success btn-sm">Modifier</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <h5 class="card-title">📩 Matières</h5>
+                    <p class="card-text">Consultez</p>
+                    <a href="#" class="btn btn-warning btn-sm">Ouvrir</a>
+                </div>
+            </div>
+         </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <h5 class="card-title">📩 Classes</h5>
+                    <p class="card-text">Consultez</p>
+                    <a href="#" class="btn btn-warning btn-sm">Ouvrir</a>
+                </div>
+            </div>
+         </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <h5 class="card-title">📩 Paiements</h5>
+                    <p class="card-text">Consultez</p>
+                    <a href="#" class="btn btn-warning btn-sm">Ouvrir</a>
+                </div>
+            </div>
+         </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <h5 class="card-title">📩 Enseignants</h5>
+                    <p class="card-text">Consultez</p>
+                    <a href="#" class="btn btn-warning btn-sm">Ouvrir</a>
+                </div>
+            </div>
+         </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <h5 class="card-title">📩 Services</h5>
+                    <p class="card-text">Consultez</p>
+                    <a href="#" class="btn btn-warning btn-sm">Ouvrir</a>
+                </div>
+            </div>
+         </div>
+       </div>
+     </div>
+  </div>
+  </div>
+{% endblock %}

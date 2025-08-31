@@ -1,0 +1,154 @@
+{% extends 'ebase.html' %}
+
+{% block title %}Liste des élèves{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-3">LISTE DES ELEVES</h2>
+
+    <!-- Barre de recherche et filtre -->
+    <form method="get" class="row mb-3 g-2 align-items-center">
+        <div class="col-md-4">
+            <div class="input-group rounded-pill border overflow-hidden">
+                <input type="text" name="search" value="{{ search }}" class="form-control border-0" placeholder="Rechercher">
+                <button class="btn btn-primary" type="submit">
+                    <i class="bi bi-search"></i>
+                </button>
+            </div>
+        </div>
+        <div class="col-md-2 text-center flex-grow-1">
+            <select name="per_page" class="form-select d-inline-block w-auto rounded-pill" onchange="this.form.submit()">
+                {% for n in [5,10,25,50,100,200,300,500] %}
+                <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }} par page</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-4 text-end flex-grow-1 ms-2">
+            {% if user_role in ['admin', 'administrateur'] %}
+                <button type="button" class="btn btn-success rounded-pill" data-bs-toggle="modal" data-bs-target="#addModal">+ Ajouter élève</button>
+            {% endif %}
+        </div>
+    </form>
+
+    <!-- Tableau des élèves -->
+    <table class="table table-bordered table-striped text-center align-middle" id="table-eleves">
+        <thead class="table-dark">
+            <tr>
+                <th>Matricule</th>
+                <th>Nom</th>
+                <th>Prénoms</th>
+                <th>Date de naissance</th>
+                <th>Sexe</th>
+                <th>Status</th>
+                <th>Classe</th>
+                <th>Etat</th>
+                <th class="bs-large">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for eleve in eleves %}
+            <tr data-id="eleve-{{ eleve.id }}">
+                <td class="col-matricule">{{ eleve.matricule }}</td>
+                <td class="col-nom">{{ eleve.nom }}</td>
+                <td class="col-prenoms">{{ eleve.prenoms }}</td>
+                <td class="col-date_naissance">{{ eleve.date_naissance.strftime("%Y-%m-%d") if eleve.date_naissance else "" }}</td>
+                <td class="col-sexe">{{ eleve.sexe }}</td>
+                <td class="col-status">{{ eleve.status }}</td>
+                <td class="col-classe">{{ eleve.classe }}</td>
+                <td class="etat text-center">
+                    <span class="badge
+                            {% if eleve.etat == 'Actif' %}bg-success
+                            {% elif eleve.etat == 'Suspendu' %}bg-warning
+                            {% elif eleve.etat == 'Validé' %}bg-primary
+                            {% elif eleve.etat == 'Sorti' %}bg-dark
+                            {% else %}bg-secondary
+                            {% endif %}">{{eleve.etat}}
+                    </span>
+
+                    {% if user_role in ['admin', 'administrateur'] and eleve.etat != "Sorti" %}
+                        <select class="form-select form-select-sm d-inline-block w-auto ms-2 select-action" data-id="{{eleve.id}}">
+                          <option value="">---Action---</option>
+                          {% if eleve.etat | lower == 'inactif' %}
+                                <option value="Activer">Activer</option>
+                          {% elif eleve.etat | lower == 'actif' %}
+                                <option value="Suspendre">Suspendre</option>
+                          {% elif eleve.etat | lower == 'suspendu' %}
+                                <option value="Valider">Valider</option>
+                          {% elif eleve.etat | lower == 'validé' %}
+                                <option value="Sortir">Sortir</option>
+                          {% endif %}
+                        </select>
+                    {% endif %}
+                </td>
+
+                <td class="text-nowrap">
+                    <!-- Toujours visible -->
+                    <button class="btn btn-info btn-sm" onclick="showDetail('{{eleve.id}}')" title="Détail"><i class="bi bi-eye"></i></button>
+
+                    <!-- Boutons réservés aux admins -->
+                    {% if user_role in ['admin', 'administrateur'] and eleve.etat | lower == 'inactif' %}
+                        <button type="button" class="btn btn-warning btn-sm btn-edit" data-id="{{eleve.id}}" title="Modifier"><i class="bi bi-pencil"></i></button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteEleve('{{eleve.id}}')" title="Supprimer"><i class="bi bi-trash"></i></button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="9" class="text-center">Aucun élève sur la liste</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Pagination -->
+    <nav>
+        <ul class="pagination justify-content-center">
+            {% if pagination.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ pagination.prev_num }}&per_page={{per_page}}&search={{search}}">Précédent</a>
+            </li>
+            {% endif %}
+            {% for p in pagination.iter_pages() %}
+                {% if p %}
+                <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                    <a class="page-link" href="?page={{ p }}&per_page={{ per_page }}&search={{ search }}">{{ p }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+            {% endfor %}
+            {% if pagination.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ pagination.next_num }}&per_page={{ per_page }}&search={{ search }}">Suivant</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+
+<!-- Ici, tu peux inclure tes modales -->
+{% include 'eleves/add_eleves.html' %}
+{% include 'eleves/delete_eleves.html' %}
+{% include 'eleves/detail_eleves.html' %}
+{% include 'eleves/e_update.html' %}
+
+<!-- Modal Confirmation Action -->
+<div class="modal fade" id="confirmActionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-3 shadow">
+      <div class="modal-header bg-warning">
+        <h5 class="modal-title">Confirmation d’action</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p id="confirmMessage" class="fw-bold text-center"></p>
+      </div>
+      <div class="modal-footer justify-content-center">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Non</button>
+        <button type="button" class="btn btn-primary" id="confirmYesBtn">Oui</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
