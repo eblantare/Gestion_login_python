@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+/gestion_login/static/upload/
+.env
+# Environnement virtuel
+.venv/
+venv/
+env/
+
+# Fichiers de configuration locaux
+*.env
+*.ini
+*.cfg
+*.log
+
+# Fichiers de base de données
+*.db
+*.sqlite3
+
+# Dossiers de cache
+*.egg-info/
+*.pytest_cache/
+*.mypy_cache/
+*.cache/
+
+# Fichiers temporaires et systèmes
+*.swp
+*.DS_Store
+Thumbs.db
+
+# Uploads et fichiers statiques générés
+static/upload/
+instance/
+
+# IDE et éditeurs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Tests et données sensibles
+users.json

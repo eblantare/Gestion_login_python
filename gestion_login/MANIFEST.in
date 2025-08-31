@@ -1,0 +1,2 @@
+recursive-include gestion_login/static *
+recursive-include gestion_login/templates *

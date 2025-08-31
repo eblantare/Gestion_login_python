@@ -1,0 +1,156 @@
+body {
+    background: url("../images/logo3.jpg") no-repeat center center fixed;
+    background-size: cover;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.navbar-nav .nav-item{
+    margin: 0 10px;
+}
+
+main {
+    flex: 1;
+}
+
+footer {
+    position: relative;
+    bottom: 0;
+    width: 100%;
+}
+.text-white{
+    color:white;
+}
+.fw-bold{
+    font-weight: bold;
+}
+
+.title-highlight{
+    color:#0d6efd;
+    font-weight: bold;
+    font-size: 1.3rem;
+}
+
+.login-link-text{
+    color:#555;
+    font-size: 1rem;
+}
+
+.login-link-text a{
+    color: #0d6efd;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.login-link-text a:hover {
+    text-decoration: underline;
+}
+
+.is-valid{
+    border-color: #28a745 !important;
+    background-color: #f0fff4;
+}
+.is-invalid{
+    border-color: #dc3545 !important;
+    background-color: #fff6f6;
+}
+.validation-icon{
+    font-size: 1.2rem;
+    width: 2rem;
+    text-align: center;
+}
+
+/* Pagination */
+.pagination {
+    margin-top: 20px;
+    justify-content: center;
+    display: flex;
+    gap: 6px;
+    flex-wrap:wrap;
+}
+
+.pagination a,
+.pagination span {
+    padding: 6px 12px;
+    border: 1px solid #007bff;
+    border-radius: 50px;
+    text-decoration: none;
+    color: #007bff;
+    font-size: 14px;
+    transition: all 0.2s ease-in-out;
+}
+
+.pagination a:hover {
+    background-color: #007bff;
+    color: white;
+}
+
+.pagination .active {
+    background-color: #007bff;
+    color: white;
+    font-weight: bold;
+}
+
+.profile-photo {
+    max-width: 100px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+#flash-messages {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1050;
+    max-width: 350px;
+}
+
+#flash-messages .alert {
+    font-size: 1.1rem;      /* texte plus grand */
+    padding: 1rem 1.25rem;  /* plus d’espace */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    opacity: 1;
+    transition: opacity 0.5s ease-out; /* pour le fondu */
+}
+.table-actions {
+    min-width: 90px; /*  largeur minimale */
+    text-align: center;
+    white-space: nowrap; /* empêche le retour à la ligne des boutons */
+    display: flex; /* utiliser flexbox */
+    justify-content: center; /* centrer horizontalement */
+    align-items: center;          /* centrer verticalement */
+    gap: 4px;                     /* espace constant entre icônes */
+}
+
+.table-actions button {
+    padding: 0;                   /* pas de padding parasite */
+    margin: 0;                    /* pas de marge parasite */
+    border: none;                 /* supprime les bordures */
+    background: none;             /* supprime tout fond */
+    line-height: 1;               /* hauteur compacte */
+    display: flex;                /* centre l’icône */
+    align-items: center;
+    justify-content: center;         /* évite que le bouton grossisse à cause du line-height */
+}
+
+.table-actions i {
+    font-size: 0.9rem; /* taille des icônes */
+}
+
+.user-photo{
+    width: 50px; /* largeur fixe */
+    height: 50px; /* longueur fixe */
+    object-fit: cover; /* Recadre sans déformer */
+    border-radius: 6px; /* coins arrondis*/
+}
+
+.table td, 
+.table th {
+    white-space: nowrap;       /* Empêche le retour à la ligne */
+    overflow: hidden;          /* Cache le texte qui dépasse */
+    text-overflow: ellipsis;   /* Affiche "..." si ça dépasse */
+    max-width: 200px;          /* Largeur max de chaque cellule */
+    vertical-align: middle;    /* Centre le contenu verticalement */
+}

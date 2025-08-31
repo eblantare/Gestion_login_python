@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Tableau de bord{% endblock %}
+
+{% block content %}
+<div class="card shadow-lg p-4 text-dark">
+    <h2 class="text-center text-primary">Tableau de bord</h2>
+    <p class="text-center">Vous êtes maintenant connectés à votre espace sécurisé</p>
+
+        <nav class="navbar navbar-expand-lg navbar-dark bg-primary px-4">
+            <a class="navbar-brand" href="#">My application</a>
+            <div class="ms-auto">
+               <span class="text-white me-3">Bienvenue 👋,<strong>{{username}} </strong></span>
+            </div>
+        </nav>
+
+        <div class="container py-5" >
+            <!-- {% with messages = get_flashed_messages(with_categories = true) %}
+              {% if messages %}
+                 {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer l'alerte"></button>
+
+                    </div>
+                  {%endfor%}
+               {%endif%}
+            {%endwith%} -->
+
+        <div class="card shadow-lg p-4">
+            <h2 class="text-center text-primary">Tableau de bord</h2>
+            <p class="text-center">Vous êtes maintenant connectés à votre espace sécurisé</p>
+
+        <div class="row mt-4">
+            <div class="col-md-4">
+                <div class="card border-primary">
+                    <div class="card-body text-center">
+                        <h5 class="card-title">📊 Statistiques</h5>
+                        <p class="card-text">Consultez vos statistiques et rapports.</p>
+                        <a href="#" class="btn btn-primary btn-sm">Voir</a>
+                    </div>
+                </div>
+            </div>
+
+        <div class="col-md-4">
+            <div class="card border-success">
+                <div class="card-border text-center">
+                    <h5 class="card-title">⚙ Paramètres</h5>
+                    <p class="card-text">Modifiez vos préférences</p>
+                    <a href="#" class="btn btn-success btn-sm">Modifier</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <h5 class="card-title">📩 Messages</h5>
+                    <p class="card-text">Lisez vos notifications</p>
+                    <a href="#" class="btn btn-warning btn-sm">Ouvrir</a>
+                </div>
+            </div>
+         </div>
+       </div>
+     </div>
+  </div>
+  </div>
+{% endblock %}

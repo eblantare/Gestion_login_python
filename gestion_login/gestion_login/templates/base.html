@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Mon Application{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{ url_for('auth.static', filename='css/home.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary px-4">
+        <a class="navbar-brand" href="{{ url_for('auth.home') }}">
+           <img src="{{ url_for('auth.static', filename='images/logo1.jpg') }}" alt="Logo Service" height="30" class="me-2">
+            Service</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                data-bs-target="#navbarContent" aria-label="Ouvrir le menu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarContent">
+         <ul class="navbar-nav mx-auto">
+           <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.dashboard') }}">Dashboard</a></li>
+
+    <!-- Menu déroulant Administration -->
+           <li class="nav-item dropdown">
+             <a class="nav-link dropdown-toggle btn btn-primary" type="button" href="#" id="adminDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+               Administration
+             </a>
+           <ul class="dropdown-menu" aria-labelledby="adminDropdown">
+            {% if current_user.role | lower in ['admin', 'administrateur'] %}
+                <li><a class="dropdown-item" href="{{ url_for('auth.register') }}">Register</a></li>
+            {% endif %}
+
+        <!-- 🚀 Lien vers gestion_scolaire -->
+            <li>
+                <a class="dropdown-item" href="{{ url_for('main.index') }}">Gestion scolaire</a>
+             </li>
+             <li><a class="dropdown-item" href="{{ url_for('auth.listUsers') }}">Liste des utilisateurs</a></li>
+             <li><a class="dropdown-item" href="#">Outils</a></li>
+           </ul>
+          </li>
+        </ul>
+            <ul class="navbar-nav">
+                <li class="nav-item dropdown">
+                    <button class="nav-link dropdown-toggle btn btn-link" id="userDropdown"
+                            data-bs-toggle="dropdown" aria-expanded="false" type="button">
+                        {{ username }}
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                        <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#profileModal">Profil</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">Déconnexion</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div id="flash-messages">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+           {% if messages %}
+               {% for category,message in messages %}
+                  <div class="alert alert-{{ message }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="close"></button>
+                  </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <main class="container py-5 text-white">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="bg-primary text-white text-center py-3 mt-5">
+        &copy; 2025 @Blant, tous droits réservés.
+    </footer>
+     <script src="{{ url_for('auth.static', filename='js/inactivity.js') }}"></script>
+     <!-- <a class="nav-link" href="{{ url_for('auth.register') }}">Register</a> -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <div class="modal fade" id="inactivityModal" tabindex="-1" aria-labelledby="inactivityModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centred">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title tex-white" id="inactivityModalLabel">Inactivité détectée</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer" tabindex="-1"></button>
+                </div>
+                <div class="modal-body text-center">
+                <p>Vous serez déconnecté dans <span id="countdown" class="fw-bold">30</span> secondes.</p>
+                <p>Déplacez la souris ou appuyez sur une touche pour rester connecté.</p>
+               </div>
+               <div class="modal-footer">
+                 <button type="button" class="btn btn-success" data-bs-dismiss="modal" tabindex="-1">Rester connecté</button>
+                 <button tabindex="-1" type="button" class="btn btn-danger" onclick="sessionStorage.removeItem('isLoggedIn'); window.location.href='/login';">Se déconnecter</button>
+              </div>
+            </div>
+
+        </div>
+
+    </div>
+    {% if current_user.is_authenticated %}
+      {% include 'users/profile_modal.html' %}
+    {% endif %}
+    <script src="{{ url_for('auth.static', filename='js/flashInfo.js') }}"></script>
+</body>
+</html>

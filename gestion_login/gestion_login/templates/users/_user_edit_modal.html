@@ -1,0 +1,35 @@
+<div class="modal fade" id="editModal-{{ user.id }}" tabindex="-1" aria-labelledby="editModalLabel-{{ user.id }}" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title" id="editModalLabel-{{ user.id }}">Modifier utilisateur</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+      </div>
+      <form method="POST" action="{{ url_for('auth.user_edit', id=user.id) }}">
+        <div class="modal-body">
+          <input type="text" name="id" value="{{ user.id }}" class="form-control mb-2" placeholder="ID" disabled>
+          <input type="text" name="nom" value="{{ user.nom }}" class="form-control mb-2" placeholder="Nom">
+          <input type="text" name="prenoms" value="{{ user.prenoms }}" class="form-control mb-2" placeholder="Prénoms">
+          <input type="email" name="email" value="{{ user.email }}" class="form-control mb-2" placeholder="Email">
+          <input type="text" name="telephone" value="{{ user.telephone }}" class="form-control mb-2" placeholder="Téléphone">
+          <input type="text" name="username" value="{{ user.username }}" class="form-control mb-2" placeholder="Nom d'utilisateur">
+          <select name="role" class="form-select mb-2" required>
+            <option value="Administrateur" {% if user.role == 'Administrateur' %}selected{% endif %}>Administrateur</option>
+            <option value="Utilisateur" {% if user.role == 'Utilisateur' %}selected{% endif %}>Utilisateur</option>
+          </select>
+          <!-- Champ pour la photo -->
+           <label class="form-label mt-2">Photo de profil</label>
+           <input type="file" name="photo" class="form-control">
+           {% if user.photo_filename %}
+              <img src="{{ url_for('static', filename='upload/' ~ user.photo_filename) }}" 
+              alt="photo actuelle" class="img-fluid rounded mt-2 profile-photo">
+           {% endif %}
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Enregistrer</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
