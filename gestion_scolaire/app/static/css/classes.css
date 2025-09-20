@@ -1,0 +1,55 @@
+/* Troncature avec ellipsis pour toutes les cellules */
+.text-truncate-ellipsis {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Limiter la largeur des colonnes */
+table#table-classes th, table#table-classes td {
+    vertical-align: middle;
+    padding: 0.4rem;
+}
+
+.col-code { width: 100px; max-width: 100px; }
+.col-nom { width: 180px; max-width: 180px; }
+.col-effectif { width: 80px; max-width: 80px; }
+.col-enseignant { width: 220px; max-width: 220px; }
+.etat { width: 120px; max-width: 120px; }
+.bs-large { width: 120px; max-width: 120px; }
+
+/* Badges enseignant : forcer à rester sur une seule ligne, tronquer si nécessaire */
+.col-enseignant {
+    white-space: nowrap;       /* forcer la ligne unique */
+    overflow: hidden;          /* cacher le débordement */
+    text-overflow: ellipsis;   /* ajouter ... */
+}
+
+.col-enseignant span.badge {
+    display: inline-block;
+    margin-right: 2px;
+    max-width: 100%;            /* ne jamais dépasser la cellule */
+    vertical-align: middle;
+}
+table#table-classes {
+    table-layout: fixed;  /* force les colonnes à respecter les largeurs */
+    width: 100%;
+}
+/* Empêcher le débordement des cellules et tronquer le texte */
+table#table-matieres td,
+table#table-matieres th {
+    white-space: nowrap;       /* Empêche le retour à la ligne automatique */
+    overflow: hidden;          /* Masque le dépassement */
+    text-overflow: ellipsis;   /* Affiche "..." si le texte est trop long */
+    max-width: 200px;          /* Largeur maximale par défaut, à ajuster selon la colonne */
+}
+
+/* Pour les colonnes actions et badges */
+table#table-matieres td.text-nowrap {
+    white-space: nowrap;
+}
+
+/* Si tu veux que les badges s'adaptent sans casser la ligne */
+table#table-matieres td .badge {
+    white-space: nowrap;
+}

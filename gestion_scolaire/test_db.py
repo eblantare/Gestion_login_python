@@ -1,30 +1,33 @@
-from app import create_app
-from app.models.eleves import Eleve
-from extensions import db
+import uuid
+from werkzeug.security import generate_password_hash
+from run import create_app, db   # on réutilise create_app et db
+from gestion_login.gestion_login.models import Utilisateur
+from datetime import datetime
 
 app = create_app()
 
 with app.app_context():
-    #création de table
-    engine = db.engines["scolaire"]
-    Eleve.metadata.create_all(bind=engine)
+    # S'assurer que toutes les tables existent
+    db.create_all()
 
-    # Création d'un nouvel élève
-    new_eleve = Eleve(
-        matricule="ELE123",
-        nom="DJALA",
-        prenoms="Théo",
-        date_naissance="2020-09-23",
-        sexe="Masculin",
-        status="Nouveau",
-        classe="6èm A"
-    )
+    # Vérifier si l'admin existe déjà
+    admin = Utilisateur.query.filter_by(username="admin").first()
+    if not admin:
+        admin_user = Utilisateur(
+            nom="Mon_admin",
+            prenoms="Mon_admin123",
+            username="admin",
+            telephone="0000000000",
+            email="admin@example.com",
+            password_hash=generate_password_hash("Admin@123"),
+            role="admin",
+            photo_filename=None,
+            failed_attempts=0,
+            locked_until=None
+        )
 
-    db.session.add(new_eleve)
-    db.session.commit()
-
-    print(f"Élève créé : {new_eleve.nom} {new_eleve.prenoms}")
-
-    # Vérification
-    for e in Eleve.query.all():
-        print(e)
+        db.session.add(admin_user)
+        db.session.commit()
+        print(f"✅ Utilisateur admin créé avec id: {admin_user.id}")
+    else:
+        print("ℹ️ Utilisateur admin existe déjà.")

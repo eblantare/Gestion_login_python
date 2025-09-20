@@ -13,6 +13,18 @@
           <input type="email" name="email" value="{{ user.email }}" class="form-control mb-2" placeholder="Email">
           <input type="text" name="telephone" value="{{ user.telephone }}" class="form-control mb-2" placeholder="Téléphone">
           <input type="text" name="username" value="{{ user.username }}" class="form-control mb-2" placeholder="Nom d'utilisateur">
+          <div class="mb-3">
+            <label class="form-label">Sexe</label><br>
+            <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="sexe" id="sexeM" value="M" required>
+            <label class="form-check-label" for="sexeM">Masculin</label>
+          </div>
+          <div class="form-check form-check-inline">
+             <input class="form-check-input" type="radio" name="sexe" id="sexeF" value="F">
+             <label class="form-check-label" for="sexeF">Féminin</label>
+           </div>
+         </div>
+
           <select name="role" class="form-select mb-2" required>
             <option value="Administrateur" {% if user.role == 'Administrateur' %}selected{% endif %}>Administrateur</option>
             <option value="Utilisateur" {% if user.role == 'Utilisateur' %}selected{% endif %}>Utilisateur</option>
@@ -21,13 +33,13 @@
            <label class="form-label mt-2">Photo de profil</label>
            <input type="file" name="photo" class="form-control">
            {% if user.photo_filename %}
-              <img src="{{ url_for('static', filename='upload/' ~ user.photo_filename) }}" 
+              <img src="{{ url_for('auth.static', filename='upload/' ~ user.photo_filename) }}" 
               alt="photo actuelle" class="img-fluid rounded mt-2 profile-photo">
            {% endif %}
         </div>
         <div class="modal-footer">
-          <button type="submit" class="btn btn-primary">Enregistrer</button>
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+          <button type="submit" class="btn btn-primary rounded-pill">Enregistrer</button>
+          <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
         </div>
       </form>
     </div>

@@ -1,0 +1,123 @@
+/* Fond gradient uniquement pour edashboard */
+.edashboard {
+    background: linear-gradient(-45deg, #4facfe, #00f2fe, #fbc2eb, #a6c1ee);
+    background-size: 400% 400%;
+    animation: gradientBG 15s ease infinite;
+    min-height: 100vh;
+}
+
+/* Animation gradient */
+@keyframes gradientBG {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Cards plus petites et bords arrondis */
+.edashboard .menu-card {
+    border-radius: 1.5rem;        /* coins très arrondis */
+    padding: 1.5rem 1rem;         /* réduit la taille */
+    font-size: 0.9rem;            /* texte légèrement plus petit */
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.3s, box-shadow 0.3s;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+    backdrop-filter: blur(8px);
+    background-color: rgba(0,0,0,0.35);
+    min-height: 200px;            /* fixe la hauteur pour uniformité */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* Hover plus doux */
+.edashboard .menu-card:hover {
+    transform: translateY(-5px) rotateX(1deg);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+}
+
+/* Titres et paragraphes */
+.edashboard .menu-card h5 {
+    font-size: 1.1rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+.edashboard .menu-card p {
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+}
+
+/* Boutons */
+.edashboard .menu-card .btn {
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.3s;
+    font-size: 0.75rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 12px;
+}
+.edashboard .menu-card .btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 5px 20px rgba(255,255,255,0.5);
+}
+
+/* Espacement des cards */
+.edashboard .row.g-4 {
+    gap: 1.5rem;
+}
+
+.menu-card {
+    border-radius: 1rem;
+    padding: 1.5rem;
+    color: white;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+}
+.menu-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+}
+.menu-card h5 {
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+.menu-card p {
+    font-size: 0.95rem;
+    margin-bottom: 1rem;
+}
+.menu-card .btn {
+    align-self: start;
+}
+.menu-submenu {
+    display: none;
+    flex-direction: column;
+    margin-top: 0.5rem;
+    gap: 0.5rem;
+}
+.menu-submenu a {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    text-decoration: none;
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.5rem;
+    font-size: 0.85rem;
+    transition: background 0.2s;
+}
+.menu-submenu a:hover {
+    background: rgba(255,255,255,0.4);
+}
+.menu-card.active .menu-submenu {
+    display: flex;
+    animation: slideDown 0.3s ease;
+}
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}

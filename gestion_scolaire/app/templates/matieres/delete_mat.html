@@ -1,0 +1,17 @@
+<!-- Modal Suppression -->
+<div class="modal fade" id="deleteMatModal">
+  <div class="modal-dialog">
+    <form id="deleteMatForm" class="modal-content">
+      <input type="hidden" id="deleteMat_id">
+      <div class="modal-header bg-danger text-white"><h5>Confirmer la suppression</h5></div>
+      <div class="modal-body">
+        <p>Voulez-vous vraiment supprimer cette matière ?</p>
+        <p id="deleteMat_info" class="fw-bold text-danger"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary rounded-start-pill" data-bs-dismiss="modal" type="button">Annuler</button>
+        <button class="btn btn-danger rounded-pill" type="submit">Supprimer</button>
+      </div>
+    </form>
+  </div>
+</div>

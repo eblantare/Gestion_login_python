@@ -1,0 +1,33 @@
+/* Tous les boutons arrondis */
+.btn, .btn-sm, .btn-primary, .btn-secondary, .btn-success, .btn-warning, .btn-danger, .btn-info {
+    border-radius: 50px !important;
+}
+
+/* Inputs et selects arrondis */
+.form-control, .form-select {
+    border-radius: 50px !important;
+}
+
+/* Input group arrondi */
+.input-group {
+    border-radius: 50px;
+    overflow: hidden;
+}
+
+/* Empêche le texte de dépasser et force le retour à la ligne */
+.table td, .table th {
+    vertical-align: middle;
+    word-wrap: break-word;
+    word-break: break-word;
+}
+
+.col-libelle, .col-description {
+    max-width: 200px; /* Ajuste selon la largeur souhaitée */
+    white-space: normal; /* permet au texte de passer à la ligne */
+    overflow-wrap: break-word;
+}
+
+.col-etat {
+  min-width: 220px; /* largeur minimale pour éviter le débordement */
+  white-space: nowrap; /* garde tout sur une seule ligne */
+}

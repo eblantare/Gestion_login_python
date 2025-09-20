@@ -38,16 +38,17 @@
             </div>
 
          </form>
-      <div class="table-responsive"></div>
+      <div class="table-responsive">
         <table class="table table-bordered table-striped">
             <thead class="table-primary">
                 <tr>
                     <!-- <th scope="col">ID</th> -->
                     <th scope="col">Nom</th>
                     <th scope="col">Prénoms</th>
-                    <th scope="col">Téléphone</th>
-                    <th scope="col">Email</th>
+                    <th scope="col">Sexe</th>
                     <th scope="col">Nom d'uttilisateur</th>
+                    <th scope="col">Email</th>
+                   <th scope="col">Téléphone</th>
                     <th scope="col">Role</th>
                     <th scope="col">Photo</th>
                     <th scope="col">Statut</th>
@@ -62,6 +63,7 @@
                         <!-- <td>{{user.id}}</td> -->
                         <td>{{user.nom}}</td>
                         <td>{{user.prenoms}}</td>
+                        <td>{{user.sexe}}</td>
                         <td>{{user.username}}</td>
                         <td>{{user.email}}</td>
                         <td>{{user.telephone}}</td>
@@ -104,7 +106,8 @@
                 {% endfor %}
             </tbody>
 
-        </table>
+          </table>
+        </div>
         {% for user in users %}
             {% include 'users/_user_detail_modal.html' %}
             {% include 'users/_user_edit_modal.html' %}

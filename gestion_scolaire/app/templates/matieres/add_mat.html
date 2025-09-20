@@ -1,0 +1,20 @@
+<div class="modal fade" id="addMatModal">
+  <div class="modal-dialog">
+    <form id="addMatForm" class="modal-content needs-validation" novalidate>
+      <div class="modal-header"><h5>Ajouter une matière</h5></div>
+      <div class="modal-body">
+        <input name="code" id="codeMat" class="form-control mb-2" placeholder="Code (généré automatiquement)" readonly>
+        <input name="libelle" id="libelleMat" class="form-control mb-2" placeholder="Libelle" required>
+        <select name="type" id="typeMat" class="form-select mb-2" required>
+            <option value="Matière scientifique">Matière scientifique</option>
+            <option value="Matière littéraire">Matière littéraire</option>
+            <option value="Autres" selected>Autres</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
+        <button class="btn btn-success rounded-pill" type="submit">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>

@@ -1,0 +1,209 @@
+{% extends 'ebase.html' %}
+
+{% block title %}Liste des enseignants{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-3">LISTE DES ENSEIGNANTS</h2>
+
+    <!-- Barre de recherche, affichage par page et filtre -->
+    <form method="get" class="row mb-3 g-2 align-items-center toolbar-form">
+        <!-- Rechercher -->
+        <div class="col-md-4 col-12">
+            <div class="input-group rounded-pill border overflow-hidden">
+                <input type="text" name="search" value="{{ search }}" class="form-control border-0" placeholder="Rechercher">
+                <button class="btn btn-primary" type="submit">
+                    <i class="bi bi-search"></i>
+                </button>
+            </div>
+        </div>
+        <!-- Filtre unique -->
+        <div class="col-md-4 col-12">
+            <select name="filter" class="form-select rounded-pill" onchange="this.form.submit()">
+                <option value="">---Filtrer par---</option>
+                <!-- sexe -->
+                <option value="sexe:M" {% if filter_value == 'sexe:M' %}selected{% endif %}>Masculin</option>
+                <option value="sexe:F" {% if filter_value == 'sexe:F' %}selected{% endif %}>Féminin</option>
+                 <!-- status -->
+                <!-- Titre -->
+                <option value="titre:Enseignant" {% if filter_value == 'titre:Enseignant' %}selected{% endif %}>Enseignant / Enseignante</option>
+                <option value="titre:Directeur" {% if filter_value == 'titre:Directeur' %}selected{% endif %}>Directeur / Directrice</option>
+                <option value="titre:Directeur adjoint" {% if filter_value == 'titre:Directeur adjoint' %}selected{% endif %}>Directeur adjoint / Directrice adjointe</option>
+                <option value="titre:Surveillant" {% if filter_value == 'titre:Surveillant' %}selected{% endif %}>Surveillant / Surveillante</option>
+                <option value="titre:Bibliothécaire" {% if filter_value == 'titre:Bibliothécaire' %}selected{% endif %}>Bibliothécaire</option>
+                <option value="titre:Économe" {% if filter_value == 'titre:Économe' %}selected{% endif %}>Économe</option>
+                
+                <!-- Date fonction (par année) -->
+               {% for annee in annees %}
+                  <option value="date_fonction:{{ annee }}" {% if filter_value == 'date_fonction:' ~ annee %}selected{% endif %}>
+                  Année {{ annee }}
+                 </option>
+               {% endfor %}
+                <!-- Etat -->
+                 <option value="etat:Inactif" {% if filter_value == 'etat:Inactif' %}selected{% endif %}>Inactif</option>
+                 <option value="etat:Actif" {% if filter_value == 'etat:Actif' %}selected{% endif %}>Actif</option>
+                 <option value="etat:Muté" {% if filter_value == 'etat:Muté' %}selected{% endif %}>Muté</option>
+                 <option value="etat:Retraité" {% if filter_value == 'etat:Retraité' %}selected{% endif %}>Retraité</option>
+
+                <!-- Matières dynamique -->
+                 {% for matiere in matieres %}
+                    <option value="matiere:{{ matiere.id }}" {% if filter_value == 'matiere:' ~ matiere.id %}selected{% endif %}>
+                    {{ matiere.libelle }}
+                    </option>
+                 {% endfor %}
+
+            </select>
+        </div>
+        <!-- Affichage par page -->
+        <div class="col-md-2 col-6 text-center flex-grow-1">
+            <select name="per_page" class="form-select d-inline-block w-auto rounded-pill" onchange="this.form.submit()">
+                {% for n in [5,10,25,50,100,200,300,500] %}
+                <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }} par page</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-4 text-end flex-grow-1 ms-2">
+            {% if user_role in ['admin', 'administrateur'] %}
+                <button type="button" class="btn btn-success rounded-pill" data-bs-toggle="modal" data-bs-target="#addEnsModal">
+                    <i class="bi bi-plus-circle"></i>
+                </button>
+            {% endif %}
+        </div>
+    </form>
+
+    <!-- Tableau des élèves -->
+    <table class="table table-bordered table-striped text-center align-middle" id="table-enseignants">
+        <thead class="table-dark">
+            <tr>
+                <th>Nom</th>
+                <th>Prénoms</th>
+                <th>Date de prise de fonction</th>
+                <th>Sexe</th>
+                <th>Titre</th>
+                <th>Email</th>
+                <th>Téléphone</th>
+                <th>Matières</th>
+                <th>Photo</th>
+                <th>Etat</th>
+                <th class="bs-large">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for enseignant in enseignants %}
+               <tr data-id="enseignant-{{ enseignant.id }}" data-photo="{{ enseignant.utilisateur.photo_filename }}">
+                 <td class="col-nom" title="{{ enseignant.utilisateur.nom }}">{{ enseignant.utilisateur.nom }}</td>
+                 <td class="col-prenoms" title="{{ enseignant.utilisateur.prenoms }}">{{ enseignant.utilisateur.prenoms }}</td>
+                 <td class="col-date_fonction" title="{{ enseignant.date_fonction }}">{{ enseignant.date_fonction.strftime("%Y-%m-%d") if enseignant.date_fonction else "" }}</td>
+                 <td class="col-sexe" title="{{ enseignant.utilisateur.sexe }}">{{ enseignant.utilisateur.sexe }}</td>
+                 <td class="col-titre" title="{{ enseignant.titre }}">{{ enseignant.titre }}</td>
+                 <td class="col-email" title="{{ enseignant.utilisateur.email }}">{{ enseignant.utilisateur.email }}</td>
+                 <td class="col-telephone" title="{{ enseignant.utilisateur.telephone }}">{{ enseignant.utilisateur.telephone }}</td>
+                 <td class="col-matiere" title="{{ enseignant.matieres|map(attribute='libelle')|join(', ') }}">
+                    {{ enseignant.matieres|map(attribute='libelle')|join(', ') }}</td>
+                 
+                <td class="col-photo_filename">
+                    {% if enseignant.utilisateur.photo_filename %}
+                        <img src="{{ url_for('static', filename='upload/' ~ enseignant.utilisateur.photo_filename) }}" 
+                        class="img-thumbnail" width="50" alt="photo">
+                    {% else %}
+                          —
+                    {% endif %}
+                </td>
+                 <td class="etat text-center">
+                    <span class="badge
+                            {% if enseignant.etat == 'Actif' %}bg-success
+                            {% elif enseignant.etat == 'Muté' %}bg-primary
+                            {% elif enseignant.etat == 'Retraité' %}bg-dark
+                            {% else %}bg-secondary
+                            {% endif %}">{{enseignant.etat}}
+                    </span>
+
+                    {% if user_role in ['admin', 'administrateur'] and enseignant.etat != "Retraité" %}
+                        {% set etat = enseignant.etat|lower %}
+                        <select class="form-select form-select-sm d-inline-block w-auto ms-2 select-action" data-id="{{enseignant.id}}">
+                           <option value="">---Action---</option>
+                           {% if etat == 'inactif' %}
+                           <option value="activer">Activer</option>
+                           {% elif etat == 'actif' %}
+                           <option value="muter">Muter</option>
+                           {% elif etat == 'muté' %}
+                           <option value="retraiter">Retraiter</option>
+                           {% endif %}
+                       </select>
+                    {% endif %}
+                </td>
+
+
+                <td class="text-nowrap">
+                    <!-- Toujours visible -->
+                    <button class="btn btn-info btn-sm btn-detail" data-id="{{enseignant.id}}" title="Détail"><i class="bi bi-eye"></i></button>
+
+                    <!-- Boutons réservés aux admins -->
+                    {% if user_role in ['admin', 'administrateur'] and enseignant.etat | lower == 'inactif' %}
+                        <button type="button" class="btn btn-warning btn-sm btn-edit" data-id="{{enseignant.id}}"
+                         title="Modifier" data-photo="{{ enseignant.utilisateur.photo_filename }}">
+                            <i class="bi bi-pencil"></i></button>
+                        <button class="btn btn-danger btn-sm" data-id="{{enseignant.id}}" title="Supprimer"><i class="bi bi-trash"></i></button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="9" class="text-center">Aucun enseignant sur la liste</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Pagination -->
+    <nav>
+        <ul class="pagination justify-content-center">
+            {% if pagination.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ pagination.prev_num }}&per_page={{per_page}}&search={{search}}">Précédent</a>
+            </li>
+            {% endif %}
+            {% for p in pagination.iter_pages() %}
+                {% if p %}
+                <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                    <a class="page-link" href="?page={{ p }}&per_page={{ per_page }}&search={{ search }}">{{ p }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+            {% endfor %}
+            {% if pagination.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ pagination.next_num }}&per_page={{ per_page }}&search={{ search }}">Suivant</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+
+<!-- Ici, tu peux inclure tes modales -->
+{% include 'enseignants/add_ens.html' %}
+{% include 'enseignants/delete_ens.html' %}
+{% include 'enseignants/detail_ens.html' %}
+{% include 'enseignants/update_ens.html' %}
+
+<!-- Modal Confirmation Action -->
+<div class="modal fade" id="confirmEnsActionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-3 shadow">
+      <div class="modal-header bg-warning">
+        <h5 class="modal-title">Confirmation d’action</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p id="confirmEnsMessage" class="fw-bold text-center"></p>
+      </div>
+      <div class="modal-footer justify-content-center">
+        <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Non</button>
+        <button type="button" class="btn btn-primary rounded-pill" id="confirmYesEnsBtn">Oui</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

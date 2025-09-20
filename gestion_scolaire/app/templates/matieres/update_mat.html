@@ -1,0 +1,26 @@
+<div class="modal fade" id="editMatModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="editMatForm" class="needs-validation" novalidate>
+        <div class="modal-header">
+          <h5 class="modal-title">Modifier une matière</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="id" id="editMat_id">
+          <input id="editMat_code" name="code" class="form-control mb-2" placeholder="Code" required>
+          <input id="editMat_libelle" name="libelle" class="form-control mb-2" placeholder="Libellé" required>
+         <select id="editMat_type" name="type" class="form-select mb-2" required>
+           <option value="Matière scientifique">Matière scientifique</option>
+           <option value="Matière littéraire">Matière littéraire</option>
+           <option value="Autres">Autres</option>
+        </select>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
+          <button class="btn btn-warning rounded-pill">Modifier</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

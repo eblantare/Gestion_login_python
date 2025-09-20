@@ -31,3 +31,64 @@
     width: 140px;
 
 }
+
+.btn-gradient {
+  background: linear-gradient(135deg, #00c6ff, #0072ff); /* Dégradé bleu brillant */
+  color: #fff;
+  border: none;
+  font-weight: 500;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  transition: 0.3s ease;
+}
+
+.btn-gradient:hover {
+  background: linear-gradient(135deg, #0072ff, #00c6ff); /* inversion du dégradé */
+  transform: scale(1.05);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.3);
+}
+
+/* Barre de recherche + filtre + bouton */
+.toolbar-form .input-group,
+.toolbar-form .form-select {
+    border-radius: 50px !important;  /* arrondi complet */
+    height: 42px;                    /* hauteur uniforme */
+}
+
+/* Spécifique au bouton de recherche */
+.toolbar-form .input-group .btn {
+    border-radius: 0 50px 50px 0 !important; /* arrondi seulement sur bouton */
+    height: 42px;
+}
+
+.toolbar-form .form-select {
+    min-width: 150px;               /* largeur minimale pour filtres */
+}
+
+.toolbar-form .input-group .form-control {
+    border-right: 0;
+}
+
+.toolbar-form .input-group .btn {
+    border-radius: 0 50px 50px 0 !important; /* arrondi seulement sur bouton */
+}
+
+.toolbar-form .col-md-4,
+.toolbar-form .col-md-2 {
+    margin-bottom: 8px; /* espacement sur mobile */
+}
+
+.toolbar-form .btn-success {
+    height: 42px;
+    line-height: 1;
+}
+
+/* renforce la bordure du select d'action */
+.select-action.form-select {
+  border: 2px solid #000 !important;
+  box-shadow: none !important;
+  background-clip: padding-box !important;
+}
+.select-action.form-select:focus {
+  border-color: #000 !important;
+  box-shadow: 0 0 0 .15rem rgba(0,0,0,.15) !important;
+}

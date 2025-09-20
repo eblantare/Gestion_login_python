@@ -1,0 +1,45 @@
+#table-enseignants {
+    table-layout: fixed;  /* colonnes fixes, pas de débordement */
+    width: 100%;
+}
+
+#table-enseignants td, 
+#table-enseignants th {
+    white-space: nowrap;       /* empêche le retour à la ligne */
+    overflow: hidden;          /* cache le surplus */
+    text-overflow: ellipsis;   /* ajoute "..." */
+    max-width: 150px;          /* largeur max par cellule */
+    vertical-align: middle;
+}
+
+#table-enseignants th {
+    background: #212529;
+    color: white;
+}
+
+#table-enseignants td.etat {
+    overflow: visible !important;
+    white-space: normal !important;
+    max-width: none !important;
+}
+
+#table-enseignants td .btn i {
+    font-size: 0.85rem;   /* icônes plus petites */
+}
+#table-enseignants td .btn-sm {
+    padding: 0.15rem 0.35rem;  /* réduit l’espace autour */
+}
+
+#table-enseignants th:nth-child(10),   /* 10 = colonne Etat */
+#table-enseignants td.etat {
+    width: 200px;   /* adapte selon le rendu */
+}
+
+#table-enseignants td.etat .badge {
+    margin-right: 0.25rem;
+}
+#table-enseignants td.etat select {
+    width: 70px;           /* largeur fixe plus courte */
+    font-size: 0.55rem;    /* police plus petite */
+    padding: 0.1rem 0.15rem; /* réduit l’espace interne */
+}

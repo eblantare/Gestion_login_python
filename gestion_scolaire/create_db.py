@@ -1,11 +1,11 @@
-from extensions import db
-from app import create_app 
-from app.models import *  # charge tous les modèles pour que SQLAlchemy les connaisse
+from run import create_app
+from extensions import db   # <-- on enlève gestion_scolaire ici
 
 app = create_app()
 
 with app.app_context():
-    #créer toutes les tables
-    for bind_key, engine in db.engines.items():
-         db.metadata.create_all(bind=engine)
-print("Tables créées dans la base gestion_scolaire_db")
+    print("👉 Suppression des tables...")
+    db.drop_all()
+    print("👉 Création des tables...")
+    db.create_all()
+    print("✅ Base de données réinitialisée avec succès.")

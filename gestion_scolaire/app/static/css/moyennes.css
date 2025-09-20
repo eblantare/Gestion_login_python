@@ -1,0 +1,103 @@
+/* Container général */
+.container {
+  max-width: 1200px;
+  margin: auto;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+/* Contrôles de filtre */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.input-filter {
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+.btn-moy {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  background-color: #4CAF50;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-moy:hover {
+  background-color: #45a049;
+}
+
+.btn-add {
+  background-color: #2196F3;
+}
+
+.btn-add-moy:hover {
+  background-color: #1976D2;
+}
+
+/* Tableau */
+.table-container {
+  overflow-x: auto;
+}
+
+#moyennesTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 10px;
+}
+
+#moyennesTable th,
+#moyennesTable td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+}
+
+#moyennesTable th {
+  background-color: #f2f2f2;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* Pagination */
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.btn-pag {
+  padding: 5px 10px;
+  border: 1px solid #ccc;
+  background-color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-pag:hover:not(:disabled) {
+  background-color: #f0f0f0;
+}
+
+.btn-pag:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Numéros de page */
+.pagination-container button.active-page {
+  font-weight: bold;
+  background-color: #4CAF50;
+  color: white;
+}

@@ -1,0 +1,113 @@
+/* Filtrage */
+#filterForm {
+  gap: 0.5rem;
+}
+
+#filterForm input,
+#filterForm select {
+  min-width: 150px;
+}
+
+/* Bouton Ajouter paiement */
+.btn-success {
+  white-space: nowrap; /* évite de couper "Ajouter paiement" */
+}
+
+/* Tableau paiements - troncature et tooltip */
+.table td.text-truncate {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Largeurs spécifiques par colonne */
+.table td.col-code {
+  max-width: 80px;
+}
+
+.table td.col-libelle {
+  max-width: 150px;
+}
+
+.table td.col-eleve {
+  max-width: 150px;
+}
+
+.table td.col-classe {
+  max-width: 100px;
+}
+
+/* Alignement des montants à droite */
+.table td.text-end {
+  text-align: right;
+}
+
+/* Actions : éviter que les boutons sautent de ligne */
+.table td.text-nowrap {
+  white-space: nowrap;
+}
+
+/* Troncature des titres de colonnes si trop longs */
+.table th {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Largeurs spécifiques pour les colonnes */
+.table th.col-code { max-width: 80px; }
+.table th.col-libelle { max-width: 150px; }
+.table th.col-eleve { max-width: 150px; }
+.table th.col-classe { max-width: 100px; }
+
+/* Alignement des montants à droite */
+.table th.text-end { text-align: right; }
+
+/* Augmenter largeur de la colonne État */
+table th.col-etat,
+table td .btn-workflow {
+    min-width: 100px;  /* ou 120px selon besoin */
+    white-space: normal; /* pour afficher tout le texte sur plusieurs lignes si besoin */
+    text-align: center;
+}
+
+/* Optionnel : couleurs différentes selon l'état */
+.btn-workflow {
+    padding: 0.25rem 0.5rem;
+    font-weight: 500;
+}
+
+.btn-workflow[data-etat="Inactif"] {
+    background-color: #6c757d; /* gris */
+}
+.btn-workflow[data-etat="Activer"] {
+    background-color: #0d6efd; /* bleu */
+}
+.btn-workflow[data-etat="Valider"] {
+    background-color: #198754; /* vert */
+}
+
+/* Limiter la largeur du badge d'état et centrer le texte */
+td.etat .badge {
+    display: inline-block;
+    max-width: 60px; /* ou 50px selon ton design */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+    font-size: 0.85rem;
+}
+
+/* Réduire la taille du select et l’empêcher de dépasser */
+td.etat .select-action {
+    display: inline-block;
+    width: 80px; /* largeur fixe pour que ça reste sur la même ligne */
+    font-size: 0.75rem;
+    padding: 0.15rem 0.25rem;
+    vertical-align: middle;
+}
+
+/* Optionnel : ajuster la cellule pour ne pas étirer la ligne */
+td.etat {
+    white-space: nowrap;
+}

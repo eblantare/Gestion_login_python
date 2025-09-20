@@ -2,6 +2,73 @@
 document.addEventListener("DOMContentLoaded", () => {
   'use strict';
 
+
+  //Activer les tooltip
+   const tooltipTriggerlist = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+   tooltipTriggerlist.map(function(tooltipTriggerEl){
+  return new bootstrap.Tooltip(tooltipTriggerEl);
+   });
+
+  const table = document.getElementById("table-eleves");
+  table.addEventListener("click", function(e){
+  // Bouton modifier
+  const editBtn = e.target.closest(".btn-edit");
+  if(editBtn){
+    editEleve(editBtn.dataset.id);
+    return;
+  }
+
+  // Bouton détail
+  const detailBtn = e.target.closest(".btn-detail");
+  if(detailBtn){
+    showDetail(detailBtn.dataset.id);
+    return;
+  }
+
+  // Bouton supprimer
+   const deleteBtn = e.target.closest(".btn-danger");
+    if(deleteBtn){
+        const id = deleteBtn.dataset.id;
+        if (!id) {
+            alert("Impossible de supprimer : identifiant non défini !");
+            return;
+        }
+        deleteEleve(id);
+        return;
+    }
+});
+ 
+// Fonction pour les notifications
+   function showNotification(message, type = "success", delay = 3000) {
+    const container = document.getElementById("notificationContainer");
+    if (!container) return;
+
+    // Créer l'élément toast
+    const toastEl = document.createElement("div");
+    toastEl.className = `toast align-items-center text-bg-${type} border-0`;
+    toastEl.role = "alert";
+    toastEl.ariaLive = "assertive";
+    toastEl.ariaAtomic = "true";
+
+    toastEl.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    `;
+
+    container.appendChild(toastEl);
+
+    // Initialiser le toast Bootstrap
+    const bsToast = new bootstrap.Toast(toastEl, { delay: delay });
+    bsToast.show();
+
+    // Supprimer du DOM après disparition
+    toastEl.addEventListener("hidden.bs.toast", () => {
+        toastEl.remove();
+    });
+}
+
   // ---------- Bootstrap validation ----------
   (function () {
     const forms = document.querySelectorAll('.needs-validation');
@@ -28,8 +95,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const formData = new FormData(newAddForm);
       const res = await fetch("/eleves/add", { method: "POST", body: formData });
       if (res.ok) {
-        const modal = bootstrap.Modal.getInstance(document.getElementById("addModal"));
+        const modal = bootstrap.Modal.getInstance(document.getElementById("addElModal"));
         if (modal) modal.hide();
+        showNotification("Ajout réussi", "success");
         location.reload();
       } else {
         alert("Erreur lors de l'ajout");
@@ -62,19 +130,40 @@ document.addEventListener("DOMContentLoaded", () => {
     const row = document.querySelector(`tr[data-id="eleve-${id}"]`);
     if (!row) return;
     document.getElementById("edit_id").value = id;
-    document.getElementById("edit_matricule").value = row.querySelector(".col-matricule")?.textContent.trim() || "";
-    document.getElementById("edit_nom").value = row.querySelector(".col-nom")?.textContent.trim() || "";
-    document.getElementById("edit_prenoms").value = row.querySelector(".col-prenoms")?.textContent.trim() || "";
-    document.getElementById("edit_date_naissance").value = row.querySelector(".col-date_naissance")?.textContent.trim() || "";
-    document.getElementById("edit_sexe").value = row.querySelector(".col-sexe")?.textContent.trim() || "";
-    document.getElementById("edit_status").value = row.querySelector(".col-status")?.textContent.trim() || "";
-    document.getElementById("edit_classe").value = row.querySelector(".col-classe")?.textContent.trim() || "";
+    document.getElementById("edit_matricule").value = row.querySelector(".col-matricule")?.innerText.trim() || "";
+    document.getElementById("edit_nom").value = row.querySelector(".col-nom")?.innerText.trim() || "";
+    document.getElementById("edit_prenoms").value = row.querySelector(".col-prenoms")?.innerText.trim() || "";
+    document.getElementById("edit_date_naissance").value = row.querySelector(".col-date_naissance")?.innerText.trim() || "";
+
+    // sexe radio
+    const sexe = row.querySelector(".col-sexe")?.innerText.trim();
+    if(sexe === "M" || sexe.toLowerCase().includes("masc") ){
+      document.getElementById("sexeM").checked = true;
+    }else if(sexe === "F" || sexe.toLowerCase().includes( "fém")){
+             document.getElementById("sexeF").checked = true;
+    }
+    // status radio
+    const status = row.querySelector(".col-status")?.innerText.trim();
+    if (status.toLowerCase() === "nouveau"){
+      document.getElementById("statusNouveau").checked = true;
+    }else if (status.toLowerCase() === "ancien") {
+              document.getElementById("statusAncien").checked = true;
+    }
+
+    // sexe radio
+    const classeId = row.dataset.classeId || row.querySelector(".col-classe")?.dataset.id;
+    const selectClasse = document.getElementById("edit_classe");
+    if (selectClasse) {
+    Array.from(selectClasse.options).forEach(opt => {
+    opt.selected = (opt.value === classeId);
+   });
+ }
     new bootstrap.Modal(document.getElementById("editModal")).show();
   };
 
-  document.querySelectorAll(".btn-edit").forEach(btn => {
-    btn.addEventListener("click", () => editEleve(btn.dataset.id));
-  });
+  // document.querySelectorAll(".btn-edit").forEach(btn => {
+  //   btn.addEventListener("click", () => editEleve(btn.dataset.id));
+  // });
 
   const editForm = document.getElementById("editForm");
   if (editForm) {
@@ -95,12 +184,19 @@ document.addEventListener("DOMContentLoaded", () => {
           row.querySelector(".col-date_naissance") && (row.querySelector(".col-date_naissance").textContent = updated.date_naissance || "");
           row.querySelector(".col-sexe") && (row.querySelector(".col-sexe").textContent = updated.sexe);
           row.querySelector(".col-status") && (row.querySelector(".col-status").textContent = updated.status);
-          row.querySelector(".col-classe") && (row.querySelector(".col-classe").textContent = updated.classe);
+          const classeCell = row.querySelector(".col-classe");
+          if (classeCell) {
+          classeCell.dataset.id = updated.classe_id;
+
+    // Vider et reconstruire proprement
+          classeCell.innerHTML = `<span class="badge bg-info">${updated.classe_nom || ""}</span>`;
+          }
           if (updated.etat && row.querySelector(".etat")) {
             row.querySelector(".etat").textContent = updated.etat;
           }
         }
         bootstrap.Modal.getInstance(document.getElementById("editModal"))?.hide();
+        showNotification("Modification réussie", "success");
       } else {
         alert("Erreur lors de la modification");
       }
@@ -123,7 +219,9 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       const id = document.getElementById("delete_id").value;
       const res = await fetch(`/eleves/delete/${id}`, { method: "POST" });
-      if (res.ok) location.reload();
+      if (res.ok){showNotification("Suppression réussie", "success");
+        location.reload();
+      }
       else alert("Erreur suppression");
     });
   }

@@ -3,6 +3,8 @@ document.addEventListener("DOMContentLoaded", function(){
     form.addEventListener("submit", function(e){
       let nom = form.nom.value.trim();
       let prenoms = form.prenoms.value.trim();
+      let sexe = form.querySelector('input[name ="sexe"]:checked');
+      sexe =sexe ? sexe.value.trim() :"";
       let username = form.username.value.trim();
       let telephone = form.telephone.value.trim();
       let email = form.email.value.trim();
@@ -20,6 +22,10 @@ document.addEventListener("DOMContentLoaded", function(){
       //vérif prénoms
       if(prenoms.length < 2){
         errors.push("Le prénoms doit contenir au moins deux caractères.");
+      }
+        //Verif sexe
+      if(sexe == ""){
+        errors.push("Veuillez sélectionner le sexe!");
       }
       //vérif username
       if(username.length < 3){
@@ -45,7 +51,7 @@ document.addEventListener("DOMContentLoaded", function(){
     }
     //vérif role
     if (role === ""){
-        errors.push("Veullez sélectionner un role....");
+        errors.push("Veuillez sélectionner un role....");
     }
 
     //vérif photo
@@ -58,7 +64,7 @@ document.addEventListener("DOMContentLoaded", function(){
      }
 
      //Affichage des erreurs
-     let errorContainer = document.getElementById("formsErrors");
+     let errorContainer = document.getElementById("formErrors");
      errorContainer.innerHTML = "";
      if (errors.length > 0){
         e.preventDefault();

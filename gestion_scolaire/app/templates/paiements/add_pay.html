@@ -1,0 +1,59 @@
+<div class="modal fade" id="paiementModal" tabindex="-1" aria-labelledby="paiementModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="paiementForm" action="{{ url_for('paiements.ajouter_paiement') }}" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title" id="paiementModalLabel">Ajouter un paiement</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class=" row g-3">
+            <div class="col-md-6">
+             <label for="eleve_id" class="form-label">Élève</label>
+             <select name="eleve_id" id="eleve_id" class="form-select" required>
+              <option value="">--- Sélectionner ---</option>
+              {% for e in eleves %}<option value="{{ e.id }}" data-classe-id="{{ e.classe_id }}">{{ e.nom }} {{ e.prenoms }}</option>{% endfor %}
+            </select>
+          </div>
+
+          <div class="col-md-6">
+            <label for="classe_id" class="form-label">Classe</label>
+            <select name="classe_id" id="classe_id" class="form-select" required>
+              <option value="">--- Sélectionner ---</option>
+              {% for c in classes %}<option value="{{ c.id }}">{{ c.nom }}</option>{% endfor %}
+            </select>
+          </div>
+
+          <div class="col-md-6">
+            <label for="libelle" class="form-label">Libellé</label>
+            <input type="text" class="form-control" name="libelle" id="libelle" required>
+          </div>
+
+          <div class="col-md-6">
+            <label for="date_payement" class="form-label">Date paiement</label>
+            <input type="date" class="form-control" name="date_payement" id="date_payement" required>
+          </div>
+
+          <div class="col-md-6">
+            <label for="montant_net" class="form-label">Montant net à payer</label>
+            <input type="number" step="0.01" class="form-control" name="montant_net" id="montant_net" required>
+          </div>
+
+          <div class="col-md-6">
+            <label for="montant_pay" class="form-label">Montant payé</label>
+            <input type="number" step="0.01" class="form-control" name="montant_pay" id="montant_pay" required>
+          </div>
+          <div class="col-md-6">
+            <label for="montant_rest" class="form-label">Reste à payer</label>
+            <input type="number" step="0.01" class="form-control bg-light" id="montant_rest" readonly>
+         </div>
+         </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-success">Enregistrer</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

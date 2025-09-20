@@ -16,7 +16,15 @@
          <!-- Icônes bootstrap -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-icons.css') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-        <link rel="stylesheet" href="{{ url_for('static', filename='css/eleves.css') }}">
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/ebase.css') }}">
+         <link rel="stylesheet" href="{{ url_for('static', filename='css/eleves.css') }}">
+          <link rel="stylesheet" href="{{ url_for('static', filename='css/classes.css') }}">
+         <link rel="stylesheet" href="{{ url_for('static', filename='css/appreciations.css') }}">
+          <link rel="stylesheet" href="{{ url_for('static', filename='css/enseignants.css') }}">
+          <link rel="stylesheet" href="{{ url_for('static', filename='css/paiements.css') }}">
+          <link rel="stylesheet" href="{{ url_for('static', filename='css/notes.css') }}">
+          <link rel="stylesheet" href="{{ url_for('static', filename='css/matieres.css') }}">
+         <link rel="stylesheet" href="{{ url_for('static', filename='css/moyennes.css') }}">
     {% block styles %}{% endblock %}
 </head>
 <body>
@@ -24,7 +32,22 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
             <a class="navbar-brand" href="#">Gestion scolaire</a>
-        </div>
+
+            <!-- Espace à droite -->
+             <div class="ms-auto d-flex align-items-center">
+                <!-- Lien retour -->
+                 <a href="{{ url_for('main.index') }}"  class="btn btn-gradient btn-sm me-3"
+                 data-bs-toggle="tooltip" data-bs-placement="bottom" title="Revenir à DOSSIERS SCOLAIRE">
+                    <i class="bi bi-speedometer2">e_dashboard</i>
+                 </a>
+       <!-- Nom d'utilisateur -->
+        {% if current_user.is_authenticated %}
+            <span class="text-white">
+                 <strong>{{ current_user.username }}</strong>
+            </span>
+        {% endif %}
+      </div>
+    </div>
     </nav>
 
     <!-- Contenu principal -->
@@ -46,6 +69,14 @@
     <!-- Ton script JS -->
     {% block scripts %}
     <script src="{{ url_for('static', filename='js/eleves.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/appreciations.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/classes.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/matieres.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/enseignants.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/paiements.js') }}"></script>
+     <script src="{{ url_for('static', filename='js/notes.js') }}" defer></script>
+     <script src="{{ url_for('static', filename='js/moyennes.js') }}"></script>
     {% endblock %}
-</body>
-</html>
+    <!-- Conteneur des notifications -->
+<div aria-live="polite" aria-atomic="true" class="position-fixed top-0 end-0 p-3" id="notificationContainer">
+</div>

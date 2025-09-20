@@ -1,0 +1,31 @@
+<div class="modal fade" id="editClModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="editClForm" class="needs-validation" novalidate>
+        <div class="modal-header">
+          <h5 class="modal-title">Modifier une classe</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="id" id="editCl_id">
+          <input id="editCl_code" name="code" class="form-control mb-2" placeholder="Code (laisser vide pour générer)">
+          <input id="editCl_nom" name="nom" class="form-control mb-2" placeholder="Nom" required>
+          <input id="editCl_effectif" type="number" min="0" name="effectif" class="form-control mb-2" placeholder="Effectif" required>
+
+          <!-- Sélection multiple enseignants -->
+          <label for="editCl_enseignants">Enseignants :</label>
+          <select name="enseignants[]" id="editCl_enseignants" class="form-select" multiple >
+            {% for ens in enseignants %}
+              <option value="{{ ens.id }}">{{ ens.utilisateur.prenoms }} {{ ens.utilisateur.nom }}</option>
+            {% endfor %}
+          </select>
+          <small class="text-muted">Cliquez pour sélectionner/désélectionner</small>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
+          <button class="btn btn-warning rounded-pill">Modifier</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

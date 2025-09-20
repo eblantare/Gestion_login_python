@@ -1,0 +1,149 @@
+{% extends "ebase.html" %}
+
+{% block title %}Liste des Notes{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-3">📚 Liste des Notes</h2>
+
+    <!-- 🔍 Barre de recherche + filtres + bouton Ajouter -->
+    <form method="get" class="row mb-3 g-2 align-items-center">
+        <div class="col-md-4 col-12">
+            <!-- Recherche avec loupe intégrée -->
+            <div class="input-group rounded-pill border overflow-hidden">
+                <input type="text" name="search" value="{{ search }}" class="form-control border-0"
+                    placeholder="Rechercher une note...">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Filtre élève -->
+        <div class="col-md-4 col-6 text-center flex-grow-1">
+            <select name="eleve_id" class="form-select d-inline-block w-auto rounded-pill" onchange="this.form.submit()">
+                <option value="">Tous les élèves</option>
+                {% for e in eleves %}
+                <option value="{{ e.id|string }}" {% if eleve_id == e.id|string %}selected{% endif %}>
+                    {{ e.nom }} {{ e.prenoms }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Filtre matière -->
+        <div class="col-md-4 col-6 text-center flex-grow-1">
+            <select name="matiere_id" class="form-select d-inline-block w-auto rounded-pill" onchange="this.form.submit()">
+                <option value="">Toutes les matières</option>
+                {% for m in matieres %}
+                <option value="{{ m.id | string }}" {% if matiere_id == m.id|string %}selected{% endif %}>
+                    {{ m.libelle }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Par page -->
+        <div class="col-md-4 col-6 text-center flex-grow-1">
+            <select name="per_page" class="form-select d-inline-block w-auto rounded-pill" onchange="this.form.submit()">
+                {% for n in [5,10,20,50,100,250,500,1000] %}
+                <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }} / page</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Bouton Ajouter -->
+        <div class="col-md-3 text-end">
+            <button type="button" class="btn btn-success rounded-pill" data-bs-toggle="modal" data-bs-target="#addNoteModal">
+                <i class="bi bi-plus-circle"></i>
+            </button>
+        </div>
+    </form>
+
+    <!-- 📊 Tableau des notes -->
+    <div class="table-responsive">
+        <table id="notesTable" class="table table-bordered table-hover text-center align-middle" style="min-width: 1000px;">
+            <thead class="table-dark">
+                <tr>
+                    <th scope="col">Élève</th>
+                    <th scope="col">Matière</th>
+                    <th scope="col">Note 1</th>
+                    <th scope="col">Note 2</th>
+                    <th scope="col">Note 3</th>
+                    <th scope="col">Comp.</th>
+                    <th scope="col">Coef.</th>
+                    <th scope="col">Trimestre</th>
+                    <th scope="col">Année</th>
+                    <th scope="col">Date</th>
+                    <th scope="col">Actions</th>
+                    <th scope="col">État</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for note in notes %}
+                   {% include "notes/_note_row.html" %}
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="12" class="text-center">Aucune note trouvée</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 📌 Pagination -->
+    <nav>
+        <ul class="pagination justify-content-center">
+            {% if pagination.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ pagination.prev_num }}&per_page={{ per_page }}&search={{ search }}">Précédent</a>
+            </li>
+            {% endif %}
+
+            {% for p in pagination.iter_pages() %}
+                {% if p %}
+                    <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                        <a class="page-link" href="?page={{ p }}&per_page={{ per_page }}&search={{ search }}">{{ p }}</a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+            {% endfor %}
+
+            {% if pagination.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ pagination.next_num }}&per_page={{ per_page }}&search={{ search }}">Suivant</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+
+{% include 'notes/add_notes.html' %}
+{% include 'notes/delete_notes.html' %}
+{% include 'notes/detail_notes.html' %}
+{% include 'notes/update_notes.html' %}
+
+<!-- Modal confirmation des actions -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content border-0">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title">Confirmer la suppression</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center">
+        <p class="fw-bold" id="deleteConfirmMessage">Voulez-vous vraiment supprimer cette note ?</p>
+      </div>
+      <div class="modal-footer justify-content-center">
+        <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Non</button>
+        <button type="button" class="btn btn-danger rounded-pill" id="deleteConfirmYesBtn">Oui</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+{% endblock %}

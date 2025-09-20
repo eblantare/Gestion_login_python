@@ -1,0 +1,152 @@
+{% extends "ebase.html" %}
+
+{% block title %}Liste des Moyennes{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-3">📊 Liste des Moyennes</h2>
+
+<!-- Formulaire de filtres et batch -->
+<form id="filtersForm" method="get" class="row g-2 align-items-center mb-3">
+    <!-- Recherche -->
+    <div class="col-md-3 col-12">
+        <div class="input-group rounded-pill border overflow-hidden">
+            <input type="text" name="search" class="form-control border-0"
+                   value="{{ search }}" placeholder="Rechercher nom, prénom, code...">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-search"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Filtre classe -->
+    <div class="col-md-2 col-6">
+        <select name="classe_id" id="classeSelect" class="form-select rounded-pill">
+            <option value="">Toutes les classes</option>
+            {% for c in classes %}
+                <option value="{{ c.id }}" {% if classe_id == c.id|string %}selected{% endif %}>{{ c.nom }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Filtre année scolaire -->
+    <div class="col-md-2 col-6">
+        <select name="annee_scolaire" id="anneeSelect" class="form-select rounded-pill">
+            <option value="">Toutes les années</option>
+            {% for annee in annees_scolaires %}
+                <option value="{{ annee }}" {% if annee_scolaire == annee %}selected{% endif %}>{{ annee }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Filtre type de moyenne -->
+    <div class="col-md-2 col-6">
+        <select name="moy_field" class="form-select rounded-pill">
+            <option value="">--Filtre Moyenne--</option>
+            <option value="moy_gen" {% if moy_field=="moy_gen" %}selected{% endif %}>Moyenne Générale</option>
+            <option value="moy_class" {% if moy_field=="moy_class" %}selected{% endif %}>Moyenne de Classe</option>
+            <option value="moy_trim1" {% if moy_field=="moy_trim1" %}selected{% endif %}>Trimestre 1</option>
+            <option value="moy_trim2" {% if moy_field=="moy_trim2" %}selected{% endif %}>Trimestre 2</option>
+            <option value="moy_trim3" {% if moy_field=="moy_trim3" %}selected{% endif %}>Trimestre 3</option>
+        </select>
+    </div>
+
+    <!-- Filtre valeur moyenne -->
+    <div class="col-md-2 col-6">
+        <input type="text" name="moy_filter" value="{{ moy_filter }}" placeholder="Ex: 15, >=12, 10-17" class="form-control rounded-pill">
+    </div>
+
+    <!-- Bouton Batch ⚡ -->
+    {% if current_user.role in ['admin', 'administrateur'] %}
+    <div class="col-md-1 col-12 text-center mt-2 mt-md-0">
+        <form id="batchForm" action="{{ url_for('moyennes.lancer_batch', trimestre=trimestre_courant) }}" method="post">
+            <!-- Champs cachés synchronisés par JS -->
+            <input type="hidden" name="classe_id" id="batchClasseId" value="{{ classe_id }}">
+            <input type="hidden" name="annee_scolaire" id="batchAnneeScolaire" value="{{ annee_scolaire }}">
+            <button id="batchBtn" type="submit" class="btn btn-warning rounded-pill" disabled>
+                ⚡
+            </button>
+        </form>
+    </div>
+    {% endif %}
+</form>
+
+
+    <!-- Tableau responsive -->
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover text-center align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Code</th>
+                    <th>Nom</th>
+                    <th>Prénoms</th>
+                    <th>Classe</th>
+                    <th>Moyenne Générale</th>
+                    <th>Moyenne Classe</th>
+                    <th>Trim1</th>
+                    <th>Trim2</th>
+                    <th>Trim3</th>
+                    <th>Classement</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in pagination.items %}
+                <tr>
+                    <td>{{ m.code }}</td>
+                    <td>{{ m.eleve.nom }}</td>
+                    <td>{{ m.eleve.prenoms }}</td>
+                    <td>{{ m.eleve.classe.nom }}</td>
+                    <td>{{ '%.2f'|format(m.moy_gen) if m.moy_gen is not none }}</td>
+                    <td>{{ '%.2f'|format(m.moy_class) if m.moy_class is not none }}</td>
+                    <td>{{ '%.2f'|format(m.moy_trim1) if m.moy_trim1 is not none }}</td>
+                    <td>{{ '%.2f'|format(m.moy_trim2) if m.moy_trim2 is not none }}</td>
+                    <td>{{ '%.2f'|format(m.moy_trim3) if m.moy_trim3 is not none }}</td>
+                    <td>{{ m.classement }}</td>
+                    <td>
+                        <button type="button" class="btn-moy btn-moy-sm btn-moy-info" title="Détails"><i class="bi bi-eye"></i></button>
+                        <button type="button" class="btn-moy btn-moy-sm btn-moy-primary" title="Modifier"><i class="bi bi-pencil"></i></button>
+                        <button type="button" class="btn-moy btn-moy-sm btn-moy-danger" title="Supprimer"><i class="bi bi-trash"></i></button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="11" class="text-center">Aucune moyenne trouvée</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <nav>
+        <ul class="pagination justify-content-center">
+            {% if pagination.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('moyennes.liste_moyennes', page=pagination.prev_num, search=search, classe_id=classe_id, annee_scolaire=annee_scolaire, moy_field=moy_field, moy_filter=moy_filter, per_page=per_page) }}">&laquo;</a>
+                </li>
+            {% endif %}
+
+            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if p %}
+                    <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('moyennes.liste_moyennes', page=p, search=search, classe_id=classe_id, annee_scolaire=annee_scolaire, moy_field=moy_field, moy_filter=moy_filter, per_page=per_page) }}">{{ p }}</a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+            {% endfor %}
+
+            {% if pagination.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('moyennes.liste_moyennes', page=pagination.next_num, search=search, classe_id=classe_id, annee_scolaire=annee_scolaire, moy_field=moy_field, moy_filter=moy_filter, per_page=per_page) }}">&raquo;</a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+
+{% include 'moyennes/delete_moy.html' %}
+{% include 'moyennes/detail_moy.html' %}
+{% include 'moyennes/update_moy.html' %}
+
+{% endblock %}

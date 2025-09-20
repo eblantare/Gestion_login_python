@@ -1,0 +1,29 @@
+<!-- Modal Ajout -->
+<div class="modal fade" id="addAppModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-3 shadow">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">Ajouter une appréciation</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="addAppreciationForm" method="POST" action="{{ url_for('appreciations.add_appreciations') }}">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="libelle" class="form-label">Libellé</label>
+            <input type="text" class="form-control rounded-pill" name="libelle" id="libelle" required>
+            <div class="invalid-feedback">Le libellé est obligatoire.</div>
+          </div>
+          <div class="mb-3">
+            <label for="description" class="form-label">Description</label>
+            <textarea class="form-control rounded-pill" name="description" id="description" rows="3" required></textarea>
+            <div class="invalid-feedback">La description est obligatoire.</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
+          <button type="submit" class="btn btn-primary rounded-pill">Ajouter</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

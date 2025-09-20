@@ -1,33 +1,44 @@
-<div class="modal fade" id="addModal">
+<div class="modal fade" id="addElModal">
   <div class="modal-dialog">
     <form id="addForm" class="modal-content needs-validation" novalidate>
       <div class="modal-header"><h5>Ajouter un élève</h5></div>
       <div class="modal-body">
-        <input name="matricule" class="form-control mb-2" placeholder="Matricule" required>
+        <input name="matricule" class="form-control mb-2" placeholder="Matricule" >
         <input name="nom" class="form-control mb-2" placeholder="Nom" required>
         <input name="prenoms" class="form-control mb-2" placeholder="Prénoms" required>
         <input type="date" name="date_naissance" class="form-control mb-2" required placeholder="date de naissance">
-        <select name="sexe" class="form-control mb-2" required>
-          <option value="">-- Sexe --</option>
-          <option>Masculin</option>
-          <option>Féminin</option>
-        </select>
-        <select name="status" class="form-control mb-2" required>
-          <option value="">-- Status --</option>
-          <option>Nouveau</option>
-          <option>Ancien</option>
-        </select>
-        <select name="classe" class="form-control mb-2" required>
+       <div class="mb-3">
+            <label class="form-label">Sexe</label><br>
+            <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="sexe" id="sexeM" value="M" required>
+            <label class="form-check-label" for="sexeM">Masculin</label>
+      </div>
+      <div class="form-check form-check-inline">
+          <input class="form-check-input" type="radio" name="sexe" id="sexeF" value="F">
+          <label class="form-check-label" for="sexeF">Féminin</label>
+      </div>
+      </div>
+      <div class="mb-3">
+          <label class="form-label">Status</label><br>
+          <div class="form-check form-check-inline">
+          <input class="form-check-input" type="radio" name="status" id="statusNouveau" value="Nouveau" checked>
+          <label class="form-check-label" for="statusNouveau">Nouveau</label>
+      </div>
+      <div class="form-check form-check-inline">
+          <input class="form-check-input" type="radio" name="status" id="statusAncien" value="Ancien">
+          <label class="form-check-label" for="statusAncien">Ancien</label>
+      </div>
+      </div>
+        <select name="classe_id" class="form-control mb-2" required>
           <option value="">-- Classe --</option>
-          <option>6èm</option>
-          <option>5èm</option>
-          <option>4èm</option>
-          <option>3èm</option>
+          {% for c in classes %}
+             <option value="{{c.id}}">{{c.nom}}</option>
+          {% endfor %}
         </select>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-        <button class="btn btn-success" type="submit">Enregistrer</button>
+        <button class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
+        <button class="btn btn-success rounded-pill" type="submit">Enregistrer</button>
       </div>
     </form>
   </div>

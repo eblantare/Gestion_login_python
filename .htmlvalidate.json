@@ -1,0 +1,7 @@
+{
+  "files": ["templates/**/*.html"],
+  "rules": {
+    "attr-quotes": "off",
+    "hidden-focusable": "off"
+  }
+}

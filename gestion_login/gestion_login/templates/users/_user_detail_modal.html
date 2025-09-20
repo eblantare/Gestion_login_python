@@ -7,12 +7,13 @@
       </div>
       <div class="modal-body">
         {% if user.photo_filename %}
-           <img src="{{ url_for('static', filename='upload/' ~ user.photo_filename) }}" alt="{{ user.nom }}" 
+           <img src="{{ url_for('auth.static', filename='upload/' ~ user.photo_filename) }}" alt="{{ user.nom }}" 
            class="img-fluid rounded mb-3 profile-photo">
         {% endif %}
-        <p><strong>ID :</strong> {{ user.id }}</p>
+        <p><strong>ID :</strong> {{ user.id }}</p> 
         <p><strong>Nom :</strong> {{ user.nom }}</p>
         <p><strong>Prénoms :</strong> {{ user.prenoms }}</p>
+        <p><strong>Sexe :</strong>{{ user.sexe }}</p>
         <p><strong>Email :</strong> {{ user.email }}</p>
         <p><strong>Téléphone :</strong> {{ user.telephone }}</p>
         <p><strong>Nom d'utilisateur :</strong> {{ user.username }}</p>
@@ -31,7 +32,7 @@
           {% endif %}
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+        <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Fermer</button>
       </div>
     </div>
   </div>

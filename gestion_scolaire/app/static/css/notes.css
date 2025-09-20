@@ -1,0 +1,83 @@
+/* 🌳 Arborescence matières */
+#matiereTree {
+  list-style: none;
+  padding-left: 0;
+}
+
+/* 🔹 Labels parents */
+#matiereTree .parent-label {
+  color: #0d6efd;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-radius: 4px;
+  padding: 6px 10px;
+}
+
+/* 🔹 Labels feuilles */
+#matiereTree .matiere-label:not(.parent-label) {
+  color: #000;
+  font-weight: normal;
+  cursor: pointer;
+  transition: background 0.2s;
+  padding: 6px 10px;
+}
+
+/* Hover léger */
+#matiereTree .matiere-label:hover {
+  background-color: rgba(13, 110, 253, 0.1);
+}
+
+/* Chevron */
+#matiereTree .chevron {
+  font-size: 14px;
+  color: #555;
+  margin-right: 8px;
+  transition: transform 0.2s ease;
+}
+
+/* Chevron déplié */
+#matiereTree .chevron.expanded {
+  transform: rotate(90deg);
+}
+
+/* Sous-niveaux */
+#matiereTree .child-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+/* Curseur main sur éléments cliquables */
+#eleveTree .eleve-item,
+#matiereTree .matiere-item,
+#matiereTree .parent-label,
+#matiereTree .matiere-label {
+  cursor: pointer;
+}
+
+/* Active sélection */
+#eleveTree .eleve-item.active,
+#matiereTree .matiere-item.active {
+  background-color: #198754; /* vert Bootstrap */
+  color: #fff;
+  border-radius: 4px;
+}
+
+/* Décalage pour sous-niveaux */
+#matiereTree li .matiere-label {
+  display: flex;
+  align-items: center;
+}
+
+/* Table responsive */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.truncate {
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

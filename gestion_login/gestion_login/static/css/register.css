@@ -1,6 +1,9 @@
 .register-form {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   color: #004d40;
+  background-color: #fff;
+  padding: 10px;
+  border-radius: 6px;
 }
 
 .register-form label {
@@ -25,6 +28,10 @@
 .btn-success:hover {
   background-color: #004d40 !important;
   border-color: #004d40 !important;
+}
+
+.register-form label.form-check-label {
+  color: #212529 !important; /* noir lisible */
 }
 
 

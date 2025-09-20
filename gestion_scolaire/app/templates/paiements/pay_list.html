@@ -1,0 +1,177 @@
+{% extends "ebase.html" %}
+{% block title %}Liste des paiements{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h2 class="mb-3">LISTE DES PAIEMENTS</h2>
+
+  <!-- Barre recherche + filtre + bouton ajout -->
+  <div class="row mb-3">
+    <div class="col-md-9">
+      <form method="get" id="filterForm" class="d-flex align-items-center">
+<!-- Recherche avec icône loupe cliquable et couleur personnalisée -->
+       <div class="input-group me-2">
+        <input type="text" name="search" value="{{ search }}" class="form-control" placeholder="Rechercher...">
+        <button class="btn btn-primary" type="submit">
+            <i class="bi bi-search"></i>
+       </button>
+     </div>
+
+  <!-- Filtrage par classe -->
+    <select name="classe_id" class="form-select me-2" onchange="this.form.submit()">
+      <option value="">---Filtrer par classe---</option>
+        {% for c in classes %}
+            <option value="{{ c.id }}" {% if classe_id|string == c.id|string %}selected{% endif %}>{{ c.nom }}</option>
+        {% endfor %}
+   </select>
+
+   <!-- Sélecteur nombre par page -->
+   <select name="per_page" class="form-select me-2" onchange="this.form.submit()">
+     {% for n in [5,10,20,50] %}
+        <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }} par page</option>
+     {% endfor %}
+    </select>
+   </form>
+  </div>
+
+    <div class="col-md-3 text-end">
+    {% if user_role in ['admin', 'administrateur'] %}
+      <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#paiementModal">
+        <i class="bi bi-plus-circle"></i>
+      </button>
+    {% endif %}
+    </div>
+  </div>
+
+  <!-- Tableau paiements -->
+  <div class="table-responsive">
+    <table class="table table-bordered table-striped align-middle">
+      <thead class="table-dark">
+        <tr>
+          <th class="col-code">Code</th>
+          <th class="col-libelle">Libellé</th>
+          <th class="col-eleve">Élève</th>
+          <th class="col-classe">Classe</th>
+          <th class="text-end">Date paiement</th>
+          <th class="text-end">Montant net à payer</th>
+          <th class="text-end">Montant payé</th>
+          <th class="text-end">Montant restant</th>
+          <th class="col-etat text-center">État</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if paiements %}
+          {% for p in paiements %}
+            <tr>
+              <td class="text-truncate col-code" title="{{p.code}}">{{ p.code }}</td>
+              <td class="text-truncate col-libelle" title="{{p.libelle}}">{{ p.libelle }}</td>
+              <td class="text-truncate col-eleve" title="{{p.eleve.prenoms}} {{p.eleve.prenoms}}">{{ p.eleve.nom }} {{ p.eleve.prenoms }}</td>
+              <td class="text-truncate col-classe" title="{{p.classe.nom}}">{{ p.classe.nom }}</td>
+              <td>{{ p.date_payement.strftime('%d/%m/%Y') if p.date_payement else '' }}</td>
+              <td class="text-end">{{ "%.2f"|format(p.montant_net) }}</td>
+              <td class="text-end">{{ "%.2f"|format(p.montant_pay) }}</td>
+              <td class="text-end">{{ "%.2f"|format(p.montant_rest) }}</td>
+               <td class="col-etat text-center">
+                   <span class="badge
+                             {% if p.etat == 'Actif' %}bg-success
+                            {% elif p.etat == 'Validé' %}bg-dark
+                            {% else %}bg-secondary
+                            {% endif %}">{{p.etat}} 
+                    </span>
+                    {% if user_role in ['admin', 'administrateur'] and p.etat != "Validé" %}
+                        <select class="form-select form-select-sm d-inline-block w-auto ms-2 select-action" data-id="{{p.id}}">
+                          <option value="">---Action---</option>
+                          {% if p.etat | lower == 'inactif' %}
+                                <option value="Activer">Activer</option>
+                          {% elif p.etat | lower == 'actif' %}
+                               <option value="Valider">Valider</option>
+                          {% endif %}
+                        </select>
+                    {% endif %} 
+                </td>
+              <td class="text-nowrap">
+                <button class="btn btn-info btn-sm btnPay-detail" data-id="{{ p.id }}" title="Détail">
+                  <i class="bi bi-eye"></i>
+                </button>
+                {% if user_role in ['admin', 'administrateur'] and p.etat | lower == 'inactif' %}
+                   <button class="btn btn-warning btn-sm btnPay-edit" data-id="{{ p.id }}" title="Modifier">
+                     <i class="bi bi-pencil"></i>
+                  </button>
+                  <button class="btn btn-danger btnPay-delete btn-sm" data-id="{{ p.id }}" title="Supprimer">
+                     <i class="bi bi-trash"></i>
+                  </button>
+                {% endif %}
+                </td>
+              
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="10" class="text-center">Aucun paiement trouvé</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  <nav>
+    <ul class="pagination justify-content-center">
+      {% if pagination.has_prev %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ pagination.prev_num }}&search={{ search }}&classe_id={{ classe_id }}">Précédent</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">Précédent</span></li>
+      {% endif %}
+      {% for p in pagination.iter_pages() %}
+        {% if p %}
+          {% if p == pagination.page %}
+            <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+          {% else %}
+            <li class="page-item"><a class="page-link" href="?page={{ p }}&search={{ search }}&classe_id={{ classe_id }}">{{ p }}</a></li>
+          {% endif %}
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">…</span></li>
+        {% endif %}
+      {% endfor %}
+      {% if pagination.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ pagination.next_num }}&search={{ search }}&classe_id={{ classe_id }}">Suivant</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">Suivant</span></li>
+      {% endif %}
+    </ul>
+  </nav>
+</div>
+
+<!-- Inclusion modal -->
+{% include 'paiements/add_pay.html' %}
+{% include 'paiements/detail_pay.html' %}
+{% include 'paiements/delete_pay.html' %}
+{% include 'paiements/pay_edit.html' %}
+
+<!-- Modal confirmation des actions -->
+ <div class="modal fade" id="confirmPayActionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-3 shadow">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">Confirmation d'action</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="fw-bold text-center" id="confirmPayMessage"></p>
+            </div>
+            <div>
+                <div class="modal-footer justify-content-center">
+                    <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Non</button>
+                    <button type="button" class="btn btn-primary rounded-pill" id="confirmYesPayBtn">Oui</button>
+                </div>
+            </div>
+        </div>
+    </div>
+ </div>
+
+{% endblock %}

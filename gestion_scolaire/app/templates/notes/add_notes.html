@@ -1,0 +1,91 @@
+<div class="modal fade" id="addNoteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Ajouter une note</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Conteneur notifications -->
+        <div id="notificationContainer" style="position: fixed; top: 20px; right: 20px; z-index: 1055;"></div>
+
+        <form id="noteEntryForm">
+
+          <!-- Sélection trimestre & année -->
+          <div class="row g-2 mb-3">
+            <div class="col">
+              <select id="trimestre" class="form-select" required>
+                <option value="">Trimestre</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+              </select>
+            </div>
+            <div class="col">
+              <select id="anneeScolaire" class="form-select" required></select>
+            </div>
+
+            <!-- Bouton réservé admin -->
+           {% if user_role == "admin" %}
+             <div class="mb-3">
+             <button type="button" id="btnCloture" class="btn btn-warning">
+             <i class="bi bi-lock"></i> Clôturer une période
+            </button>
+           </div>
+           <div class="mt-2">
+           <ul id="clotureList" class="list-group"></ul>
+          </div>
+          {% endif %}
+          </div>
+
+          <!-- Arborescences élèves / matières -->
+          <div id="treesContainer" class="row d-none">
+            <div class="col-md-6">
+              <h6>Élèves</h6>
+              <select id="classeFilter" class="form-select mb-2">
+                <option value="">Toutes les classes</option>
+              </select>
+              <ul id="eleveTree" class="list-group"></ul>
+            </div>
+
+            <div class="col-md-6">
+              <h6>Matières</h6>
+              <ul id="matiereTree" class="list-group"></ul>
+            </div>
+          </div>
+
+          <!-- Notes et coefficient -->
+          <div id="noteInputsContainer" class="row g-2 mt-3 d-none">
+            <div class="col">
+              <input type="number" id="note1" class="form-control" placeholder="Note 1">
+            </div>
+            <div class="col">
+              <input type="number" id="note2" class="form-control" placeholder="Note 2">
+            </div>
+            <div class="col">
+              <input type="number" id="note3" class="form-control" placeholder="Note 3">
+            </div>
+            <div class="col">
+              <input type="number" id="note_comp" class="form-control" placeholder="Comp.">
+            </div>
+            <div class="col">
+              <select id="coefficient" class="form-select">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+              </select>
+            </div>
+          </div>
+
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+        <button type="button" id="btnSaveNote" class="btn btn-success">Ajouter une note</button>
+      </div>
+    </div>
+  </div>
+</div>

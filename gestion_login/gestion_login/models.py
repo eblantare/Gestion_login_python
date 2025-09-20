@@ -17,6 +17,7 @@ class Utilisateur(BaseModel,UserMixin):
     # id = db.Column(db.Integer, primary_key=True)
     nom = db.Column(db.String(50), nullable=False)
     prenoms = db.Column(db.String(100), nullable=False)
+    sexe = db.Column(db.String(40), nullable=False)
     username = db.Column(db.String(50), unique=True, nullable=False)
     telephone = db.Column(db.String(20), nullable=True)
     email = db.Column(db.String(120), nullable=True, unique=True)

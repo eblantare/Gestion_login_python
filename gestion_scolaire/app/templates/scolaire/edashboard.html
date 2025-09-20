@@ -1,92 +1,47 @@
 {% extends "base.html" %}
-
 {% block title %}Dossiers école{% endblock %}
 
+{% block body_class %}edashboard{% endblock %}
+
+{% block styles %}
+<link href="{{ url_for('auth.static', filename='css/e_dashboard.css') }}" rel="stylesheet">
+{% endblock %}
+
 {% block content %}
-<div class="card shadow-lg p-4 text-dark">
-    <h2 class="text-center text-primary">DOSSIERS ECOLE</h2>
+<div class="container py-5">
+    <h2 class="text-center text-white mb-5">DOSSIERS ÉCOLE</h2>
 
+    <div class="row g-4 justify-content-center">
+        {% set menus = [
+            {'title':'Elèves','icon':'bi-people-fill','desc':'Consultez tous les élèves','url':url_for('eleves.liste_eleves'),'color':'bg-primary','sub':[]},
+            {'title':'Notes','icon':'bi-journal-text','desc':'Gestion des notes','url':url_for('notes.liste_notes'),'color':'bg-success','sub':[]},
+            {'title':'Matières','icon':'bi-book-fill','desc':'Consultez les matières','url':url_for('matieres.list_mat'),'color':'bg-warning','sub':[]},
+            {'title':'Classes','icon':'bi-building','desc':'Consultez les classes','url':url_for('classes.liste_classes'),'color':'bg-info','sub':[]},
+            {'title':'Appréciations','icon':'bi-chat-square-text','desc':'Consultez les appréciations','url':url_for('appreciations.liste_appr'),'color':'bg-secondary','sub':[]},
+            {'title':'Paiements','icon':'bi-currency-dollar','desc':'Suivi des paiements','url':url_for('paiements.liste_paiements'),'color':'bg-danger','sub':[]},
+            {'title':'Enseignants','icon':'bi-person-badge-fill','desc':'Consultez les enseignants','url':url_for('enseignants.liste_enseignants'),'color':'bg-dark','sub':[]},
+            {'title':'Moyennes','icon':'bi-gear-fill','desc':'Gestion des moyennes','url':url_for('moyennes.liste_moyennes'),'color':'bg-tertiary','sub':[]},
+            {'title':'Services','icon':'bi-gear-fill','desc':'Gestion des services','url':'#','color':'bg-primary','sub':[]}
+        ] %}
 
-        <nav class="navbar navbar-expand-lg navbar-dark bg-primary px-4">
-            <a class="navbar-brand" href="#">My application</a>
-            <div class="ms-auto">
-               <span class="text-white me-3">Bienvenue 👋,<strong>{{username}} </strong></span>
-            </div>
-        </nav>
+        {% for menu in menus %}
+        <div class="col-sm-6 col-md-4 col-lg-3">
+            <div class="menu-card {{ menu.color }}" data-url="{{ menu.url }}">
+                <i class="bi {{ menu.icon }}" style="font-size:2.5rem;margin-bottom:0.5rem;"></i>
+                <h5>{{ menu.title }}</h5>
+                <p>{{ menu.desc }}</p>
 
-        <div class="container py-5" >
-
-
-        <div class="card shadow-lg p-4">
-            <h2 class="text-center text-primary">LES MENUS</h2>
-
-        <div class="row mt-4">
-            <div class="col-md-3">
-                <div class="card border-primary">
-                    <div class="card-body text-center">
-                        <h5 class="card-title">📊 Elèves</h5>
-                        <p class="card-text">Consultez .</p>
-                        <a href="{{ url_for('eleves.liste_eleves') }}" class="btn btn-primary btn-sm">Voir</a>
-                    </div>
+                {% if menu.sub %}
+                <div class="menu-submenu">
+                    {% for sub in menu.sub %}
+                    <a href="{{ sub.url }}">{{ sub.title }}</a>
+                    {% endfor %}
                 </div>
-            </div>
-
-        <div class="col-md-3">
-            <div class="card border-success">
-                <div class="card-border text-center">
-                    <h5 class="card-title">⚙ Notes </h5>
-                    <p class="card-text">Consultez</p>
-                    <a href="#" class="btn btn-success btn-sm">Modifier</a>
-                </div>
+                {% endif %}
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card border-warning">
-                <div class="card-body text-center">
-                    <h5 class="card-title">📩 Matières</h5>
-                    <p class="card-text">Consultez</p>
-                    <a href="#" class="btn btn-warning btn-sm">Ouvrir</a>
-                </div>
-            </div>
-         </div>
-        <div class="col-md-3">
-            <div class="card border-warning">
-                <div class="card-body text-center">
-                    <h5 class="card-title">📩 Classes</h5>
-                    <p class="card-text">Consultez</p>
-                    <a href="#" class="btn btn-warning btn-sm">Ouvrir</a>
-                </div>
-            </div>
-         </div>
-        <div class="col-md-3">
-            <div class="card border-warning">
-                <div class="card-body text-center">
-                    <h5 class="card-title">📩 Paiements</h5>
-                    <p class="card-text">Consultez</p>
-                    <a href="#" class="btn btn-warning btn-sm">Ouvrir</a>
-                </div>
-            </div>
-         </div>
-        <div class="col-md-3">
-            <div class="card border-warning">
-                <div class="card-body text-center">
-                    <h5 class="card-title">📩 Enseignants</h5>
-                    <p class="card-text">Consultez</p>
-                    <a href="#" class="btn btn-warning btn-sm">Ouvrir</a>
-                </div>
-            </div>
-         </div>
-        <div class="col-md-3">
-            <div class="card border-warning">
-                <div class="card-body text-center">
-                    <h5 class="card-title">📩 Services</h5>
-                    <p class="card-text">Consultez</p>
-                    <a href="#" class="btn btn-warning btn-sm">Ouvrir</a>
-                </div>
-            </div>
-         </div>
-       </div>
-     </div>
-  </div>
-  </div>
+        {% endfor %}
+    </div>
+</div>
+ <script src="{{ url_for('auth.static', filename='js/e_dashboard.js') }}"></script>
 {% endblock %}

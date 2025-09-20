@@ -1,0 +1,1 @@
+from .batchMoyennes import BatchMoyennes

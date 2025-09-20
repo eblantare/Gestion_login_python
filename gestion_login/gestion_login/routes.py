@@ -5,7 +5,7 @@ from uuid import UUID
 from math import ceil
 from datetime import datetime,timedelta, timezone
 from functools import wraps
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, abort, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, abort, current_app, jsonify
 from flask_login import login_user,current_user,login_required
 from flask_mail import Message
 from extensions import db, login_manager, mail
@@ -208,6 +208,7 @@ def register():
     if request.method == "POST":
         nom = request.form.get("nom", "").strip()
         prenoms = request.form.get("prenoms", "").strip()
+        sexe = request.form.get("sexe", "").strip()
         username = request.form.get("username", "").strip()
         telephone = request.form.get("telephone", "").strip()
         email = request.form.get("email", "").strip()
@@ -216,7 +217,7 @@ def register():
         photo = request.files.get("photo")
 
         # Vérifications
-        if not (nom and prenoms and username and email and password and role):
+        if not (nom and prenoms and sexe and username and email and password and role):
             flash("Veuillez remplir tous les champs obligatoires", "danger")
             return redirect(url_for("auth.register"))
 
@@ -258,6 +259,7 @@ def register():
         new_user = Utilisateur(
             nom=nom,
             prenoms=prenoms,
+            sexe=sexe,
             username=username,
             telephone=telephone,
             email=email,
@@ -317,6 +319,7 @@ def listUsers():
          query = query.filter(
               Utilisateur.nom.ilike(f'%{search}%')|
               Utilisateur.prenoms.ilike(f'%{search}%')|
+              Utilisateur.sexe.ilike(f'%{search}%') |
               Utilisateur.email.ilike(f'%{search}%')|
               Utilisateur.telephone.ilike(f'%{search}%')|
               Utilisateur.username.ilike(f'%{search}%')
@@ -370,12 +373,13 @@ def user_edit(id):
           abort(403) #interdit
      user = Utilisateur.query.get_or_404(id)
      if request.method == "POST":
-         user.nom = request.form["nom"] 
-         user.prenoms = request.form["prenoms"]
-         user.email = request.form["email"]
-         user.telephone = request.form["telephone"]
-         user.username = request.form["username"]
-         user.role = request.form["role"]
+         user.nom = request.form.get("nom") 
+         user.prenoms = request.form.get("prenoms")
+         user.sexe = request.form.get("sexe")
+         user.email = request.form.get("email")
+         user.telephone = request.form.get("telephone")
+         user.username = request.form.get("username")
+         user.role = request.form.get("role")
 
          #Gestion de la photo
          if "photo" in request.files:
@@ -470,6 +474,22 @@ def reset_password(token):
 #admin pour le déblocage 
 def is_admin(user) -> bool:
      return (user.role or "").strip().lower() in ADMIN_ROLE
+
+
+@auth_bp.route("/liste", methods=["GET"])
+def liste_utilisateurs():
+     utilisateurs = Utilisateur.query.all()
+     return jsonify([
+          {
+            "id": str(u.id),
+            "nom": u.nom,
+            "prenoms": u.prenoms,
+            "sexe": u.sexe,
+            "email": u.email,
+            "telephone": u.telephone,
+            "photo_filename":u.photo_filename
+          } for u in utilisateurs
+        ])
 
      
 

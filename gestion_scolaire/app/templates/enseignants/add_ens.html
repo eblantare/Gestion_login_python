@@ -1,0 +1,70 @@
+<div class="modal fade" id="addEnsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content rounded-3 shadow">
+      
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">Ajouter un enseignant</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      
+      <div class="modal-body">
+        <form id="addEnsForm" class="needs-validation" novalidate>
+          <div class="mb-3">
+            <label for="utilisateur_id" class="form-label">Utilisateur</label>
+            <select class="form-select" id="utilisateur_id" name="utilisateur_id" required></select>
+          </div>
+
+          <div class="row g-2">
+            <div class="col-md-6 mb-2">
+              <input type="text" id="add_nom" class="form-control" placeholder="Nom" readonly>
+            </div>
+            <div class="col-md-6 mb-2">
+              <input type="text" id="add_prenoms" class="form-control" placeholder="Prénoms" readonly>
+            </div>
+            <div class="col-md-4 mb-2">
+              <input type="text" id="add_sexe" class="form-control" placeholder="Sexe" readonly>
+            </div>
+            <div class="col-md-4 mb-2">
+              <input type="email" id="add_email" class="form-control" placeholder="Email" readonly>
+            </div>
+            <div class="col-md-4 mb-2">
+              <input type="text" id="add_telephone" class="form-control" placeholder="Téléphone" readonly>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="matiere_id" class="form-label">Matière</label>
+            <select class="form-select" id="matiere_id" name="matiere_id" multiple required></select>
+          </div>
+
+          <div class="mb-3">
+            <input id="add_matiere_libelle" class="form-control" placeholder="Matières sélectionnées" readonly>
+          </div>
+
+          <div class="mb-3">
+            <label for="titre" class="form-label">Titre</label>
+            <input type="text" class="form-control" id="titre" name="titre" required>
+          </div>
+
+          <div class="mb-3">
+            <label for="date_fonction" class="form-label">Date de prise de fonction</label>
+            <input type="date" class="form-control" id="date_fonction" name="date_fonction">
+          </div>
+
+          <div class="mb-2">
+              <label class="form-label">Photo</label>
+             <input id="add_photo_filename" name="photo_filename" class="form-control" readonly>
+             <img id="add_photo_preview" class="img-thumbnail mt-2" style="max-width:120px; 
+             display:none;" alt="Photo utilisateur">
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
+            <button class="btn btn-success rounded-pill" type="submit">Enregistrer</button>
+          </div>
+        </form>
+      </div>
+      
+    </div>
+  </div>
+</div>
