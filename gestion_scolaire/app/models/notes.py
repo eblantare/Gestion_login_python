@@ -17,6 +17,8 @@ class Note(BaseModel):
     date_saisie = db.Column(db.Date) 
     eleve_id = db.Column(UUID(as_uuid=True), db.ForeignKey("geslog_schema.eleves.id"), nullable=False) 
     matiere_id = db.Column(UUID(as_uuid=True), db.ForeignKey("geslog_schema.matieres.id"), nullable=False) 
+    enseignement_id = db.Column(UUID(as_uuid=True), db.ForeignKey("geslog_schema.enseignements.id"), nullable=True)
+    enseignement = db.relationship("Enseignement", backref="notes")
 # relations 
     trimestre = db.Column(db.Integer, nullable=False, default=1) # 1,2,3 ou 1,2 selon semestre 
     annee_scolaire = db.Column(db.String(9), nullable=False) # ex: "2025-2026" 

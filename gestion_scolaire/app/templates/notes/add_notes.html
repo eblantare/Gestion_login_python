@@ -42,7 +42,7 @@
           <div id="treesContainer" class="row d-none">
             <div class="col-md-6">
               <h6>Élèves</h6>
-              <select id="classeFilter" class="form-select mb-2">
+              <select id="classeFilterModal" class="form-select mb-2">
                 <option value="">Toutes les classes</option>
               </select>
               <ul id="eleveTree" class="list-group"></ul>
@@ -78,6 +78,16 @@
                 <option value="6">6</option>
               </select>
             </div>
+
+          <div class="col">
+          <select id="enseignantSelect" class="form-select">
+           <option value="">Sélectionner un enseignant</option>
+           {% for ens in enseignements %}
+             <option value="{{ ens.id }}">{{ ens.enseignant.nom }} {{ ens.enseignant.prenoms }}</option>
+            {% endfor %}
+          </select>
+         </div>
+
           </div>
 
         </form>

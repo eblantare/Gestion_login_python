@@ -10,10 +10,20 @@
   <td>{{ note.note3 }}</td>
   <td>{{ note.note_comp }}</td>
   <td>{{ note.coefficient }}</td>
+  <td class="truncate"
+    title="{% if note.enseignement and note.enseignement.enseignant %}{{ note.enseignement.enseignant.utilisateur.nom }} {{ note.enseignement.enseignant.utilisateur.prenoms }}{% else %}-{% endif %}">
+    {% if note.enseignement and note.enseignement.enseignant %}
+      {{ note.enseignement.enseignant.utilisateur.nom }} {{ note.enseignement.enseignant.utilisateur.prenoms }}
+    {% else %}
+    -
+    {% endif %}
+  </td>
+
   <td>{{ note.trimestre }}</td>
   <td>{{ note.annee_scolaire }}</td>
   <td>{{ note.date_saisie }}</td>
-  <td class="text-center">
+  <td class="actions">
+  <div class="btn-group btn-group-sm" role="group">
     <button type="button" class="btn btn-sm btn-info btn-detail-note" data-id="{{ note.id }}" title="Détails">
       <i class="bi bi-eye"></i>
     </button>
@@ -26,8 +36,9 @@
       <i class="bi bi-trash"></i>
     </button>
     {% endif %}
+    </div>
   </td>
-  <td>
+  <td class="etat">
     <span class="badge {% if note.etat == 'Actif' %}bg-success{% else %}bg-secondary{% endif %}">
       {{ note.etat }}
     </span>

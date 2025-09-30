@@ -15,33 +15,57 @@
         {% set menus = [
             {'title':'Elèves','icon':'bi-people-fill','desc':'Consultez tous les élèves','url':url_for('eleves.liste_eleves'),'color':'bg-primary','sub':[]},
             {'title':'Notes','icon':'bi-journal-text','desc':'Gestion des notes','url':url_for('notes.liste_notes'),'color':'bg-success','sub':[]},
-            {'title':'Matières','icon':'bi-book-fill','desc':'Consultez les matières','url':url_for('matieres.list_mat'),'color':'bg-warning','sub':[]},
+            {'title':'Matières','icon':'bi-book-fill','desc':'Consultez les matières','url':url_for('matieres.list_mat'),'color':'bg-warning text-dark','sub':[]},
             {'title':'Classes','icon':'bi-building','desc':'Consultez les classes','url':url_for('classes.liste_classes'),'color':'bg-info','sub':[]},
-            {'title':'Appréciations','icon':'bi-chat-square-text','desc':'Consultez les appréciations','url':url_for('appreciations.liste_appr'),'color':'bg-secondary','sub':[]},
+            {'title':'Appréciations','icon':'bi-chat-square-text','desc':'Consultez les appréciations','url':url_for('appreciations.liste_appr'),'color':'bg-purple','sub':[]},
             {'title':'Paiements','icon':'bi-currency-dollar','desc':'Suivi des paiements','url':url_for('paiements.liste_paiements'),'color':'bg-danger','sub':[]},
-            {'title':'Enseignants','icon':'bi-person-badge-fill','desc':'Consultez les enseignants','url':url_for('enseignants.liste_enseignants'),'color':'bg-dark','sub':[]},
-            {'title':'Moyennes','icon':'bi-gear-fill','desc':'Gestion des moyennes','url':url_for('moyennes.liste_moyennes'),'color':'bg-tertiary','sub':[]},
-            {'title':'Services','icon':'bi-gear-fill','desc':'Gestion des services','url':'#','color':'bg-primary','sub':[]}
+            {'title':'Enseignants','icon':'bi-person-badge-fill','desc':'Consultez les enseignants','url':url_for('enseignants.liste_enseignants'),'color':'bg-orange','sub':[]},
+            {'title':'Moyennes','icon':'bi-graph-up','desc':'Gestion des moyennes','url':url_for('moyennes.liste_moyennes'),'color':'bg-teal','sub':[]},
+            {'title':'Services','icon':'bi-download','desc':'Exportations PDF/Excel','url':url_for('services.exportations'),'color':'bg-indigo','sub':[]},
+            {'title':'Ecoles','icon':'bi-gear-fill','desc':'Infos Ecoles','url':url_for('ecoles.liste_ecoles'),'color':'bg-light text-dark','sub':[], 'admin_only': true}
         ] %}
 
         {% for menu in menus %}
-        <div class="col-sm-6 col-md-4 col-lg-3">
-            <div class="menu-card {{ menu.color }}" data-url="{{ menu.url }}">
-                <i class="bi {{ menu.icon }}" style="font-size:2.5rem;margin-bottom:0.5rem;"></i>
-                <h5>{{ menu.title }}</h5>
-                <p>{{ menu.desc }}</p>
+            {# Afficher la carte École seulement pour les administrateurs #}
+            {% if not menu.get('admin_only') or (menu.get('admin_only') and current_user.role|lower in ['admin', 'administrateur']) %}
+            <div class="col-sm-6 col-md-4 col-lg-3">
+                <div class="menu-card {{ menu.color }} {% if menu.get('admin_only') %}admin-only{% endif %} p-4 text-center text-white" 
+                     style="height: 220px; display: flex; flex-direction: column; justify-content: center;"
+                     data-url="{{ menu.url }}">
+                    <i class="bi {{ menu.icon }}" style="font-size:2.5rem; margin-bottom:0.5rem;"></i>
+                    <h5 class="fw-bold">{{ menu.title }}</h5>
+                    <p class="small mb-0">{{ menu.desc }}</p>
+                    
+                    {# Badge admin pour la carte École #}
+                    {% if menu.get('admin_only') %}
+                    <span class="badge bg-warning text-dark mt-2">
+                        <i class="bi bi-shield-check"></i> Admin
+                    </span>
+                    {% endif %}
 
-                {% if menu.sub %}
-                <div class="menu-submenu">
-                    {% for sub in menu.sub %}
-                    <a href="{{ sub.url }}">{{ sub.title }}</a>
-                    {% endfor %}
+                    {% if menu.sub %}
+                    <div class="menu-submenu">
+                        {% for sub in menu.sub %}
+                        <a href="{{ sub.url }}">{{ sub.title }}</a>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
-                {% endif %}
             </div>
-        </div>
+            {% endif %}
         {% endfor %}
     </div>
+
+    {# Message pour les non-administrateurs #}
+    {% if current_user.role|lower not in ['admin', 'administrateur'] %}
+    <div class="text-center mt-4">
+        <p class="text-white-50 small">
+            <i class="bi bi-info-circle"></i> 
+            Certaines fonctionnalités sont réservées aux administrateurs
+        </p>
+    </div>
+    {% endif %}
 </div>
- <script src="{{ url_for('auth.static', filename='js/e_dashboard.js') }}"></script>
+
+<script src="{{ url_for('auth.static', filename='js/e_dashboard.js') }}"></script>
 {% endblock %}

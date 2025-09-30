@@ -8,10 +8,12 @@ from .moyennes import Moyenne
 from .appreciations import Appreciations
 from .paiements import Paiement
 from .services import Service
+from .enseignements import Enseignement
+from .ecoles import Ecole
 
 # Liste des exports pour les imports *
 __all__ = [
     "Eleve", "Classe", "Enseignant", "Matiere",
     "Note", "Moyenne", "Appreciations",
-    "Paiement", "Service"
+    "Paiement", "Service", "Enseignement", "Ecole"
 ]

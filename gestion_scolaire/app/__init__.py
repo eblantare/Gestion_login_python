@@ -14,6 +14,9 @@ from .routes.enseignants import enseignants_bp
 from .routes.paiements import paiements_bp
 from .routes.notes import notes_bp
 from .routes.moyennes import moyennes_bp
+from .routes.enseignements import enseignements_bp
+from .routes.ecoles import ecoles_bp
+from .routes.moyennes_export import moyennes_export_bp
 from .routes.main import main_bp
 
 load_dotenv()
@@ -46,6 +49,9 @@ def create_app():
     app.register_blueprint(paiements_bp, url_prefix='/paiements')
     app.register_blueprint(notes_bp, url_prefix='/notes')
     app.register_blueprint(moyennes_bp, url_prefix='/moyennes')
+    app.register_blueprint(enseignements_bp, url_prefix='/enseignements')
+    app.register_blueprint(ecoles_bp, url_prefix='/ecoles')
+    app.register_blueprint(moyennes_export_bp, url_prefix='/moyennes')
     app.register_blueprint(main_bp, url_prefix='/scolaire')
 
     # Initialisation de SQLAlchemy

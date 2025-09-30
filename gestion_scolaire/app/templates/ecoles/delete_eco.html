@@ -1,0 +1,17 @@
+<!-- Modal Suppression -->
+<div class="modal fade" id="deleteEcoModal">
+  <div class="modal-dialog">
+    <form id="deleteEcoForm" class="modal-content">
+      <input type="hidden" id="deleteEco_id">
+      <div class="modal-header bg-danger text-white"><h5>Confirmer la suppression</h5></div>
+      <div class="modal-body">
+        <p>Voulez-vous vraiment supprimer cette école ?</p>
+        <p id="deleteEco_info" class="fw-bold text-danger"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary rounded-start-pill" data-bs-dismiss="modal" type="button">Annuler</button>
+        <button class="btn btnEco-danger rounded-pill" type="submit">Supprimer</button>
+      </div>
+    </form>
+  </div>
+</div>

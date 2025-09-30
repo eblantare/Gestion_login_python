@@ -25,6 +25,7 @@
           <link rel="stylesheet" href="{{ url_for('static', filename='css/notes.css') }}">
           <link rel="stylesheet" href="{{ url_for('static', filename='css/matieres.css') }}">
          <link rel="stylesheet" href="{{ url_for('static', filename='css/moyennes.css') }}">
+         <link rel="stylesheet" href="{{ url_for('static', filename='css/services.css') }}">
     {% block styles %}{% endblock %}
 </head>
 <body>
@@ -76,6 +77,9 @@
     <script src="{{ url_for('static', filename='js/paiements.js') }}"></script>
      <script src="{{ url_for('static', filename='js/notes.js') }}" defer></script>
      <script src="{{ url_for('static', filename='js/moyennes.js') }}"></script>
+     <script src="{{ url_for('static', filename='js/ecoles.js') }}"></script>
+     <script src="{{ url_for('static', filename='js/services.js') }}"></script>
+
     {% endblock %}
     <!-- Conteneur des notifications -->
 <div aria-live="polite" aria-atomic="true" class="position-fixed top-0 end-0 p-3" id="notificationContainer">

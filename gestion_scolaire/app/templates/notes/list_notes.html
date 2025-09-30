@@ -7,22 +7,22 @@
     <h2 class="mb-3">📚 Liste des Notes</h2>
 
     <!-- 🔍 Barre de recherche + filtres + bouton Ajouter -->
-    <form method="get" class="row mb-3 g-2 align-items-center">
-        <div class="col-md-4 col-12">
-            <!-- Recherche avec loupe intégrée -->
+    <form method="get" class="d-flex align-items-center mb-3 gap-2 flex-wrap">
+        <!-- 🔍 Barre de recherche compacte -->
+        <div style="flex: 0.3 0 140px; min-width: 130px;">
             <div class="input-group rounded-pill border overflow-hidden">
-                <input type="text" name="search" value="{{ search }}" class="form-control border-0"
-                    placeholder="Rechercher une note...">
-                <button type="submit" class="btn btn-primary">
+                <input type="text" name="search" value="{{ search }}" class="form-control border-0" 
+                       placeholder="Rechercher..." style="width: 100px;">
+                <button type="submit" class="btn btn-primary btn-sm">
                     <i class="bi bi-search"></i>
                 </button>
             </div>
         </div>
 
         <!-- Filtre élève -->
-        <div class="col-md-4 col-6 text-center flex-grow-1">
-            <select name="eleve_id" class="form-select d-inline-block w-auto rounded-pill" onchange="this.form.submit()">
-                <option value="">Tous les élèves</option>
+        <div style="flex: 0.3 0 140px; min-width: 130px;">
+            <select name="eleve_id" class="form-select form-select-sm rounded-pill" style="width: 100%;" onchange="this.form.submit()">
+                <option value="">Élève</option>
                 {% for e in eleves %}
                 <option value="{{ e.id|string }}" {% if eleve_id == e.id|string %}selected{% endif %}>
                     {{ e.nom }} {{ e.prenoms }}
@@ -32,32 +32,46 @@
         </div>
 
         <!-- Filtre matière -->
-        <div class="col-md-4 col-6 text-center flex-grow-1">
-            <select name="matiere_id" class="form-select d-inline-block w-auto rounded-pill" onchange="this.form.submit()">
-                <option value="">Toutes les matières</option>
+        <div style="flex: 0.3 0 140px; min-width: 130px;">
+            <select name="matiere_id" class="form-select form-select-sm rounded-pill" style="width: 100%;" onchange="this.form.submit()">
+                <option value="">Matière</option>
                 {% for m in matieres %}
-                <option value="{{ m.id | string }}" {% if matiere_id == m.id|string %}selected{% endif %}>
+                <option value="{{ m.id|string }}" {% if matiere_id == m.id|string %}selected{% endif %}>
                     {{ m.libelle }}
                 </option>
                 {% endfor %}
             </select>
         </div>
 
-        <!-- Par page -->
-        <div class="col-md-4 col-6 text-center flex-grow-1">
-            <select name="per_page" class="form-select d-inline-block w-auto rounded-pill" onchange="this.form.submit()">
+        <!-- Filtre classe -->
+        <div style="flex: 0.3 0 140px; min-width: 130px;">
+            <select id="classeFilterList" name="classe_id" class="form-select form-select-sm rounded-pill" style="width: 100%;" onchange="this.form.submit()">
+                <option value="">Classe</option>
+                {% for c in classes %}
+                <option value="{{ c.id|string }}" {% if classe_id == c.id|string %}selected{% endif %}>
+                    {{ c.nom }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Nombre par page -->
+        <div style="flex: 0.2 0 100px; min-width: 90px;">
+            <select name="per_page" class="form-select form-select-sm rounded-pill" style="width: 100%;" onchange="this.form.submit()">
                 {% for n in [5,10,20,50,100,250,500,1000] %}
-                <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }} / page</option>
+                <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}/page</option>
                 {% endfor %}
             </select>
         </div>
 
         <!-- Bouton Ajouter -->
-        <div class="col-md-3 text-end">
-            <button type="button" class="btn btn-success rounded-pill" data-bs-toggle="modal" data-bs-target="#addNoteModal">
+        <div>
+            <button type="button" class="btn btn-success btn-sm rounded-pill" data-bs-toggle="modal" data-bs-target="#addNoteModal">
                 <i class="bi bi-plus-circle"></i>
             </button>
         </div>
+        
+        <!-- SUPPRIMER LE BOUTON EXPORTER ICI -->
     </form>
 
     <!-- 📊 Tableau des notes -->
@@ -72,21 +86,21 @@
                     <th scope="col">Note 3</th>
                     <th scope="col">Comp.</th>
                     <th scope="col">Coef.</th>
+                    <th scope="col">Enseignant</th>
                     <th scope="col">Trimestre</th>
                     <th scope="col">Année</th>
                     <th scope="col">Date</th>
-                    <th scope="col">Actions</th>
-                    <th scope="col">État</th>
+                    <th scope="col" class="actions">Actions</th>
+                    <th scope="col" class="etat">État</th>
                 </tr>
             </thead>
             <tbody>
                 {% for note in notes %}
-                   {% include "notes/_note_row.html" %}
-                </tr>
+                    {% include "notes/_note_row.html" %}
                 {% else %}
-                <tr>
-                    <td colspan="12" class="text-center">Aucune note trouvée</td>
-                </tr>
+                    <tr>
+                        <td colspan="13" class="text-center">Aucune note trouvée</td>
+                    </tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -127,23 +141,22 @@
 
 <!-- Modal confirmation des actions -->
 <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-sm">
-    <div class="modal-content border-0">
-      <div class="modal-header bg-danger text-white">
-        <h5 class="modal-title">Confirmer la suppression</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body text-center">
-        <p class="fw-bold" id="deleteConfirmMessage">Voulez-vous vraiment supprimer cette note ?</p>
-      </div>
-      <div class="modal-footer justify-content-center">
-        <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Non</button>
-        <button type="button" class="btn btn-danger rounded-pill" id="deleteConfirmYesBtn">Oui</button>
-      </div>
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Confirmer la suppression</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="fw-bold" id="deleteConfirmMessage">Voulez-vous vraiment supprimer cette note ?</p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Non</button>
+                <button type="button" class="btn btn-danger rounded-pill" id="deleteConfirmYesBtn">Oui</button>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
 
-
-
+<!-- SUPPRIMER LE MODAL D'EXPORTATION DES NOTES ICI -->
 {% endblock %}

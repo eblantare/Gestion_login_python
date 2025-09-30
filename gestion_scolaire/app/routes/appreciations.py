@@ -17,8 +17,12 @@ from flask import current_app
 @appreciations_bp.route("/add", methods=["POST"])
 def add_appreciations():
     libelle = request.form.get("libelle", "").strip()
+    seuil_min = request.form.get("seuil_min", type=float)
+    seuil_max = request.form.get("seuil_max", type=float)
     description = request.form.get("description", "").strip()
 
+    if seuil_min is None or seuil_max is None:
+        return jsonify({"error": "Les seuils min et max sont obligatoires."}), 400
     if not libelle:
         return jsonify({"error": "Le libellé est obligatoire."}), 400
     if not description:
@@ -29,7 +33,7 @@ def add_appreciations():
     if existing:
         return jsonify({"error": "Cette appréciation existe déjà."}), 400
 
-    appreciation = Appreciations(libelle=libelle, description=description, etat="Inactif")
+    appreciation = Appreciations(seuil_min=seuil_min, seuil_max=seuil_max,libelle=libelle, description=description, etat="Inactif")
     db.session.add(appreciation)
 
     try:
@@ -38,6 +42,8 @@ def add_appreciations():
         return jsonify({
             "id": str(appreciation.id),
             "libelle": appreciation.libelle,
+            "seuil_min": appreciation.seuil_min,
+            "seuil_max": appreciation.seuil_max,
             "description": appreciation.description,
             "etat": appreciation.etat
         }), 200
@@ -64,6 +70,8 @@ def liste_appr():
         query = query.filter(
             (Appreciations.libelle.ilike(f"%{search}%")) |
             (Appreciations.description.ilike(f"%{search}%")) |
+            (Appreciations.seuil_min.ilike(f"%{search}%")) |
+            (Appreciations.seuil_max.ilike(f"%{search}%")) |
             (Appreciations.etat.ilike(f"%{search}%"))
         )
 
@@ -89,6 +97,8 @@ def get_appreciation(id):
         return jsonify({
             "id": str(appreciation.id),
             "libelle":appreciation.libelle,
+            "seuil_min":appreciation.seuil_min,
+            "seuil_max":appreciation.seuil_max,
             "description":appreciation.description,
             "etat":appreciation.etat
         })
@@ -134,11 +144,15 @@ def update_appreciation(id):
         return jsonify({"error": "Impossible de modifier cette appréciation, état non inactif"}),403
     data = request.form
     appreciation.libelle = data.get("libelle")
+    appreciation.seuil_min = data.get("seuil_min")
+    appreciation.seuil_max = data.get("seuil_max")
     appreciation.description = data.get("description")
     db.session.commit() #Indispensable pour la sauveagrde
     return jsonify({
         "id":appreciation.id,
         "libelle":appreciation.libelle,
+        "seuil_min":appreciation.seuil_min,
+        "seuil_max":appreciation.seuil_max,
         "description":appreciation.description,
         "etat": appreciation.etat
     })
@@ -162,6 +176,8 @@ def detail_appreciation(id):
     return jsonify(
         {
             "libelle": appreciation.libelle,
+            "seuil_min":appreciation.seuil_min,
+            "seuil_max":appreciation.seuil_max,
             "description": appreciation.description,
             "etat": appreciation.etat
         }

@@ -33,6 +33,16 @@
                 <option value="6">6</option>
               </select>
             </div>
+           <div class="mb-3">
+            <!-- <label for="enseignantSelect" class="form-label">Enseignant</label> -->
+            <select id="editEnseignantSelect" name="enseignant_id" class="form-select" required>
+            <option value="">-- Sélectionnez un enseignant --</option>
+           {% for e in enseignements %}
+            <option value="{{ e.id }}">{{ e.enseignant.noms }} {{ e.enseignant.prenoms }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
           </div>
         </form>
       </div>

@@ -121,3 +121,53 @@
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
 }
+/* Couleurs personnalisées pour les cartes */
+.bg-purple {
+    background: linear-gradient(135deg, #6f42c1, #5a2d9c) !important;
+}
+
+.bg-orange {
+    background: linear-gradient(135deg, #fd7e14, #e55a00) !important;
+}
+
+.bg-pink {
+    background: linear-gradient(135deg, #e83e8c, #c2176b) !important;
+}
+
+.bg-teal {
+    background: linear-gradient(135deg, #20c997, #189f7a) !important;
+}
+
+.bg-indigo {
+    background: linear-gradient(135deg, #6610f2, #520dc2) !important;
+}
+
+.bg-cyan {
+    background: linear-gradient(135deg, #0dcaf0, #0ba5c7) !important;
+}
+
+.bg-gray {
+    background: linear-gradient(135deg, #6c757d, #545b62) !important;
+}
+
+.bg-light-blue {
+    background: linear-gradient(135deg, #0d6efd, #0b5ed7) !important;
+}
+
+/* Animation au survol */
+.menu-card {
+    transition: all 0.3s ease;
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.menu-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+}
+
+/* Style pour la carte École (admin seulement) */
+.admin-only {
+    border: 2px dashed #ffc107;
+}

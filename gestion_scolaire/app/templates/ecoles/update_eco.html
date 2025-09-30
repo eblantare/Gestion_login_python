@@ -1,0 +1,123 @@
+<div class="modal fade" id="editEcoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form id="editEcoForm" class="needs-validation" novalidate>
+        <div class="modal-header">
+          <h5 class="modal-title">Modifier une école</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="id" id="editEco_id">
+          
+          <div class="row g-3">
+            <!-- Ligne 1 : 2 champs -->
+            <div class="col-md-6">
+              <label for="editEco_code" class="form-label">Code</label>
+              <input id="editEco_code" name="code" class="form-control" placeholder="Code de l'école" required>
+            </div>
+            <div class="col-md-6">
+              <label for="editEco_nom" class="form-label">Nom <span class="text-danger">*</span></label>
+              <input id="editEco_nom" name="nom" class="form-control" placeholder="Nom de l'école" required>
+            </div>
+
+            <!-- Ligne 2 : 2 champs -->
+            <div class="col-md-6">
+              <label for="editEco_localite" class="form-label">Localité <span class="text-danger">*</span></label>
+              <input id="editEco_localite" name="localite" class="form-control" placeholder="Ville/Village" required>
+            </div>
+            <div class="col-md-6">
+              <label for="editEco_prefecture" class="form-label">Préfecture <span class="text-danger">*</span></label>
+              <select id="editEco_prefecture" name="prefecture" class="form-select" required>
+                <option value="">Sélectionnez une préfecture</option>
+                <option value="GOLFE">GOLFE</option>
+                <option value="AMOU">AMOU</option>
+                <option value="AFAGNAN">AFAGNAN</option>
+                <option value="AGOE-NYIVE">AGOE-NYIVE</option>
+                <option value="AGOU">AGOU</option>
+                <option value="OGOU">OGOU</option>
+                <option value="ASSOLI">ASSOLI</option>
+                <option value="DOUFELGOU">DOUFELGOU</option>
+                <option value="KERAN">KERAN</option>
+                <option value="BASSAR">BASSAR</option>
+                <option value="TCHAOUDJO">TCHAOUDJO</option>
+                <option value="TONE">TONE</option>
+                <option value="KOZAH">KOZAH</option>
+                <option value="BINAH">BINAH</option>
+                <option value="DANKPEN">DANKPEN</option>
+                <option value="OTI">OTI</option>
+                <option value="OTI-SUD">OTI-SUD</option>
+                <option value="KLOTO">KLOTO</option>
+                <option value="MO">MO</option>
+                <option value="HAHO">HAHO</option>
+                <option value="ANIE">ANIE</option>
+                <option value="WAWA">WAWA</option>
+                <option value="KPELÉ">KPELÉ</option>
+                <option value="AVE">AVE</option>
+                <option value="YOTO">YOTO</option>
+                <option value="VO">VO</option>
+                <option value="LACS">LACS</option>
+                <option value="ZIO">ZIO</option>
+                <option value="AKEBOU">AKEBOU</option>
+                <option value="KPENDJAL">KPENDJAL</option>
+                <option value="MOYEN-MONO">MOYEN-MONO</option>
+                <option value="EST-MONO">EST-MONO</option>
+                <option value="BLITTA">BLITTA</option>
+                <option value="SOUTOUBOUA">SOUTOUBOUA</option>
+                <option value="TANDJOUARE">TANDJOUARE</option>
+                <option value="DANYI">DANYI</option>
+                <option value="TCHAMBA">TCHAMBA</option>
+                <option value="CINKASSE">CINKASSE</option>
+              </select>
+            </div>
+
+            <!-- Ligne 3 : 2 champs -->
+            <div class="col-md-6">
+              <label for="editEco_dre" class="form-label">D.R.E <span class="text-danger">*</span></label>
+              <input id="editEco_dre" name="dre" class="form-control" placeholder="Direction Régionale de l'Éducation" required>
+            </div>
+            <div class="col-md-6">
+              <label for="editEco_inspection" class="form-label">I.E.S.G <span class="text-danger">*</span></label>
+              <input id="editEco_inspection" name="inspection" class="form-control" placeholder="Inspection de l'Enseignement" required>
+            </div>
+
+            <!-- Ligne 4 : 1 champ plein largeur -->
+            <div class="col-12">
+              <label for="editEco_site" class="form-label">Site web</label>
+              <input id="editEco_site" name="site" class="form-control" placeholder="https://www.exemple.com">
+            </div>
+
+            <!-- Ligne 5 : 1 champ plein largeur -->
+            <div class="col-12">
+              <label for="editEco_email" class="form-label">Email</label>
+              <input id="editEco_email" name="email" class="form-control" placeholder="email@exemple.com" type="email">
+            </div>
+
+            <!-- Ligne 6 : 2 champs -->
+            <div class="col-md-6">
+              <label for="editEco_telephone1" class="form-label">Téléphone 1</label>
+              <input id="editEco_telephone1" name="telephone1" class="form-control" placeholder="+228 XX XX XX XX" type="tel">
+            </div>
+            <div class="col-md-6">
+              <label for="editEco_telephone2" class="form-label">Téléphone 2</label>
+              <input id="editEco_telephone2" name="telephone2" class="form-control" placeholder="+228 XX XX XX XX" type="tel">
+            </div>
+
+            <!-- Ligne 7 : 2 champs -->
+            <div class="col-md-6">
+              <label for="editEco_boite_postale" class="form-label">Boîte Postale (B.P)</label>
+              <input id="editEco_boite_postale" name="boite_postale" class="form-control" placeholder="Numéro de B.P">
+            </div>
+            <div class="col-md-6">
+              <label for="editEco_devise" class="form-label">Devise</label>
+              <input id="editEco_devise" name="devise" class="form-control" placeholder="Devise de l'école">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
+          <button type="submit" class="btn btn-warning rounded-pill">Modifier</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

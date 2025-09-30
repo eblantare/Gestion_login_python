@@ -4,7 +4,7 @@
     white-space: nowrap;/*tout reste sur une ligne*/
     overflow: hidden; /*cache le surplus*/
     text-overflow: ellipsis;  /* ajoute "..." si trop long */
-    max-width: 159px; /* limite la largeur des cellules */
+    max-width: 109px; /* limite la largeur des cellules */
     vertical-align: middle;
 }
 
@@ -21,15 +21,15 @@
     background-color: #0b5ed7;
 }
 
-   /* Actions compactes */
+/* Actions compactes */
 .btn-sm {
     padding: 2px 6px;
     font-size: 12px;
     border-radius: 50%;
 }
+
 .bs-large{
     width: 140px;
-
 }
 
 .btn-gradient {
@@ -54,12 +54,6 @@
     height: 42px;                    /* hauteur uniforme */
 }
 
-/* Spécifique au bouton de recherche */
-.toolbar-form .input-group .btn {
-    border-radius: 0 50px 50px 0 !important; /* arrondi seulement sur bouton */
-    height: 42px;
-}
-
 .toolbar-form .form-select {
     min-width: 150px;               /* largeur minimale pour filtres */
 }
@@ -70,6 +64,7 @@
 
 .toolbar-form .input-group .btn {
     border-radius: 0 50px 50px 0 !important; /* arrondi seulement sur bouton */
+    height: 32px;
 }
 
 .toolbar-form .col-md-4,
@@ -82,13 +77,78 @@
     line-height: 1;
 }
 
-/* renforce la bordure du select d'action */
+/* Style amélioré pour le select d'actions workflow */
 .select-action.form-select {
   border: 2px solid #000 !important;
   box-shadow: none !important;
   background-clip: padding-box !important;
+  display: inline-block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: auto !important;
+  min-width: 50px;
+  max-width: 70px;
+  font-size: 0.8rem;
+  padding: 0.10rem 0.3rem;
+  margin-left: 1px;
+  vertical-align: middle;
 }
+
 .select-action.form-select:focus {
   border-color: #000 !important;
   box-shadow: 0 0 0 .15rem rgba(0,0,0,.15) !important;
+}
+
+/* S'assurer que la cellule état a assez d'espace */
+.etat {
+  min-width: 50px;
+  white-space: nowrap;
+  padding: 8px 4px !important;
+}
+
+/* Badge état */
+.etat .badge {
+  font-size: 0.35em;
+  vertical-align: middle;
+  display: inline-block;
+  min-width: 20px;
+}
+
+/* Alignement du select avec le badge */
+.etat .select-action {
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+/* Pour éviter que le select soit coupé */
+#table-eleves td.etat {
+  max-width: 40px !important;
+  overflow: visible !important;
+}
+
+/* Pour les écrans très petits */
+@media (max-width: 468px) {
+  .etat {
+    min-width: 80px;
+  }
+  
+  .select-action.form-select {
+    min-width: 70px;
+    font-size: 0.7rem;
+    margin-left: 4px;
+  }
+  .etat .badge {
+    min-width: 30px;
+    font-size: 0.7em;
+  }
+}
+
+.col-bns{
+    width: 80px;
+}
+.col-btc{
+    width: 60px;
+}
+.col-bts{
+    width: 50px;
 }

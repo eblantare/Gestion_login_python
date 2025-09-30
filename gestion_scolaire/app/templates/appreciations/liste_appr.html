@@ -38,6 +38,8 @@
         <thead class="table-dark">
             <tr>
                 <th>libellé</th>
+                <th>Seuil minimal</th>
+                <th>Seuil maximal</th>
                 <th>Description</th>
                 <th class="col-etat">Etat</th>
                 <th class="bs-large">Actions</th>
@@ -47,6 +49,8 @@
             {% for appreciation in appreciations %}
             <tr data-id="appreciation-{{ appreciation.id }}">
                 <td class="col-libelle">{{ appreciation.libelle }}</td>
+                <td class="col-seuil_min">{{ appreciation.seuil_min }}</td>
+                <td class="col-seuil_max">{{ appreciation.seuil_max }}</td>
                 <td class="col-description">{{ appreciation.description }}</td>
                 <td class="etat text-center col-etat">
                     <span class="badge

@@ -9,6 +9,14 @@
       <form id="addAppreciationForm" method="POST" action="{{ url_for('appreciations.add_appreciations') }}">
         <div class="modal-body">
           <div class="mb-3">
+            <label for="seuil_min" class="form-label">Seuil Min</label>
+            <input type="number" step="0.01" class="form-control rounded-pill" name="seuil_min" required>
+         </div>
+        <div class="mb-3">
+           <label for="seuil_max" class="form-label">Seuil Max</label>
+         <input type="number" step="0.01" class="form-control rounded-pill" name="seuil_max" required>
+        </div>
+          <div class="mb-3">
             <label for="libelle" class="form-label">Libellé</label>
             <input type="text" class="form-control rounded-pill" name="libelle" id="libelle" required>
             <div class="invalid-feedback">Le libellé est obligatoire.</div>

@@ -1,0 +1,142 @@
+{% extends 'ebase.html' %}
+
+{% block title %}Liste des écoles{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-3">LISTE DES ECOLES</h2>
+
+    <!-- Barre de recherche et affichage par page -->
+    <form method="get" class="row mb-3 g-2 align-items-center">
+        <!-- Recherche -->
+        <div class="col-md-4 col-12">
+            <div class="input-group rounded-pill border overflow-hidden">
+                <input type="text" name="search" value="{{ search }}" class="form-control border-0" placeholder="Rechercher">
+                <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i></button>
+            </div>
+        </div>
+        <!-- Affichage par page -->
+        <div class="col-md-4 col-6 text-center flex-grow-1">
+            <select name="per_page" class="form-select d-inline-block w-auto rounded-pill" onchange="this.form.submit()">
+                {% for n in [5,10,20,30,50,100,150] %}
+                    <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }} par page</option>
+                {% endfor %}
+            </select>
+        </div>
+        <!-- Bouton ajouter -->
+        <div class="col-md-4 text-end ms-2 flex-grow-1">
+            {% if user_role in ['admin', 'administrateur'] %}
+            <button type="button" class="btn btn-success rounded-pill" data-bs-toggle="modal" data-bs-target="#addEcoModal">
+                <i class="bi bi-plus-circle"></i> Ajouter
+            </button>
+            {% endif %}
+        </div>
+    </form>
+
+    <!-- Tableau des écoles -->
+    <table class="table table-bordered table-striped text-center align-middle" id="table-ecoles">
+        <thead class="table-dark">
+            <tr>
+                <th>Code</th>
+                <th>Nom</th>
+                <th>Ville/Village</th>
+                <th>Site web</th>
+                <th>Email</th>
+                <th>D.R.E</th>
+                <th>I.E.S.G</th>
+                <th>Téléphone 1</th>
+                <th>Téléphone 2</th>
+                <th>B.P</th>
+                <th>Devise</th>
+                <th>Préfecture</th>
+                <th class="bs-large">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for eco in ecoles %}
+            <tr data-id="ecole-{{ eco.id }}">
+              <td class="col-code text-truncate-ellipsis" title="{{ eco.code }}">{{ eco.code }}</td>
+              <td class="col-nom text-truncate-ellipsis" title="{{ eco.nom }}">{{ eco.nom }}</td>
+              <td class="col-localite text-truncate-ellipsis" title="{{eco.localite}}">{{ eco.localite }}</td>
+              <td class="col-site text-truncate-ellipsis" title="{{ eco.site }}">{{ eco.site }}</td>
+              <td class="col-email text-truncate-ellipsis" title="{{ eco.email }}">{{ eco.email }}</td>
+              <td class="col-dre text-truncate-ellipsis" title="{{eco.dre}}">{{ eco.dre }}</td>
+              <td class="col-inspection text-truncate-ellipsis" title="{{ eco.inspection }}">{{ eco.inspection }}</td>
+              <td class="col-telephone1 text-truncate-ellipsis" title="{{ eco.telephone1 }}">{{ eco.telephone1 }}</td>
+              <td class="col-telephone2 text-truncate-ellipsis" title="{{eco.telephone2}}">{{ eco.telephone2 }}</td>
+              <td class="col-boite_postale text-truncate-ellipsis" title="{{ eco.boite_postale }}">{{ eco.boite_postale }}</td>
+              <td class="col-devise text-truncate-ellipsis" title="{{ eco.devise }}">{{ eco.devise }}</td>
+              <td class="col-prefecture text-truncate-ellipsis" title="{{eco.prefecture}}">{{ eco.prefecture }}</td>
+                <td class="text-nowrap">
+                    <button class="btn btn-info btn-sm btnEco-detail" data-id="{{ eco.id }}" title="Détail">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                    {% if user_role in ['admin', 'administrateur'] %}
+                    <button type="button" class="btn btn-warning btn-sm btnEco-edit" data-id="{{ eco.id }}" title="Modifier">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-danger btn-sm btnEco-danger" data-id="{{ eco.id }}" title="Supprimer">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="13" class="text-center">Aucune école sur la liste</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Pagination -->
+    <nav>
+        <ul class="pagination justify-content-center">
+            {% if pagination.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ pagination.prev_num }}&per_page={{ per_page }}&search={{ search }}">Précédent</a>
+            </li>
+            {% endif %}
+            {% for p in pagination.iter_pages() %}
+                {% if p %}
+                <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                    <a class="page-link" href="?page={{ p }}&per_page={{ per_page }}&search={{ search }}">{{ p }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+            {% endfor %}
+            {% if pagination.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ pagination.next_num }}&per_page={{ per_page }}&search={{ search }}">Suivant</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+
+<!-- Modales -->
+{% include 'ecoles/add_eco.html' %}
+{% include 'ecoles/update_eco.html' %}
+{% include 'ecoles/delete_eco.html' %}
+{% include 'ecoles/detail_eco.html' %}
+
+<!-- Modal confirmation des actions -->
+<div class="modal fade" id="confirmActionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-3 shadow">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">Confirmation d'action</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="fw-bold text-center" id="confirmMessage"></p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Non</button>
+                <button type="button" class="btn btn-primary rounded-pill" id="confirmYesBtn">Oui</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

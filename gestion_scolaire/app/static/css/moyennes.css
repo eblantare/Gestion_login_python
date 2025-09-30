@@ -101,3 +101,94 @@
   background-color: #4CAF50;
   color: white;
 }
+/* Styles pour la table des moyennes */
+td, th {
+    vertical-align: middle;
+    text-align: center;
+}
+
+td.high-moy {
+    background-color: #d4edda;
+    color: #155724;
+    font-weight: bold;
+}
+
+td.low-moy {
+    background-color: #f8d7da;
+    color: #721c24;
+    font-weight: bold;
+}
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+.btn-rounded {
+    border-radius: 50px;
+}
+
+/* Pour les moyennes élevées (>= 15) */
+.high-moy {
+    background-color: #d4edda; /* vert clair */
+    color: #155724;            /* texte vert foncé */
+    font-weight: bold;
+}
+
+/* Pour les moyennes faibles (< 10) */
+.low-moy {
+    background-color: #f8d7da; /* rouge clair */
+    color: #721c24;            /* texte rouge foncé */
+    font-weight: bold;
+}
+
+/* Optionnel : aligner le texte au centre pour les moyennes et classements */
+td {
+    text-align: center;
+}
+
+/* =========================
+   🔹 Zone des filtres
+   ========================= */
+.filters-container {
+  display: flex;
+  justify-content: space-between; /* filtres à gauche, bouton batch à droite */
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.filters-container form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filters-container input[type="text"],
+.filters-container select {
+  max-width: 160px;   /* largeur réduite */
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+/* Boutons de filtre */
+.filters-container .btn {
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+/* Bouton Batch à droite */
+#batchForm {
+  margin-left: auto; /* pousse le bouton à l’extrême droite */
+}
+
+#batchBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+
+

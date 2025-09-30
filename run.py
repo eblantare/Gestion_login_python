@@ -13,13 +13,14 @@ from gestion_login.gestion_login.routes import auth_bp
 # Import des blueprints
 from gestion_scolaire.app.routes import (
     main_bp, eleves_bp, appreciations_bp, classes_bp, matieres_bp,
-    enseignants_bp, paiements_bp, notes_bp, moyennes_bp
+    enseignants_bp, paiements_bp, notes_bp, moyennes_bp,enseignements_bp,
+    ecoles_bp,services_bp, moyennes_export_bp
 )
 
 # Import models pour db.create_all()
 from gestion_scolaire.app.models import (
     Eleve, Classe, Enseignant, Matiere,
-    Note, Moyenne, Appreciations, Paiement, Service
+    Note, Moyenne, Appreciations, Paiement, Service,Enseignement,Ecole
 )
 
 load_dotenv()
@@ -67,12 +68,16 @@ def create_app():
     app.register_blueprint(paiements_bp, url_prefix="/paiements")
     app.register_blueprint(notes_bp, url_prefix="/notes")
     app.register_blueprint(moyennes_bp, url_prefix="/moyennes")
+    app.register_blueprint(enseignements_bp, url_prefix="/enseignements")
+    app.register_blueprint(ecoles_bp, url_prefix='/ecoles')
+    app.register_blueprint(services_bp, url_prefix='/services')
+    app.register_blueprint(moyennes_export_bp, url_prefix='/moyennes')
 
     # Middleware login
     from gestion_login.gestion_login.utils import login_required_middleware
     login_required_middleware(app, protected_paths=[
         "/eleves", "/enseignants", "/matieres", "/classes",
-        "/appreciations", "/paiements", "/notes", "/moyennes", "/listUsers"
+        "/appreciations", "/paiements", "/notes", "/moyennes","/enseignements","/ecoles","/services", "/listUsers"
     ])
 
     # Route spéciale pour uploads

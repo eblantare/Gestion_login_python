@@ -130,6 +130,8 @@ if (form && !form.dataset.listenerAttached) {
 if (window.appreciationsTable) {
     const rowNode = appreciationsTable.row.add([
         `<td class="col-libelle">${data.libelle}</td>`,
+        `<td class="col-seuil_min">${data.seuil_min}</td>`,
+        `<td class="col-seuil_max">${data.seuil_max}</td>`,
         `<td class="col-description">${data.description}</td>`,
         `<td class="etat text-center">
             <span class="badge bg-secondary">${data.etat || "Inactif"}</span>
@@ -290,6 +292,8 @@ window.editAppreciation = function (id) {
 
   document.getElementById("editApp_id").value = id;
   document.getElementById("editApp_libelle").value = row.querySelector(".col-libelle")?.innerText.trim() || "";
+  document.getElementById("editApp_seuil_min").value = row.querySelector(".col-seuil_min")?.innerText.trim() || "";
+  document.getElementById("editApp_seuil_max").value = row.querySelector(".col-seuil_max")?.innerText.trim() || "";
   document.getElementById("editApp_description").value = row.querySelector(".col-description")?.innerText.trim() || "";
 
   const editModalEl = document.getElementById("editAppModal");
@@ -319,11 +323,15 @@ if (editAppForm && !editAppForm.dataset.listenerAttached) {
     if (!row) return;
 
     const originalLibelle = row.querySelector(".col-libelle")?.innerText.trim() || "";
+    const originalSeuil_min = row.querySelector(".col-seuil_min")?.innerText.trim() || "";
+    const originalSeuil_max = row.querySelector(".col-seuil_max")?.innerText.trim() || "";
     const originalDescription = row.querySelector(".col-description")?.innerText.trim() || "";
 
     // Vérifie si les valeurs ont changé
     if (
       formData.get("libelle") === originalLibelle &&
+      formData.get("seuil_min") === originalSeuil_min &&
+      formData.get("seuil_max") === originalSeuil_max &&
       formData.get("description") === originalDescription
     ) {
       const modalInstance = bootstrap.Modal.getInstance(document.getElementById("editAppModal"));
@@ -343,6 +351,8 @@ if (editAppForm && !editAppForm.dataset.listenerAttached) {
 
       // Mise à jour du tableau
       row.querySelector(".col-libelle") && (row.querySelector(".col-libelle").textContent = updated.libelle);
+      row.querySelector(".col-seuil_min") && (row.querySelector(".col-seuil_min").textContent = updated.seuil_min);
+      row.querySelector(".col-seuil_max") && (row.querySelector(".col-seuil_max").textContent = updated.seuil_max);
       row.querySelector(".col-description") && (row.querySelector(".col-description").textContent = updated.description);
 
       const badge = row.querySelector(".etat .badge");
@@ -375,6 +385,8 @@ if (editAppForm && !editAppForm.dataset.listenerAttached) {
     const data = await res.json();
     const content = `
       <p><b>Libelle:</b> ${data.libelle}</p>
+      <p><b>Seuil_min:</b> ${data.seuil_min}</p>
+      <p><b>Seuil_max:</b> ${data.seuil_max}</p>
       <p><b>Description:</b> ${data.description}</p>
       <p><b>Etat:</b> ${data.etat || ""}</p>
     `;

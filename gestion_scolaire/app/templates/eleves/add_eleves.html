@@ -1,45 +1,83 @@
-<div class="modal fade" id="addElModal">
-  <div class="modal-dialog">
-    <form id="addForm" class="modal-content needs-validation" novalidate>
-      <div class="modal-header"><h5>Ajouter un élève</h5></div>
-      <div class="modal-body">
-        <input name="matricule" class="form-control mb-2" placeholder="Matricule" >
-        <input name="nom" class="form-control mb-2" placeholder="Nom" required>
-        <input name="prenoms" class="form-control mb-2" placeholder="Prénoms" required>
-        <input type="date" name="date_naissance" class="form-control mb-2" required placeholder="date de naissance">
-       <div class="mb-3">
-            <label class="form-label">Sexe</label><br>
-            <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="sexe" id="sexeM" value="M" required>
-            <label class="form-check-label" for="sexeM">Masculin</label>
+<div class="modal fade" id="addElModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">Ajouter un élève</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="form-check form-check-inline">
-          <input class="form-check-input" type="radio" name="sexe" id="sexeF" value="F">
-          <label class="form-check-label" for="sexeF">Féminin</label>
-      </div>
-      </div>
-      <div class="mb-3">
-          <label class="form-label">Status</label><br>
-          <div class="form-check form-check-inline">
-          <input class="form-check-input" type="radio" name="status" id="statusNouveau" value="Nouveau" checked>
-          <label class="form-check-label" for="statusNouveau">Nouveau</label>
-      </div>
-      <div class="form-check form-check-inline">
-          <input class="form-check-input" type="radio" name="status" id="statusAncien" value="Ancien">
-          <label class="form-check-label" for="statusAncien">Ancien</label>
-      </div>
-      </div>
-        <select name="classe_id" class="form-control mb-2" required>
-          <option value="">-- Classe --</option>
-          {% for c in classes %}
-             <option value="{{c.id}}">{{c.nom}}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
-        <button class="btn btn-success rounded-pill" type="submit">Enregistrer</button>
-      </div>
-    </form>
+      <form id="addForm" class="needs-validation" novalidate>
+        <div class="modal-body">
+          <div class="row g-3">
+            <!-- Ligne 1: Matricule et Nom -->
+            <div class="col-md-6">
+              <label for="matricule" class="form-label">Matricule</label>
+              <input type="text" class="form-control" id="matricule" name="matricule" placeholder="Laisser vide pour auto-génération">
+            </div>
+            <div class="col-md-6">
+              <label for="nom" class="form-label">Nom <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="nom" name="nom" required>
+              <div class="invalid-feedback">Veuillez renseigner le nom.</div>
+            </div>
+
+            <!-- Ligne 2: Prénoms et Date de naissance -->
+            <div class="col-md-6">
+              <label for="prenoms" class="form-label">Prénoms <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="prenoms" name="prenoms" required>
+              <div class="invalid-feedback">Veuillez renseigner les prénoms.</div>
+            </div>
+            <div class="col-md-6">
+              <label for="date_naissance" class="form-label">Date de naissance</label>
+              <input type="date" class="form-control" id="date_naissance" name="date_naissance">
+            </div>
+
+            <!-- Ligne 3: Sexe et Statut -->
+            <div class="col-md-6">
+              <label class="form-label">Sexe <span class="text-danger">*</span></label>
+              <div class="d-flex gap-3">
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="sexe" id="sexeM" value="M" required>
+                  <label class="form-check-label" for="sexeM">Masculin</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="sexe" id="sexeF" value="F" required>
+                  <label class="form-check-label" for="sexeF">Féminin</label>
+                </div>
+              </div>
+              <div class="invalid-feedback">Veuillez sélectionner le sexe.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Statut <span class="text-danger">*</span></label>
+              <div class="d-flex gap-3">
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="status" id="statusNouveau" value="Nouveau" checked required>
+                  <label class="form-check-label" for="statusNouveau">Nouveau</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="status" id="statusAncien" value="Ancien" required>
+                  <label class="form-check-label" for="statusAncien">Ancien</label>
+                </div>
+              </div>
+              <div class="invalid-feedback">Veuillez sélectionner le statut.</div>
+            </div>
+
+            <!-- Ligne 4: Classe (pleine largeur) -->
+            <div class="col-12">
+              <label for="classe_id" class="form-label">Classe <span class="text-danger">*</span></label>
+              <select class="form-select" id="classe_id" name="classe_id" required>
+                <option value="">Sélectionnez une classe</option>
+                {% for classe in classes %}
+                <option value="{{ classe.id }}">{{ classe.nom }}</option>
+                {% endfor %}
+              </select>
+              <div class="invalid-feedback">Veuillez sélectionner une classe.</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+          <button type="submit" class="btn btn-success">Enregistrer</button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>

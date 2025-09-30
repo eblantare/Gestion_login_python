@@ -1,0 +1,95 @@
+.export-card {
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    height: 100%;
+}
+
+.export-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.export-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.export-options {
+    margin-top: 1rem;
+}
+
+.badge-filter {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    padding: 0.25rem 0.5rem;
+    margin: 0.1rem;
+    border-radius: 10px;
+    font-size: 0.75rem;
+}
+
+.export-btn {
+    border: none;
+    padding: 0.5rem 1rem;
+    margin: 0.25rem;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.btn-pdf {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-pdf:hover {
+    background: #c82333;
+    transform: scale(1.05);
+}
+
+.btn-excel {
+    background: #198754;
+    color: white;
+}
+
+.btn-excel:hover {
+    background: #157347;
+    transform: scale(1.05);
+}
+
+.services-page {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+
+/* Styles pour les alertes */
+.alert.position-fixed {
+    animation: slideInRight 0.3s ease;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Styles pour le loading */
+#loadingClasses {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+#classesError {
+    font-size: 0.9rem;
+    font-weight: 500;
+}

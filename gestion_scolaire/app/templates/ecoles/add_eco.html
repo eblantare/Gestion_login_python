@@ -1,0 +1,119 @@
+<div class="modal fade" id="addEcoModal">
+  <div class="modal-dialog modal-lg">
+    <form id="addEcoForm" class="modal-content needs-validation" novalidate>
+      <div class="modal-header">
+        <h5 class="modal-title">Ajouter une école</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <!-- Ligne 1 : 2 champs -->
+          <div class="col-md-6">
+            <label for="addEco_code" class="form-label">Code</label>
+            <input name="code" id="addEco_code" class="form-control" placeholder="Laisser vide pour générer automatiquement">
+          </div>
+          <div class="col-md-6">
+            <label for="addEco_nom" class="form-label">Nom <span class="text-danger">*</span></label>
+            <input name="nom" id="addEco_nom" class="form-control" placeholder="Nom de l'école" required>
+          </div>
+
+          <!-- Ligne 2 : 2 champs -->
+          <div class="col-md-6">
+            <label for="addEco_localite" class="form-label">Localité <span class="text-danger">*</span></label>
+            <input name="localite" id="addEco_localite" class="form-control" placeholder="Ville/Village" required>
+          </div>
+          <div class="col-md-6">
+            <label for="addEco_prefecture" class="form-label">Préfecture <span class="text-danger">*</span></label>
+            <select name="prefecture" id="addEco_prefecture" class="form-select" required>
+              <option value="">Sélectionnez une préfecture</option>
+              <option value="GOLFE">GOLFE</option>
+              <option value="AMOU">AMOU</option>
+              <option value="AFAGNAN">AFAGNAN</option>
+              <option value="AGOE-NYIVE">AGOE-NYIVE</option>
+              <option value="AGOU">AGOU</option>
+              <option value="OGOU">OGOU</option>
+              <option value="ASSOLI">ASSOLI</option>
+              <option value="DOUFELGOU">DOUFELGOU</option>
+              <option value="KERAN">KERAN</option>
+              <option value="BASSAR">BASSAR</option>
+              <option value="TCHAOUDJO">TCHAOUDJO</option>
+              <option value="TONE">TONE</option>
+              <option value="KOZAH">KOZAH</option>
+              <option value="BINAH">BINAH</option>
+              <option value="DANKPEN">DANKPEN</option>
+              <option value="OTI">OTI</option>
+              <option value="OTI-SUD">OTI-SUD</option>
+              <option value="KLOTO">KLOTO</option>
+              <option value="MO">MO</option>
+              <option value="HAHO">HAHO</option>
+              <option value="ANIE">ANIE</option>
+              <option value="WAWA">WAWA</option>
+              <option value="KPELÉ">KPELÉ</option>
+              <option value="AVE">AVE</option>
+              <option value="YOTO">YOTO</option>
+              <option value="VO">VO</option>
+              <option value="LACS">LACS</option>
+              <option value="ZIO">ZIO</option>
+              <option value="AKEBOU">AKEBOU</option>
+              <option value="KPENDJAL">KPENDJAL</option>
+              <option value="MOYEN-MONO">MOYEN-MONO</option>
+              <option value="EST-MONO">EST-MONO</option>
+              <option value="BLITTA">BLITTA</option>
+              <option value="SOUTOUBOUA">SOUTOUBOUA</option>
+              <option value="TANDJOUARE">TANDJOUARE</option>
+              <option value="DANYI">DANYI</option>
+              <option value="TCHAMBA">TCHAMBA</option>
+              <option value="CINKASSE">CINKASSE</option>
+            </select>
+          </div>
+
+          <!-- Ligne 3 : 2 champs -->
+          <div class="col-md-6">
+            <label for="addEco_dre" class="form-label">D.R.E <span class="text-danger">*</span></label>
+            <input name="dre" id="addEco_dre" class="form-control" placeholder="Direction Régionale de l'Éducation" required>
+          </div>
+          <div class="col-md-6">
+            <label for="addEco_inspection" class="form-label">I.E.S.G <span class="text-danger">*</span></label>
+            <input name="inspection" id="addEco_inspection" class="form-control" placeholder="Inspection de l'Enseignement" required>
+          </div>
+
+          <!-- Ligne 4 : 1 champ plein largeur -->
+          <div class="col-12">
+            <label for="addEco_site" class="form-label">Site web</label>
+            <input name="site" id="addEco_site" class="form-control" placeholder="https://www.exemple.com">
+          </div>
+
+          <!-- Ligne 5 : 1 champ plein largeur -->
+          <div class="col-12">
+            <label for="addEco_email" class="form-label">Email</label>
+            <input name="email" id="addEco_email" class="form-control" placeholder="email@exemple.com" type="email">
+          </div>
+
+          <!-- Ligne 6 : 2 champs -->
+          <div class="col-md-6">
+            <label for="addEco_telephone1" class="form-label">Téléphone 1</label>
+            <input name="telephone1" id="addEco_telephone1" class="form-control" placeholder="+228 XX XX XX XX" type="tel">
+          </div>
+          <div class="col-md-6">
+            <label for="addEco_telephone2" class="form-label">Téléphone 2</label>
+            <input name="telephone2" id="addEco_telephone2" class="form-control" placeholder="+228 XX XX XX XX" type="tel">
+          </div>
+
+          <!-- Ligne 7 : 2 champs -->
+          <div class="col-md-6">
+            <label for="addEco_boite_postale" class="form-label">Boîte Postale (B.P)</label>
+            <input name="boite_postale" id="addEco_boite_postale" class="form-control" placeholder="Numéro de B.P">
+          </div>
+          <div class="col-md-6">
+            <label for="addEco_devise" class="form-label">Devise</label>
+            <input name="devise" id="addEco_devise" class="form-control" placeholder="Devise de l'école">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
+        <button type="submit" class="btn btn-success rounded-pill">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
