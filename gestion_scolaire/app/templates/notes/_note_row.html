@@ -1,46 +1,37 @@
-<tr id="note-{{ note.id }}" data-id="{{ note.id }}">
-  <td class="truncate" title="{{ note.eleve.nom }} {{ note.eleve.prenoms }}">
-    {{ note.eleve.nom }} {{ note.eleve.prenoms }}
-  </td>
-  <td class="truncate" title="{{ note.matiere.libelle }}">
-    {{ note.matiere.libelle }}
-  </td>
-  <td>{{ note.note1 }}</td>
-  <td>{{ note.note2 }}</td>
-  <td>{{ note.note3 }}</td>
-  <td>{{ note.note_comp }}</td>
-  <td>{{ note.coefficient }}</td>
-  <td class="truncate"
-    title="{% if note.enseignement and note.enseignement.enseignant %}{{ note.enseignement.enseignant.utilisateur.nom }} {{ note.enseignement.enseignant.utilisateur.prenoms }}{% else %}-{% endif %}">
-    {% if note.enseignement and note.enseignement.enseignant %}
-      {{ note.enseignement.enseignant.utilisateur.nom }} {{ note.enseignement.enseignant.utilisateur.prenoms }}
-    {% else %}
-    -
-    {% endif %}
-  </td>
-
-  <td>{{ note.trimestre }}</td>
-  <td>{{ note.annee_scolaire }}</td>
-  <td>{{ note.date_saisie }}</td>
-  <td class="actions">
-  <div class="btn-group btn-group-sm" role="group">
-    <button type="button" class="btn btn-sm btn-info btn-detail-note" data-id="{{ note.id }}" title="Détails">
-      <i class="bi bi-eye"></i>
-    </button>
-    {% if note.etat != "Clôturé" %}
-    <button type="button" class="btn btn-sm btn-primary btn-edit-note" data-id="{{ note.id }}" title="Modifier">
-      <i class="bi bi-pencil"></i>
-    </button>
-    <button type="button" class="btn btn-sm btn-danger btn-delete-note" data-id="{{ note.id }}" 
-      data-eleve="{{ note.eleve_id }}" data-matiere="{{ note.matiere_id }}" title="Supprimer">
-      <i class="bi bi-trash"></i>
-    </button>
-    {% endif %}
-    </div>
-  </td>
-  <td class="etat">
-    <span class="badge {% if note.etat == 'Actif' %}bg-success{% else %}bg-secondary{% endif %}">
-      {{ note.etat }}
-    </span>
-  </td>
+<tr data-id="{{ note.id }}" data-classe="{{ note.eleve.classe_id if note.eleve else '' }}">
+    <td>{{ note.eleve.nom }} {{ note.eleve.prenoms if note.eleve else 'N/A' }}</td>
+    <td>{{ note.matiere.libelle if note.matiere else 'N/A' }}</td>
+    <td>{{ note.note1 if note.note1 is not none }}</td>
+    <td>{{ note.note2 if note.note2 is not none }}</td>
+    <td>{{ note.note3 if note.note3 is not none }}</td>
+    <td>{{ note.note_comp if note.note_comp is not none }}</td>
+    <td>{{ note.coefficient }}</td>
+    <td>
+        {% if note.enseignement and note.enseignement.enseignant and note.enseignement.enseignant.utilisateur %}
+            {{ note.enseignement.enseignant.utilisateur.nom }} {{ note.enseignement.enseignant.utilisateur.prenoms }}
+        {% elif note.enseignement and note.enseignement.enseignant %}
+            {{ note.enseignement.enseignant.nom or '' }} {{ note.enseignement.enseignant.prenoms or '' }}
+        {% else %}
+            Non assigné
+        {% endif %}
+    </td>
+    <td>{{ note.trimestre }}</td>
+    <td>{{ note.annee_scolaire }}</td>
+    <td>{{ note.date_saisie.strftime('%d/%m/%Y') if note.date_saisie else '' }}</td>
+    <td class="actions">
+        <button class="btn btn-info btn-sm btn-detail-note" data-id="{{ note.id }}">
+            <i class="bi bi-eye"></i>
+        </button>
+        <button class="btn btn-warning btn-sm btn-edit-note" data-id="{{ note.id }}">
+            <i class="bi bi-pencil"></i>
+        </button>
+        <button class="btn btn-danger btn-sm btn-delete-note" data-id="{{ note.id }}">
+            <i class="bi bi-trash"></i>
+        </button>
+    </td>
+    <td class="etat">
+        <span class="badge {% if note.etat == 'Actif' %}bg-success{% else %}bg-secondary{% endif %}">
+            {{ note.etat }}
+        </span>
+    </td>
 </tr>

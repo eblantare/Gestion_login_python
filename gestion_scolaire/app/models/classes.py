@@ -23,5 +23,19 @@ class Classe(BaseModel):
     enseignants = db.relationship( "Enseignant", 
                                   secondary=classe_enseignant, 
                                   lazy="subquery", backref=db.backref("classes", lazy="dynamic") )
-
+    
+        # CORRECTION: Référence vers l'enseignant titulaire avec le bon schéma
+    titulaire_id = db.Column(
+        UUID(as_uuid=True), 
+        db.ForeignKey('geslog_schema.enseignants.id'),  # Ajout du schéma
+        nullable=True
+    )
+    titulaire = db.relationship(
+        'Enseignant', 
+        backref='classes_titulaires', 
+        foreign_keys=[titulaire_id],
+        remote_side='Enseignant.id'  # Ajout de remote_side
+    )
+def __repr__(self):
+        return f'<Classe {self.nom}>'
 

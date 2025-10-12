@@ -25,6 +25,8 @@ class Moyenne(BaseModel):
     moy_faible_trim3 = db.Column(db.Float, nullable=True)
     moy_forte_trim3  = db.Column(db.Float, nullable=True)
     moy_class_trim3  = db.Column(db.Float, nullable=True)
+     # 🔹 NOUVEAU : Moyenne des notes 1, 2, 3 (calculée par matière)
+    moyenne_notes = db.Column(db.Float, nullable=True)  # ← AJOUTEZ CE CHAMP
     moy_mat = db.Column(db.Float, nullable=False) 
     moy_class = db.Column(db.Float, nullable=False) 
 

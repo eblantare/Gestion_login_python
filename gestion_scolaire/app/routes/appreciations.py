@@ -55,7 +55,6 @@ def add_appreciations():
         return jsonify({"error": "Erreur base de données, vérifiez les logs."}), 500
     
 @appreciations_bp.route("/")
-
 def liste_appr():
     # paramètres de recherche et de pagination
     search = request.args.get("search", "", type=str)
@@ -65,15 +64,27 @@ def liste_appr():
     # Requête de base
     query = Appreciations.query
 
-    # Recherche
+    # Recherche - SOLUTION RECOMMANDÉE
     if search:
-        query = query.filter(
-            (Appreciations.libelle.ilike(f"%{search}%")) |
-            (Appreciations.description.ilike(f"%{search}%")) |
-            (Appreciations.seuil_min.ilike(f"%{search}%")) |
-            (Appreciations.seuil_max.ilike(f"%{search}%")) |
-            (Appreciations.etat.ilike(f"%{search}%"))
-        )
+        # Créer une liste de conditions
+        conditions = []
+        
+        # Colonnes textuelles
+        conditions.extend([
+            Appreciations.libelle.ilike(f"%{search}%"),
+            Appreciations.description.ilike(f"%{search}%"),
+            Appreciations.etat.ilike(f"%{search}%")
+        ])
+        
+        # Colonnes numériques - conversion en texte
+        conditions.extend([
+            db.cast(Appreciations.seuil_min, db.String).ilike(f"%{search}%"),
+            db.cast(Appreciations.seuil_max, db.String).ilike(f"%{search}%")
+        ])
+        
+        # Combiner toutes les conditions avec OR
+        from sqlalchemy import or_
+        query = query.filter(or_(*conditions))
 
     # Pagination (toujours exécutée, que search soit vide ou pas)
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)

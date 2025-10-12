@@ -93,3 +93,70 @@
     font-size: 0.9rem;
     font-weight: 500;
 }
+.bg-purple {
+    background: linear-gradient(135deg, #6f42c1, #8b5cf6) !important;
+}
+
+.btn-purple {
+    background-color: #6f42c1;
+    border-color: #6f42c1;
+    color: white;
+}
+
+.btn-purple:hover {
+    background-color: #5a32a3;
+    border-color: #5a32a3;
+    color: white;
+}
+
+.export-card {
+    border-radius: 15px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    height: 100%;
+}
+
+.export-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+.export-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+
+.badge-filter {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    padding: 0.25rem 0.5rem;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    margin: 0.1rem;
+}
+
+.export-btn {
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    margin: 0.2rem;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.btn-pdf {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-pdf:hover {
+    background: #bb2d3b;
+}
+
+.btn-excel {
+    background: #198754;
+    color: white;
+}
+
+.btn-excel:hover {
+    background: #157347;
+}

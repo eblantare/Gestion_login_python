@@ -32,9 +32,9 @@
             {% endif %}
         </div>
     </form>
-
+    <div class="table-responsive" style="overflow-x: auto; max-width: 100%;"
     <!-- Tableau des écoles -->
-    <table class="table table-bordered table-striped text-center align-middle" id="table-ecoles">
+    <table class="table table-bordered table-striped text-center align-middle" id="table-ecoles" style="min-width: 1200px;">
         <thead class="table-dark">
             <tr>
                 <th>Code</th>
@@ -68,15 +68,18 @@
               <td class="col-devise text-truncate-ellipsis" title="{{ eco.devise }}">{{ eco.devise }}</td>
               <td class="col-prefecture text-truncate-ellipsis" title="{{eco.prefecture}}">{{ eco.prefecture }}</td>
                 <td class="text-nowrap">
-                    <button class="btn btn-info btn-sm btnEco-detail" data-id="{{ eco.id }}" title="Détail">
-                        <i class="bi bi-eye"></i>
+                    <button class="btn btn-info btn-sm btnEco-detail" data-id="{{ eco.id }}" title="Détail" 
+                    style="padding: 0.2rem 0.3rem; width: 28px; height: 28px;">
+                        <i class="bi bi-eye" style="font-size: 0.75rem;"></i>
                     </button>
                     {% if user_role in ['admin', 'administrateur'] %}
-                    <button type="button" class="btn btn-warning btn-sm btnEco-edit" data-id="{{ eco.id }}" title="Modifier">
-                        <i class="bi bi-pencil"></i>
+                    <button type="button" class="btn btn-warning btn-sm btnEco-edit" data-id="{{ eco.id }}" title="Modifier" 
+                       style="padding: 0.2rem 0.3rem; width: 28px; height: 28px;">
+                        <i class="bi bi-pencil" style="font-size: 0.75rem;"></i>
                     </button>
-                    <button class="btn btn-danger btn-sm btnEco-danger" data-id="{{ eco.id }}" title="Supprimer">
-                        <i class="bi bi-trash"></i>
+                    <button class="btn btn-danger btn-sm btnEco-danger" data-id="{{ eco.id }}" title="Supprimer" 
+                       style="padding: 0.2rem 0.3rem; width: 28px; height: 28px;">
+                        <i class="bi bi-trash" style="font-size: 0.75rem;"></i>
                     </button>
                     {% endif %}
                 </td>
@@ -88,7 +91,7 @@
             {% endfor %}
         </tbody>
     </table>
-
+   </div>
     <!-- Pagination -->
     <nav>
         <ul class="pagination justify-content-center">

@@ -73,7 +73,8 @@ def add_classe():
 
     # Création de la classe
     classe = Classe(code=code, nom=nom, effectif=effectif, etat="Inactif")
-    classe.enseignants = enseignants
+    if enseignants:
+      classe.enseignants = enseignants
 
     db.session.add(classe)
     db.session.commit()
@@ -132,8 +133,11 @@ def update_classe(id):
     classe.effectif = data.get("effectif")
     # 🔹 Récupérer les enseignants sélectionnés
     enseignant_ids = request.form.getlist("enseignants[]")
-    enseignants = Enseignant.query.filter(Enseignant.id.in_(enseignant_ids)).all()
-    classe.enseignants = enseignants  # met à jour la relation many-to-many
+    if enseignant_ids:
+       enseignants = Enseignant.query.filter(Enseignant.id.in_(enseignant_ids)).all()
+       classe.enseignants = enseignants  # met à jour la relation many-to-many
+    else:
+        classe.enseignants = []
     db.session.commit()
     return jsonify({
         "id":str(classe.id),

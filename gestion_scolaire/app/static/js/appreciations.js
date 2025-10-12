@@ -1,273 +1,255 @@
 document.addEventListener("DOMContentLoaded", () => {
   'use strict';
 
-  // Fonction pour créer une notification
+  // Activer les tooltips
+  const tooltipTriggerlist = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  tooltipTriggerlist.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl);
+  });
+
+  // Sélection du tableau des APPRÉCIATIONS (corrigé)
+  const table = document.getElementById("table-appreciations");
+  if (table) {
+    table.addEventListener("click", function (e) {
+      // Bouton modifier
+      const editBtn = e.target.closest(".btn-edit");
+      if (editBtn) {
+        editAppreciation(editBtn.dataset.id);
+        return;
+      }
+
+      // Bouton détail
+      const detailBtn = e.target.closest(".btn-detail");
+      if (detailBtn) {
+        showAppDetail(detailBtn.dataset.id);
+        return;
+      }
+
+      // Bouton supprimer
+      const deleteBtn = e.target.closest(".btn-delete");
+      if (deleteBtn) {
+        const id = deleteBtn.dataset.id;
+        if (!id) {
+          alert("Impossible de supprimer : identifiant non défini !");
+          return;
+        }
+        deleteAppreciation(id);
+        return;
+      }
+    });
+  }
+
+  // ---------- Ajout appréciation (AJAX) ----------
+  const addAppForm = document.getElementById("addAppForm");
+  if (addAppForm) {
+    addAppForm.replaceWith(addAppForm.cloneNode(true));
+    const newAddAppForm = document.getElementById("addAppForm");
+    newAddAppForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      newAddAppForm.classList.add("was-validated");
+      if (!newAddAppForm.checkValidity()) return;
+      const formData = new FormData(newAddAppForm);
+      const res = await fetch("/appreciations/add", { method: "POST", body: formData });
+      const data = await res.json();
+      if (res.ok) {
+        const modal = bootstrap.Modal.getInstance(document.getElementById("addAppModal"));
+        if (modal) modal.hide();
+        showNotification(data.message || "Ajout réussi", "success");
+        location.reload();
+      } else {
+        showNotification(data.error || "Erreur lors de l'ajout", "danger");
+      }
+    });
+  }
+
+  // Notifications
   function showNotification(message, type = "success", delay = 3000) {
     const container = document.getElementById("notificationContainer");
     if (!container) return;
 
-    const toast = document.createElement("div");
-    toast.className = `toast align-items-center text-bg-${type} border-0`;
-    toast.setAttribute("role", "alert");
-    toast.setAttribute("aria-live", "assertive");
-    toast.setAttribute("aria-atomic", "true");
-    toast.setAttribute("data-bs-delay", delay);
+    const toastEl = document.createElement("div");
+    toastEl.className = `toast align-items-center text-bg-${type} border-0`;
+    toastEl.role = "alert";
+    toastEl.ariaLive = "assertive";
+    toastEl.ariaAtomic = "true";
 
-    toast.innerHTML = `
+    toastEl.innerHTML = `
       <div class="d-flex">
         <div class="toast-body">${message}</div>
-        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
       </div>
     `;
 
-    container.appendChild(toast);
+    container.appendChild(toastEl);
 
-    // Initialiser le toast et l'afficher
-    const bsToast = new bootstrap.Toast(toast);
+    const bsToast = new bootstrap.Toast(toastEl, { delay: delay });
     bsToast.show();
 
-    // Supprimer après disparition
-    toast.addEventListener("hidden.bs.toast", () => toast.remove());
+    toastEl.addEventListener("hidden.bs.toast", () => {
+      toastEl.remove();
+    });
   }
 
+  // ---------- Bootstrap validation ----------
+  (function () {
+    const forms = document.querySelectorAll('.needs-validation');
+    Array.from(forms).forEach(form => {
+      form.addEventListener('submit', event => {
+        if (!form.checkValidity()) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        form.classList.add('was-validated');
+      }, false);
+    });
+  })();
 
-  function attachListenersToRow(row, id) {
-  // Bouton Modifier
-  const editBtn = row.querySelector(".btn-edit");
-  if (editBtn) {
-    editBtn.addEventListener("click", () => editAppreciation(id));
-  }
+  // ---------- Workflow : changer état (modal dynamique) ----------
+  const confirmModalApp = document.getElementById("confirmActionAppModal");
+  const confirmYesAppBtn = document.getElementById("confirmYesAppBtn");
 
-  // Select Action
-  const select = row.querySelector(".select-action-app");
-  if (select) {
-    select.addEventListener("change", async (e) => {
-      const action = select.value;
+  let currentAction = null;
+  let currentAppreciationId = null;
+  let currentSelect = null;
+  let actionConfirmed = false;
+
+  function attachWorkflowChange(select) {
+    select.addEventListener("change", function () {
+      const action = this.value;
       if (!action) return;
 
-      const confirmModalEl = document.getElementById("confirmActionAppModal");
-      const confirmMessageEl = document.getElementById("confirmAppMessage");
-      const confirmYesBtn = document.getElementById("confirmYesAppBtn");
+      currentAction = action;
+      currentAppreciationId = this.dataset.id;
+      currentSelect = this;
+      actionConfirmed = false;
 
-      confirmMessageEl.textContent = `Voulez-vous vraiment effectuer l'action "${action}" ?`;
-      const modalInstance = bootstrap.Modal.getOrCreateInstance(confirmModalEl);
-      modalInstance.show();
+      const msgEl = document.getElementById("confirmAppMessage");
+      if (msgEl) msgEl.textContent = `Voulez-vous vraiment ${action.toLowerCase()} cette appréciation ?`;
 
-      confirmYesBtn.replaceWith(confirmYesBtn.cloneNode(true));
-      const newConfirmYesBtn = document.getElementById("confirmYesAppBtn");
+      const modal = new bootstrap.Modal(confirmModalApp);
+      modal.show();
+    });
+  }
 
-      newConfirmYesBtn.addEventListener("click", async () => {
-        modalInstance.hide();
-        try {
-          const res = await fetch(`/appreciations/${id}/changer_etat`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action })
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            showNotification(data.error || "Erreur lors du changement d'état", "danger");
-            return;
+  document.querySelectorAll(".select-action-app").forEach(attachWorkflowChange);
+
+  if (confirmYesAppBtn) {
+    confirmYesAppBtn.addEventListener("click", async function () {
+      if (!currentAction || !currentAppreciationId || !currentSelect) return;
+
+      confirmYesAppBtn.disabled = true;
+
+      try {
+        const res = await fetch(`/appreciations/${currentAppreciationId}/changer_etat`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest"
+          },
+          body: JSON.stringify({ action: currentAction })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+          alert(data.error || "Erreur lors de l'opération");
+          currentSelect.value = "";
+          actionConfirmed = false;
+          bootstrap.Modal.getInstance(confirmModalApp)?.hide();
+          return;
+        }
+
+        // Succès
+        actionConfirmed = true;
+
+        const td = currentSelect.closest("td");
+        const badge = td && td.querySelector("span");
+        if (badge) {
+          badge.textContent = data.etat;
+
+          let badgeClass;
+          const etat = data.etat.toLowerCase();
+
+          if (etat === "actif") {
+            badgeClass = "bg-success";
+          } else if (etat === "abandonné") {
+            badgeClass = "bg-dark";
+          } else {
+            badgeClass = "bg-secondary";
           }
-          showNotification(data.message, "success");
-          select.value = "";
 
-          // Mettre à jour le DOM
-          const badge = row.querySelector(".etat .badge");
-          if (badge) {
-            badge.textContent = data.etat;
-            badge.className = `badge ${
-              data.etat === "Actif" ? "bg-success" :
-              data.etat === "Abandonné" ? "bg-dark" : "bg-secondary"
-            }`;
-          }
+          badge.className = "badge " + badgeClass;
+        }
+
+        // Cacher/montrer boutons selon l'état
+        const row = currentSelect.closest('tr');
+        if (row) {
+          const actionCell = row.querySelector('td.actions-cell') || row.lastElementChild;
+          const btnEdit = actionCell ? actionCell.querySelector('.btn-edit') : null;
+          const btnDelete = actionCell ? actionCell.querySelector('.btn-delete') : null;
 
           if (data.etat.toLowerCase() !== "inactif") {
-            row.querySelector(".btn-edit")?.remove();
-            row.querySelector(".btn-danger")?.remove();
+            if (btnEdit) btnEdit.remove();
+            if (btnDelete) btnDelete.remove();
+          } else {
+            if (btnEdit) btnEdit.style.display = "";
+            if (btnDelete) btnDelete.style.display = "";
           }
+        }
 
-          const selectRow = row.querySelector(".select-action-app");
-          if (selectRow) {
-            selectRow.innerHTML = '<option value="">---Action---</option>';
-            if (data.etat === "Actif") selectRow.innerHTML += '<option value="Abandonner">Abandonner</option>';
-            else if (data.etat === "Inactif") selectRow.innerHTML += '<option value="Activer">Activer</option>';
-            else if (data.etat === "Abandonné") selectRow.remove();
+        // Recréer le select
+        if (data.etat.toLowerCase() === "abandonné") {
+          currentSelect.remove();
+        } else {
+          currentSelect.remove();
+
+          const newSelect = document.createElement("select");
+          newSelect.className = "form-select form-select-sm d-inline-block w-auto ms-1 select-action-app";
+          newSelect.dataset.id = currentAppreciationId;
+
+          let options = `<option value="">Action</option>`;
+          switch (data.etat.toLowerCase()) {
+            case "inactif":
+              options += `<option value="Activer">Activer</option>`;
+              break;
+            case "actif":
+              options += `<option value="Abandonner">Abandonner</option>`;
+              break;
           }
+          newSelect.innerHTML = options;
 
-        } catch (err) {
-          console.error(err);
-          showNotification("Une erreur est survenue.", "danger");
+          td.appendChild(newSelect);
+          attachWorkflowChange(newSelect);
         }
-      });
+
+        bootstrap.Modal.getInstance(confirmModalApp)?.hide();
+
+      } catch (err) {
+        console.error(err);
+        alert("Erreur réseau");
+        if (currentSelect) currentSelect.value = "";
+      } finally {
+        confirmYesAppBtn.disabled = false;
+      }
+    });
+
+    // Reset du select si modal fermé sans confirmation
+    confirmModalApp?.addEventListener("hidden.bs.modal", function () {
+      if (!actionConfirmed && currentSelect) {
+        currentSelect.value = "";
+      }
+      currentAction = null;
+      currentAppreciationId = null;
+      currentSelect = null;
+      actionConfirmed = false;
     });
   }
-}
-// Listener formulaire ajout appréciation
-const form = document.getElementById("addAppreciationForm");
-if (form && !form.dataset.listenerAttached) {
-    form.dataset.listenerAttached = "true";
 
-    form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const formData = new FormData(form);
-
-        try {
-            const res = await fetch(form.action, { method: "POST", body: formData });
-            const data = await res.json();
-            console.log("+++++++++++++++++++",data, res.ok)
-
-            if (!res.ok) {
-                showNotification(data.error || "Erreur serveur", "danger");
-                return;
-            }
-
-            showNotification("Appréciation ajoutée avec succès", "success");
-            form.reset();
-            bootstrap.Modal.getInstance(document.getElementById("addAppModal"))?.hide();
-
-// --- Ajouter la nouvelle ligne dans DataTable ---
-if (window.appreciationsTable) {
-    const rowNode = appreciationsTable.row.add([
-        `<td class="col-libelle">${data.libelle}</td>`,
-        `<td class="col-seuil_min">${data.seuil_min}</td>`,
-        `<td class="col-seuil_max">${data.seuil_max}</td>`,
-        `<td class="col-description">${data.description}</td>`,
-        `<td class="etat text-center">
-            <span class="badge bg-secondary">${data.etat || "Inactif"}</span>
-            <select class="form-select form-select-sm d-inline-block w-auto ms-2 select-action-app rounded-pill" data-id="${data.id}">
-              <option value="">---Action---</option>
-              <option value="Activer">Activer</option>
-            </select>
-        </td>`,
-        `<td class="text-nowrap">
-            <button class="btn btn-info btn-sm" onclick="showAppDetail('${data.id}')">
-              <i class="bi bi-eye"></i>
-            </button>
-            <button class="btn btn-sm btn-warning btn-edit" data-id="${data.id}">
-              <i class="bi bi-pencil"></i>
-            </button>
-            <button class="btn btn-sm btn-danger" onclick="deleteAppreciation('${data.id}')">
-              <i class="bi bi-trash"></i>
-            </button>
-        </td>`
-    ]).draw(false).node();
-
-    rowNode.setAttribute("data-id", `appreciation-${data.id}`);
-    rowNode.classList.add("appreciation-row");
-
-    // Réattacher les listeners
-    attachListenersToRow(rowNode, data.id);
-}
-
-
-        } catch (err) {
-            console.error(err);
-            showNotification("Impossible de joindre le serveur.", "danger");
-        }
-    });
-}
-//Avancement du workflow
-if (!window.workflowListenerAdded) {
-  document.addEventListener("change", function (e) {
-    if (!e.target.classList.contains("select-action-app")) return;
-
-    const select = e.target;
-    const id = select.dataset.id;
-    const action = select.value;
-    if (!action) return;
-
-    const confirmModalEl = document.getElementById("confirmActionAppModal");
-    const confirmMessageEl = document.getElementById("confirmAppMessage");
-    const confirmYesBtn = document.getElementById("confirmYesAppBtn");
-
-    // Message personnalisé selon l'action
-    confirmMessageEl.textContent = `Voulez-vous vraiment effectuer l'action "${action}" ?`;
-
-    // Afficher le modal
-    const modalInstance = bootstrap.Modal.getOrCreateInstance(confirmModalEl);
-    modalInstance.show();
-
-    // Supprimer tout listener précédent pour éviter doublons
-    confirmYesBtn.replaceWith(confirmYesBtn.cloneNode(true));
-    const newConfirmYesBtn = document.getElementById("confirmYesAppBtn");
-
-newConfirmYesBtn.addEventListener("click", async () => {
-  modalInstance.hide(); // Masquer le modal
-
-  try {
-    const res = await fetch(`/appreciations/${id}/changer_etat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action })
-    });
-    const data = await res.json();
-
-    if (!res.ok) {
-      showNotification(data.error || "Erreur lors du changement d'état", "danger");
-      return;
-    }
-
-    showNotification(data.message, "success");
-    select.value = "";
-
-    // --- Mettre à jour le DOM immédiatement ---
-    const row = document.querySelector(`tr[data-id="appreciation-${id}"]`);
-    if (row) {
-      // Badge
-      const badge = row.querySelector(".etat .badge");
-      if (badge) {
-        badge.textContent = data.etat;
-        badge.className = `badge ${
-          data.etat === "Actif" ? "bg-success" :
-          data.etat === "Abandonné" ? "bg-dark" : "bg-secondary"
-        }`;
-      }
-
-      // Select d'action
-      const selectRow = row.querySelector(".select-action-app");
-      if (selectRow) {
-        selectRow.innerHTML = '<option value="">---Action---</option>';
-        if (data.etat === "Actif") selectRow.innerHTML += '<option value="Abandonner">Abandonner</option>';
-        else if (data.etat === "Inactif") selectRow.innerHTML += '<option value="Activer">Activer</option>';
-        else if (data.etat === "Abandonné") selectRow.remove();
-      }
-
-      // **Masquer les boutons Modifier et Supprimer si état ≠ Inactif**
-      const editBtn = row.querySelector(".btn-edit");
-      const deleteBtn = row.querySelector(".btn-danger");
-      if (data.etat.toLowerCase() !== "inactif") {
-        if (editBtn) editBtn.remove();
-        if (deleteBtn) deleteBtn.remove();
-      }
-    }
-
-  } catch (err) {
-    console.error(err);
-    showNotification("Une erreur est survenue.", "danger");
-  }
-});
-// Masquer les boutons 'modifier' et 'supprimer' si l'état n'est plus Inactif
-if (row) {
-  const editBtn = row.querySelector(".btn-edit");
-  const deleteBtn = row.querySelector(".btn-danger");
-
-  if (data.etat.toLowerCase() !== "inactif") {
-    if (editBtn) editBtn.remove();
-    if (deleteBtn) deleteBtn.remove();
-  } else {
-    // Facultatif : tu peux recréer les boutons si l'état redevient 'Inactif'
-  }
-}
-
-  });
-  window.workflowListenerAdded = true; // évite ajout multiple
-}
-
-// ---------- Suppression ----------
+  // ---------- Suppression ----------
   window.deleteAppreciation = async function (id) {
     const res = await fetch(`/appreciations/get/${id}`);
-    if (!res.ok) return alert("Erreur lecture appreciation");
+    if (!res.ok) return console.error("Impossible de récupérer l'appréciation :", id);
+
     const data = await res.json();
     document.getElementById("deleteApp_id").value = id;
     document.getElementById("deleteApp_info").textContent = `${data.libelle} - ${data.description}`;
@@ -285,114 +267,102 @@ if (row) {
     });
   }
 
-// ---------- Édition ----------
-window.editAppreciation = function (id) {
-  const row = document.querySelector(`tr[data-id="appreciation-${id}"]`);
-  if (!row) return;
-
-  document.getElementById("editApp_id").value = id;
-  document.getElementById("editApp_libelle").value = row.querySelector(".col-libelle")?.innerText.trim() || "";
-  document.getElementById("editApp_seuil_min").value = row.querySelector(".col-seuil_min")?.innerText.trim() || "";
-  document.getElementById("editApp_seuil_max").value = row.querySelector(".col-seuil_max")?.innerText.trim() || "";
-  document.getElementById("editApp_description").value = row.querySelector(".col-description")?.innerText.trim() || "";
-
-  const editModalEl = document.getElementById("editAppModal");
-  if (!editModalEl) return console.error("Modal #editAppModal introuvable");
-
-  const modalInstance = bootstrap.Modal.getOrCreateInstance(editModalEl);
-  modalInstance.show();
-};
-
-// Attacher le listener click une seule fois
-document.querySelectorAll(".btn-edit").forEach(btn => {
-  btn.addEventListener("click", () => editAppreciation(btn.dataset.id));
-});
-
-const editAppForm = document.getElementById("editAppForm");
-if (editAppForm && !editAppForm.dataset.listenerAttached) {
-  editAppForm.dataset.listenerAttached = "true";
-
-  editAppForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    if (!e.target.checkValidity()) return;
-
-    const id = document.getElementById("editApp_id").value;
-    const formData = new FormData(e.target);
-
-    const row = document.querySelector(`tr[data-id="appreciation-${id}"]`);
-    if (!row) return;
-
-    const originalLibelle = row.querySelector(".col-libelle")?.innerText.trim() || "";
-    const originalSeuil_min = row.querySelector(".col-seuil_min")?.innerText.trim() || "";
-    const originalSeuil_max = row.querySelector(".col-seuil_max")?.innerText.trim() || "";
-    const originalDescription = row.querySelector(".col-description")?.innerText.trim() || "";
-
-    // Vérifie si les valeurs ont changé
-    if (
-      formData.get("libelle") === originalLibelle &&
-      formData.get("seuil_min") === originalSeuil_min &&
-      formData.get("seuil_max") === originalSeuil_max &&
-      formData.get("description") === originalDescription
-    ) {
-      const modalInstance = bootstrap.Modal.getInstance(document.getElementById("editAppModal"));
-      modalInstance?.hide();
-      showNotification("Aucune modification détectée", "info");
-      return;
+  // ---------- Édition appréciation ----------
+  window.editAppreciation = async function(id) {
+    const res = await fetch(`/appreciations/get/${id}`);
+    if (!res.ok) {
+        alert(`Erreur récupération appréciation : ${res.status}`);
+        return;
     }
+    const data = await res.json();
 
-    try {
-      const res = await fetch(`/appreciations/update/${id}`, { method: "POST", body: formData });
-      const updated = await res.json();
+    document.getElementById("editApp_id").value = data.id;
+    document.getElementById("editApp_libelle").value = data.libelle;
+    document.getElementById("editApp_seuil_min").value = data.seuil_min;
+    document.getElementById("editApp_seuil_max").value = data.seuil_max;
+    document.getElementById("editApp_description").value = data.description;
 
-      if (!res.ok) {
-        showNotification(updated.error || "Erreur lors de la modification", "danger");
+    bootstrap.Modal.getOrCreateInstance(document.getElementById("editAppModal")).show();
+  };
+
+  const editAppForm = document.getElementById("editAppForm");
+  if (editAppForm && !editAppForm.dataset.listenerAttached) {
+    editAppForm.dataset.listenerAttached = "true";
+
+    editAppForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!e.target.checkValidity()) return;
+
+      const id = document.getElementById("editApp_id").value;
+      const formData = new FormData(e.target);
+
+      const row = document.querySelector(`tr[data-id="appreciation-${id}"]`);
+      if (!row) return;
+
+      const originalLibelle = row.querySelector(".col-libelle")?.innerText.trim() || "";
+      const originalSeuilMin = row.querySelector(".col-seuil_min")?.innerText.trim() || "";
+      const originalSeuilMax = row.querySelector(".col-seuil_max")?.innerText.trim() || "";
+      const originalDescription = row.querySelector(".col-description")?.innerText.trim() || "";
+
+      // Pas de modif
+      if (
+        formData.get("libelle") === originalLibelle &&
+        String(formData.get("seuil_min")) === originalSeuilMin &&
+        String(formData.get("seuil_max")) === originalSeuilMax &&
+        formData.get("description") === originalDescription
+      ) {
+        bootstrap.Modal.getInstance(document.getElementById("editAppModal"))?.hide();
+        showNotification("Aucune modification détectée", "info");
         return;
       }
 
-      // Mise à jour du tableau
-      row.querySelector(".col-libelle") && (row.querySelector(".col-libelle").textContent = updated.libelle);
-      row.querySelector(".col-seuil_min") && (row.querySelector(".col-seuil_min").textContent = updated.seuil_min);
-      row.querySelector(".col-seuil_max") && (row.querySelector(".col-seuil_max").textContent = updated.seuil_max);
-      row.querySelector(".col-description") && (row.querySelector(".col-description").textContent = updated.description);
+      try {
+        const res = await fetch(`/appreciations/update/${id}`, { method: "POST", body: formData });
+        const updated = await res.json();
 
-      const badge = row.querySelector(".etat .badge");
-      if (badge && updated.etat) {
-        badge.textContent = updated.etat;
-        badge.className = `badge ${
-          updated.etat === "Actif" ? "bg-success" :
-          updated.etat === "Abandonné" ? "bg-dark" : "bg-secondary"
-        }`;
+        if (!res.ok) {
+          showNotification(updated.error || "Erreur lors de la modification", "danger");
+          return;
+        }
+
+        // MAJ tableau
+        row.querySelector(".col-libelle") && (row.querySelector(".col-libelle").textContent = updated.libelle);
+        row.querySelector(".col-seuil_min") && (row.querySelector(".col-seuil_min").textContent = updated.seuil_min);
+        row.querySelector(".col-seuil_max") && (row.querySelector(".col-seuil_max").textContent = updated.seuil_max);
+        row.querySelector(".col-description") && (row.querySelector(".col-description").textContent = updated.description);
+
+        const badge = row.querySelector(".etat .badge");
+        if (badge && updated.etat) {
+          badge.textContent = updated.etat;
+          badge.className = `badge ${
+            updated.etat === "Actif" ? "bg-success" :
+            updated.etat === "Abandonné" ? "bg-dark" : "bg-secondary"
+          }`;
+        }
+
+        bootstrap.Modal.getInstance(document.getElementById("editAppModal"))?.hide();
+        showNotification("Modification réussie", "success");
+      } catch (err) {
+        console.error(err);
+        showNotification("Erreur serveur", "danger");
       }
+    });
+  }
 
-      // Masquer le modal
-      const modalInstance = bootstrap.Modal.getInstance(document.getElementById("editAppModal"));
-      modalInstance?.hide();
-
-      // Notification succès
-      showNotification("Modification réussie", "success");
-
-    } catch (err) {
-      console.error(err);
-      showNotification("Erreur serveur", "danger");
-    }
-  });
-}
-  
   // ---------- Détail appréciation ----------
   window.showAppDetail = async function (id) {
     const res = await fetch(`/appreciations/detail/${id}`);
     if (!res.ok) return alert("Erreur récupération détail");
     const data = await res.json();
     const content = `
-      <p><b>Libelle:</b> ${data.libelle}</p>
-      <p><b>Seuil_min:</b> ${data.seuil_min}</p>
-      <p><b>Seuil_max:</b> ${data.seuil_max}</p>
+      <p><b>Libellé:</b> ${data.libelle}</p>
+      <p><b>Seuil minimal:</b> ${data.seuil_min}</p>
+      <p><b>Seuil maximal:</b> ${data.seuil_max}</p>
       <p><b>Description:</b> ${data.description}</p>
-      <p><b>Etat:</b> ${data.etat || ""}</p>
+      <p><b>État:</b> ${data.etat || ""}</p>
     `;
     const detailAppContent = document.getElementById("detailAppContent");
     if (detailAppContent) detailAppContent.innerHTML = content;
     new bootstrap.Modal(document.getElementById("detailAppModal")).show();
   };
-
 });

@@ -36,14 +36,12 @@ def liste_notes():
     trimestre = data.get("trimestre", type=int)
     annee_scolaire = data.get("annee_scolaire", type=str)
 
-    query = Note.query.join(Eleve, Note.eleve_id == Eleve.id) \
-    .options(
-        joinedload(Note.enseignement).joinedload(Enseignement.enseignant).joinedload(Enseignant.utilisateur),
+    # CORRECTION : Chargement cohérent des relations avec jointure sur Eleve
+    query = Note.query.join(Eleve).options(
+        joinedload(Note.eleve),
         joinedload(Note.matiere),
-        joinedload(Note.eleve)
+        joinedload(Note.enseignement).joinedload(Enseignement.enseignant).joinedload(Enseignant.utilisateur)
     )
-
-
 
     # Recherche texte
     if search:
@@ -54,6 +52,8 @@ def liste_notes():
             (Note.note_comp.cast(String).ilike(f"%{search}%")) |
             (cast(Note.coefficient, String).ilike(f"%{search}%")) |
             (cast(Note.date_saisie, String).ilike(f"%{search}%"))|
+            (Eleve.nom.ilike(f"%{search}%")) |  # Recherche dans le nom de l'élève
+            (Eleve.prenoms.ilike(f"%{search}%")) |  # Recherche dans le prénom de l'élève
             (Note.etat.ilike(f"%{search}%"))
         )
 
@@ -73,7 +73,7 @@ def liste_notes():
         except ValueError:
             pass
 
-    #Filtrage par enseignant
+    # Filtrage par enseignant
     if enseignant_id and enseignant_id.lower() != "none":
        try:
           enseignant_uuid = UUID(enseignant_id)
@@ -81,7 +81,7 @@ def liste_notes():
        except ValueError:
           pass
     
-       # ✅ Filtrage par classe via Eleve
+    # CORRECTION : Filtrage par classe via Eleve (déjà joint)
     if classe_id and classe_id.lower() != "none":
         try:
             classe_uuid = UUID(classe_id)
@@ -94,6 +94,7 @@ def liste_notes():
         query = query.filter(Note.trimestre == trimestre)
     if annee_scolaire:
         query = query.filter(Note.annee_scolaire == annee_scolaire)
+    
     # Pagination
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     notes = pagination.items
@@ -102,11 +103,12 @@ def liste_notes():
     eleves = Eleve.query.all()
     matieres = Matiere.query.all()
     enseignants = Enseignant.query.options(joinedload(Enseignant.utilisateur)).all()
+    classes = Classe.query.all()  # AJOUT: Récupérer les classes pour le filtre
     types = Matiere.query.filter(Matiere.parent_id.is_(None)).options(joinedload(Matiere.children)).all()
 
-    # 🔥 AJOUTER CES 2 LIGNES - Variables pour l'export
     annees_scolaires = db.session.query(Note.annee_scolaire).distinct().all()
     annees_scolaires = [a[0] for a in annees_scolaires]
+    
     return render_template("notes/list_notes.html",
         notes=notes,
         pagination=pagination,
@@ -116,6 +118,7 @@ def liste_notes():
         eleves=eleves,
         matieres=matieres,
         enseignants=enseignants,
+        classes=classes,  # AJOUT: Passer les classes au template
         types=types,
         eleve_id=eleve_id,
         matiere_id=matiere_id,
@@ -123,110 +126,108 @@ def liste_notes():
         classe_id=classe_id,
         trimestre=trimestre,
         annee_scolaire=annee_scolaire,
-         annees_scolaires=annees_scolaires  # 🔥 AJOUTER CETTE LIGNE
+        annees_scolaires=annees_scolaires
     )
 
-# Ajouter une note
 @notes_bp.route("/add", methods=["POST"])
 def add_note():
-    data = request.json
-    eleve_id = data.get("eleve_id")
-    matiere_id = data.get("matiere_id")
-    enseignant_id = data.get("enseignant_id")
-    trimestre = data.get("trimestre", 1)
-    annee_scolaire = data.get("annee_scolaire")
-
-    # Détermination de l'année scolaire par défaut
-    if not annee_scolaire:
-        today = date.today()
-        annee_scolaire = f"{today.year if today.month >= 8 else today.year-1}-{today.year+1 if today.month >= 8 else today.year}"
-
-    # Conversion des notes en float
-    note1 = float(data.get("note1")) if data.get("note1") else None
-    note2 = float(data.get("note2")) if data.get("note2") else None
-    note3 = float(data.get("note3")) if data.get("note3") else None
-    note_comp = float(data.get("note_comp")) if data.get("note_comp") else None
-
     try:
-        # Vérifier l'élève
-        eleve = Eleve.query.get(eleve_id)
-        if not eleve:
-            return jsonify({"error": "Élève introuvable"}), 400
-        if not eleve.classe_id:
-            return jsonify({"error": "L'élève n'a pas de classe attribuée"}), 400
+        data = request.json
+        
+        # Validation
+        required_fields = ['eleve_id', 'matiere_id', 'enseignant_id', 'trimestre', 'annee_scolaire']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({"error": f"Le champ {field} est requis"}), 400
+
+        # Vérifications de base
+        eleve = Eleve.query.get(data.get("eleve_id"))
+        if not eleve or not eleve.classe_id:
+            return jsonify({"error": "Élève ou classe introuvable"}), 400
 
         # Conversion UUID
         try:
-            matiere_uuid = UUID(matiere_id)
-            enseignant_uuid = UUID(enseignant_id)
+            matiere_uuid = UUID(data.get("matiere_id"))
+            enseignant_uuid = UUID(data.get("enseignant_id"))
         except ValueError:
             return jsonify({"error": "IDs invalides"}), 400
 
-        # Chercher l'enseignement correspondant
-        enseignement_record = Enseignement.query.filter_by(
+        # CORRECTION STRICTE : Vérifier d'abord si une note existe déjà
+        note_existante = Note.query.filter_by(
+            eleve_id=eleve.id,
+            matiere_id=matiere_uuid,
+            trimestre=data.get("trimestre", 1),
+            annee_scolaire=data.get("annee_scolaire")
+        ).first()
+
+        # CORRECTION STRICTE : Si une note existe déjà, refuser la création
+        if note_existante:
+            return jsonify({
+                "error": "Une note existe déjà pour cet élève dans cette matière pour ce trimestre. Veuillez modifier la note existante au lieu d'en créer une nouvelle."
+            }), 400
+
+        # Gestion enseignement (seulement si aucune note n'existe)
+        enseignement = Enseignement.query.filter_by(
             matiere_id=matiere_uuid,
             enseignant_id=enseignant_uuid,
             classe_id=eleve.classe_id
         ).first()
 
-        # if not enseignement_record:
-        #     return jsonify({"error": "Aucun enseignement trouvé pour cet élève, cette matière et cet enseignant"}), 400
-
-        # Vérifier si la note existe déjà
-        note_record = Note.query.filter_by(
-            eleve_id=eleve_id,
-            matiere_id=matiere_uuid,
-            enseignement_id=enseignement_record.id,
-            trimestre=trimestre,
-            annee_scolaire=annee_scolaire
-        ).first()
-
-        # Création si n'existe pas
-        if not note_record:
-            note_record = Note(
+        if not enseignement:
+            if not Enseignant.query.get(enseignant_uuid):
+                return jsonify({"error": "Enseignant introuvable"}), 400
+                
+            enseignement = Enseignement(
                 id=uuid.uuid4(),
-                note1=note1,
-                note2=note2,
-                note3=note3,
-                note_comp=note_comp,
-                coefficient=data.get("coefficient", 1),
-                date_saisie=date.today(),
-                eleve_id=eleve_id,
                 matiere_id=matiere_uuid,
-                enseignement_id=enseignement_record.id,
-                trimestre=trimestre,
-                annee_scolaire=annee_scolaire,
-                etat="Actif"
+                enseignant_id=enseignant_uuid,
+                classe_id=eleve.classe_id
             )
-            db.session.add(note_record)
-        else:
-            # Vérifier chaque note individuellement pour éviter double saisie
-            if note1 is not None and note_record.note1 is not None:
-                return jsonify({"error": "Note 1 déjà saisie pour cet élève et cette matière"}), 400
-            if note2 is not None and note_record.note2 is not None:
-                return jsonify({"error": "Note 2 déjà saisie pour cet élève et cette matière"}), 400
-            if note3 is not None and note_record.note3 is not None:
-                return jsonify({"error": "Note 3 déjà saisie pour cet élève et cette matière"}), 400
-            if note_comp is not None and note_record.note_comp is not None:
-                return jsonify({"error": "Note de composition déjà saisie pour cet élève et cette matière"}), 400
+            db.session.add(enseignement)
+            db.session.flush()
 
-            # Mise à jour des notes non saisies
-            if note1 is not None: note_record.note1 = note1
-            if note2 is not None: note_record.note2 = note2
-            if note3 is not None: note_record.note3 = note3
-            if note_comp is not None: note_record.note_comp = note_comp
+        # Récupérer les nouvelles notes
+        note1 = float(data.get("note1")) if data.get("note1") else None
+        note2 = float(data.get("note2")) if data.get("note2") else None
+        note3 = float(data.get("note3")) if data.get("note3") else None
+        note_comp = float(data.get("note_comp")) if data.get("note_comp") else None
 
-            note_record.coefficient = data.get("coefficient", note_record.coefficient)
-            note_record.date_saisie = date.today()
-            note_record.etat = "Actif"
-
+        # Création nouvelle note (on est sûr qu'aucune n'existe)
+        nouvelle_note = Note(
+            id=uuid.uuid4(),
+            note1=note1,
+            note2=note2,
+            note3=note3,
+            note_comp=note_comp,
+            coefficient=data.get("coefficient", 1),
+            date_saisie=date.today(),
+            eleve_id=eleve.id,
+            matiere_id=matiere_uuid,
+            enseignement_id=enseignement.id,
+            trimestre=data.get("trimestre", 1),
+            annee_scolaire=data.get("annee_scolaire"),
+            etat="Actif"
+        )
+        db.session.add(nouvelle_note)
         db.session.commit()
-        row_html = render_template("notes/_note_row.html", note=note_record)
-        return jsonify({"message": "Note enregistrée/mise à jour avec succès", "note_html": row_html}), 201
+
+        # Recharger et retourner réponse
+        note_finale = Note.query.options(
+            joinedload(Note.eleve),
+            joinedload(Note.matiere),
+            joinedload(Note.enseignement).joinedload(Enseignement.enseignant).joinedload(Enseignant.utilisateur)
+        ).get(nouvelle_note.id)
+
+        row_html = render_template("notes/_note_row.html", note=note_finale)
+        return jsonify({
+            "message": "Note enregistrée avec succès",
+            "note_html": row_html,
+            "note_id": str(note_finale.id)
+        }), 201
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"Erreur: {str(e)}"}), 500
 
 
 
@@ -367,10 +368,27 @@ def list_notes_json():
 #récupération des détails d'une note.
 @notes_bp.route("/<string:note_id>", methods=["GET"])
 def get_notes(note_id):
-    note = Note.query.get(note_id)
+       # CORRECTION : Charger toutes les relations nécessaires
+    note = Note.query.options(
+        joinedload(Note.eleve),
+        joinedload(Note.matiere),
+        joinedload(Note.enseignement).joinedload(Enseignement.enseignant).joinedload(Enseignant.utilisateur)
+    ).get(note_id)
     if not note:
         return jsonify({"error": "Note non trouvée"}), 404
 
+    # CORRECTION : Récupérer correctement le nom de l'enseignant
+    enseignant_nom = ""
+    enseignant_prenoms = ""
+    
+    if note.enseignement and note.enseignement.enseignant:
+        if note.enseignement.enseignant.utilisateur:
+            enseignant_nom = note.enseignement.enseignant.utilisateur.nom or ""
+            enseignant_prenoms = note.enseignement.enseignant.utilisateur.prenoms or ""
+        else:
+            # Fallback si pas d'utilisateur associé
+            enseignant_nom = getattr(note.enseignement.enseignant, 'nom', '') or getattr(note.enseignement.enseignant, 'noms', '')
+            enseignant_prenoms = getattr(note.enseignement.enseignant, 'prenoms', '')
     return jsonify({
         "id": str(note.id),
         "note1": note.note1,
@@ -385,7 +403,8 @@ def get_notes(note_id):
         "date": note.date_saisie.isoformat() if note.date_saisie else None,
         "eleve_nom": f"{note.eleve.nom} {note.eleve.prenoms}" if note.eleve else "",
         "matiere_nom": note.matiere.libelle if note.matiere else "",
-        "enseignant_nom": note.enseignement.enseignant.utilisateur.nom if note.enseignement and note.enseignement.enseignant else "",
+        "enseignant_nom": enseignant_nom,
+        "enseignant_prenoms": enseignant_prenoms,
         "trimestre": note.trimestre,
         "annee_scolaire":note.annee_scolaire,
         "valeur": note.note1 or note.note2 or note.note3 or note.note_comp
@@ -689,10 +708,11 @@ def export_notes_pdf():
         elements.append(info_table_line2)
         elements.append(Spacer(1, 8*mm))
         
-        # ========== TABLEAU DES NOTES ==========
+        # ========== TABLEAU DES NOTES AVEC COLONNE MATIÈRE ==========
         headers = [
-            'N°',  # NOUVELLE COLONNE
+            'N°',
             'Nom & Prénoms',
+            'Matière',  # NOUVELLE COLONNE AJOUTÉE ICI
             'Note 1',
             'Note 2', 
             'Note 3',
@@ -707,6 +727,7 @@ def export_notes_pdf():
             row = [
                 str(index),  # Numéro d'ordre
                 f"{note.eleve.nom} {note.eleve.prenoms}" if note.eleve else "N/A",
+                note.matiere.libelle if note.matiere else "N/A",  # NOUVELLE COLONNE
                 str(note.note1) if note.note1 is not None else "-",
                 str(note.note2) if note.note2 is not None else "-",
                 str(note.note3) if note.note3 is not None else "-",
@@ -715,15 +736,16 @@ def export_notes_pdf():
             ]
             data.append(row)
         
-        # Création du tableau avec nouvelles largeurs
+        # Ajustement des largeurs de colonnes avec la nouvelle colonne Matière
         table = Table(data, colWidths=[
-            doc.width * 0.05,  # N° (5%)
-            doc.width * 0.25,  # Nom & Prénoms (25%)
-            doc.width * 0.10,  # Note 1 (10%)
-            doc.width * 0.10,  # Note 2 (10%)
-            doc.width * 0.10,  # Note 3 (10%)
-            doc.width * 0.15,  # Note Comp. (15%)
-            doc.width * 0.15   # Coefficient (15%)
+            doc.width * 0.04,  # N° (4%)
+            doc.width * 0.20,  # Nom & Prénoms (20%)
+            doc.width * 0.18,  # Matière (18%) - NOUVELLE COLONNE
+            doc.width * 0.08,  # Note 1 (8%)
+            doc.width * 0.08,  # Note 2 (8%)
+            doc.width * 0.08,  # Note 3 (8%)
+            doc.width * 0.14,  # Note Comp. (14%)
+            doc.width * 0.12   # Coefficient (12%)
         ], repeatRows=1)
         
         # Style du tableau
@@ -741,8 +763,8 @@ def export_notes_pdf():
             ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
             ('FONTSIZE', (0, 1), (-1, -1), 7),
             ('ALIGN', (0, 1), (0, -1), 'CENTER'),   # N° centré
-            ('ALIGN', (1, 1), (1, -1), 'LEFT'),     # Nom à gauche
-            ('ALIGN', (2, 1), (-1, -1), 'CENTER'),  # Notes centrées
+            ('ALIGN', (1, 1), (2, -1), 'LEFT'),     # Nom et Matière à gauche
+            ('ALIGN', (3, 1), (-1, -1), 'CENTER'),  # Notes centrées
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             
             # Bordures
@@ -793,7 +815,7 @@ def export_notes_pdf():
     except Exception as e:
         print(f"Erreur génération PDF notes: {str(e)}")
         return jsonify({"error": f"Erreur lors de la génération du PDF: {str(e)}"}), 500
-
+    
 @notes_bp.route("/export/excel", methods=["GET"])
 def export_notes_excel():
     """Export Excel de la liste des notes avec filtres"""
@@ -963,8 +985,9 @@ def export_notes_excel():
 
         # ========== TABLEAU DES DONNÉES ==========
         headers = [
-            'N°',  # NOUVELLE COLONNE
+            'N°',
             'Nom & Prénoms', 
+            'Matière',  # NOUVELLE COLONNE AJOUTÉE ICI
             'Note 1', 
             'Note 2', 
             'Note 3', 
@@ -985,29 +1008,30 @@ def export_notes_excel():
         
         current_row += 1
         
-        # Données avec numérotation
+        # CORRECTION : Données avec numérotation - COLONNES CORRECTES
         for index, note in enumerate(notes, 1):
             ws.cell(row=current_row, column=1).value = index  # Numéro d'ordre
             ws.cell(row=current_row, column=2).value = f"{note.eleve.nom} {note.eleve.prenoms}" if note.eleve else "N/A"
-            ws.cell(row=current_row, column=3).value = note.note1 if note.note1 is not None else "-"
-            ws.cell(row=current_row, column=4).value = note.note2 if note.note2 is not None else "-"
-            ws.cell(row=current_row, column=5).value = note.note3 if note.note3 is not None else "-"
-            ws.cell(row=current_row, column=6).value = note.note_comp if note.note_comp is not None else "-"
-            ws.cell(row=current_row, column=7).value = note.coefficient if note.coefficient else 1
+            ws.cell(row=current_row, column=3).value = note.matiere.libelle if note.matiere else "N/A"  # CORRECTION : Colonne 3 = Matière
+            ws.cell(row=current_row, column=4).value = note.note1 if note.note1 is not None else "-"    # Colonne 4 = Note 1
+            ws.cell(row=current_row, column=5).value = note.note2 if note.note2 is not None else "-"    # Colonne 5 = Note 2
+            ws.cell(row=current_row, column=6).value = note.note3 if note.note3 is not None else "-"    # Colonne 6 = Note 3
+            ws.cell(row=current_row, column=7).value = note.note_comp if note.note_comp is not None else "-"  # Colonne 7 = Note Comp
+            ws.cell(row=current_row, column=8).value = note.coefficient if note.coefficient else 1      # Colonne 8 = Coefficient
             
             current_row += 1
         
         # ========== MISE EN FORME FINALE COMPACTE ==========
         column_widths = {
             'A': 5,   # N° (plus étroit)
-            'B': 30,  # Nom & Prénoms
-            'C': 8,   # Note 1
-            'D': 8,   # Note 2
-            'E': 8,   # Note 3
-            'F': 12,  # Note Composition
-            'G': 10,  # Coefficient
-            'H': 8,   # Colonnes supplémentaires réduites
-            'I': 8
+            'B': 25,  # Nom & Prénoms
+            'C': 20,  # Matière (NOUVELLE COLONNE)
+            'D': 8,   # Note 1
+            'E': 8,   # Note 2
+            'F': 8,   # Note 3
+            'G': 12,  # Note Composition
+            'H': 10,  # Coefficient
+            'I': 8    # Colonne supplémentaire
         }
         
         for col, width in column_widths.items():
@@ -1015,8 +1039,12 @@ def export_notes_excel():
         
         # Centrer les colonnes de notes et le N°
         for row in range(current_row - len(notes), current_row):
-            for col in ['A', 'C', 'D', 'E', 'F', 'G']:  # N° et notes centrés
+            for col in ['A', 'D', 'E', 'F', 'G', 'H']:  # N° et notes centrés
                 ws[f'{col}{row}'].alignment = center_align
+            
+            # Alignement à gauche pour Nom et Matière
+            ws[f'B{row}'].alignment = left_align
+            ws[f'C{row}'].alignment = left_align
         
         # Ajouter des bordures au tableau
         from openpyxl.styles import Border, Side
@@ -1030,7 +1058,7 @@ def export_notes_excel():
         # Appliquer les bordures seulement au tableau de données
         table_start_row = current_row - len(notes) - 1  # Ligne des en-têtes du tableau
         for row in range(table_start_row, current_row):
-            for col in range(1, len(headers) + 1):  # Ajusté pour 7 colonnes maintenant
+            for col in range(1, len(headers) + 1):  # Ajusté pour 8 colonnes maintenant
                 ws.cell(row=row, column=col).border = thin_border
         
         # Sauvegarder

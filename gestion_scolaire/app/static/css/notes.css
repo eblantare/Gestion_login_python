@@ -194,3 +194,47 @@ select option {
     transform: scale(1.05);
     opacity: 0.9;
 }
+
+/* Ajustement des colonnes */
+.table th, .table td {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.3rem;
+}
+
+/* Colonnes plus étroites pour les notes */
+.table th:nth-child(3), .table td:nth-child(3), /* Note 1 */
+.table th:nth-child(4), .table td:nth-child(4), /* Note 2 */
+.table th:nth-child(5), .table td:nth-child(5), /* Note 3 */
+.table th:nth-child(6), .table td:nth-child(6), /* Comp */
+.table th:nth-child(7), .table td:nth-child(7), /* Coef */
+.table th:nth-child(9), .table td:nth-child(9), /* Trim */
+.table th:nth-child(11), .table td:nth-child(11) /* Date */ {
+    width: 70px;
+    max-width: 70px;
+    min-width: 70px;
+}
+
+/* Colonnes actions et état */
+.table th.actions, .table td.actions,
+.table th.etat, .table td.etat {
+    width: 100px;
+    max-width: 100px;
+    min-width: 100px;
+}
+
+/* Tooltips */
+.tooltip {
+    font-size: 0.8rem;
+}
+
+/* État des notes */
+.badge {
+    font-size: 0.75rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.8rem;
+    }
+}

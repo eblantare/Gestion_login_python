@@ -21,6 +21,14 @@ class Ecole(BaseModel):
     prefecture = db.Column(db.String(200), nullable=True)
     dre = db.Column(db.String(100), nullable=True)
 
+
+    # NOUVEAUX: Chef d'établissement
+    chef_etablissement_nom = db.Column(db.String(100))
+    chef_etablissement_titre = db.Column(db.String(100), default="LE CHEF D'ÉTABLISSEMENT")
+    chef_etablissement_civilite = db.Column(db.String(10), default="M.")  # M., Mme, etc.
+    
+
+
     @staticmethod
     def validate_phone_number(phone):
         """Valide le format international du numéro de téléphone"""
@@ -67,3 +75,6 @@ def validate_ecole_data(mapper, connection, target):
         is_valid, error = Ecole.validate_email(target.email)
         if not is_valid:
             raise ValueError(f"Email: {error}")
+        
+def __repr__(self):
+    return f'<Ecole {self.nom}>'

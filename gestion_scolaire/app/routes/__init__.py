@@ -11,10 +11,11 @@ from .enseignements import enseignements_bp
 from .ecoles import ecoles_bp
 from .services import services_bp
 from .moyennes_export import moyennes_export_bp
+from .bulletins_export import bulletins_export_bp
 
 
 __all__ = ["main_bp",
     "eleves_bp", "classes_bp", "enseignants_bp", "matieres_bp",
     "appreciations_bp", "paiements_bp", "notes_bp", "moyennes_bp","enseignements_bp",
-    "ecoles_bp","services_bp", "moyennes_export_bp"
+    "ecoles_bp","services_bp", "moyennes_export_bp", "bulletins_export_bp"
 ]

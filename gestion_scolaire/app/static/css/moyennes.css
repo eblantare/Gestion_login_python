@@ -1,194 +1,54 @@
-/* Container général */
-.container {
-  max-width: 1200px;
-  margin: auto;
-  padding: 20px;
-  font-family: Arial, sans-serif;
+
+/* Styles spécifiques pour l'harmonisation du tableau */
+.table th {
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.75rem 0.5rem;
 }
 
-/* Contrôles de filtre */
-.controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 15px;
-}
-
-.input-filter {
-  padding: 6px 10px;
-  border-radius: 4px;
-  border: 1px solid #ccc;
-}
-
-.btn-moy {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  background-color: #4CAF50;
-  color: white;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.btn-moy:hover {
-  background-color: #45a049;
-}
-
-.btn-add {
-  background-color: #2196F3;
-}
-
-.btn-add-moy:hover {
-  background-color: #1976D2;
-}
-
-/* Tableau */
-.table-container {
-  overflow-x: auto;
-}
-
-#moyennesTable {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 10px;
-}
-
-#moyennesTable th,
-#moyennesTable td {
-  border: 1px solid #ddd;
-  padding: 8px;
-  text-align: center;
-}
-
-#moyennesTable th {
-  background-color: #f2f2f2;
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-/* Pagination */
-.pagination-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 5px;
-  flex-wrap: wrap;
-  margin-top: 10px;
-}
-
-.btn-pag {
-  padding: 5px 10px;
-  border: 1px solid #ccc;
-  background-color: white;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.btn-pag:hover:not(:disabled) {
-  background-color: #f0f0f0;
-}
-
-.btn-pag:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-/* Numéros de page */
-.pagination-container button.active-page {
-  font-weight: bold;
-  background-color: #4CAF50;
-  color: white;
-}
-/* Styles pour la table des moyennes */
-td, th {
+.table td {
+    font-size: 0.82rem;
+    padding: 0.6rem 0.4rem;
     vertical-align: middle;
-    text-align: center;
 }
 
-td.high-moy {
-    background-color: #d4edda;
-    color: #155724;
-    font-weight: bold;
+.text-truncate {
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-td.low-moy {
-    background-color: #f8d7da;
-    color: #721c24;
-    font-weight: bold;
+.badge {
+    font-size: 0.75rem;
+    font-weight: 500;
 }
 
-.table-responsive {
-    overflow-x: auto;
+/* Amélioration de la pagination */
+.pagination .page-link {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.75rem;
 }
 
-.btn-rounded {
-    border-radius: 50px;
+/* Responsive */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.8rem;
+    }
+    
+    .table th,
+    .table td {
+        padding: 0.4rem 0.3rem;
+    }
+    
+    .text-truncate {
+        max-width: 120px;
+    }
 }
 
-/* Pour les moyennes élevées (>= 15) */
-.high-moy {
-    background-color: #d4edda; /* vert clair */
-    color: #155724;            /* texte vert foncé */
-    font-weight: bold;
-}
-
-/* Pour les moyennes faibles (< 10) */
-.low-moy {
-    background-color: #f8d7da; /* rouge clair */
-    color: #721c24;            /* texte rouge foncé */
-    font-weight: bold;
-}
-
-/* Optionnel : aligner le texte au centre pour les moyennes et classements */
-td {
-    text-align: center;
-}
-
-/* =========================
-   🔹 Zone des filtres
-   ========================= */
-.filters-container {
-  display: flex;
-  justify-content: space-between; /* filtres à gauche, bouton batch à droite */
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 15px;
-}
-
-.filters-container form {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.filters-container input[type="text"],
-.filters-container select {
-  max-width: 160px;   /* largeur réduite */
-  min-width: 120px;
-  flex-shrink: 0;
-}
-
-/* Boutons de filtre */
-.filters-container .btn {
-  padding: 4px 10px;
-  font-size: 0.85rem;
-  white-space: nowrap;
-}
-
-/* Bouton Batch à droite */
-#batchForm {
-  margin-left: auto; /* pousse le bouton à l’extrême droite */
-}
-
-#batchBtn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-
-
+/* Styles pour les couleurs des mentions */
+.bg-success { background-color: #198754 !important; }
+.bg-primary { background-color: #0d6efd !important; }
+.bg-info { background-color: #0dcaf0 !important; }
+.bg-warning { background-color: #ffc107 !important; }
+.bg-secondary { background-color: #6c757d !important; }

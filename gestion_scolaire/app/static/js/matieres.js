@@ -268,25 +268,97 @@ document.addEventListener("DOMContentLoaded", () => {
     bootstrap.Modal.getOrCreateInstance(document.getElementById("editMatModal")).show();
   };
 
-  window.showMatDetail = async id => {
+
+
+// ================ EDIT / DETAIL ================
+
+// Fonction pour ouvrir le modal d'édition
+window.editMat = id => {
+  const row = document.querySelector(`tr[data-id="matiere-${id}"]`);
+  const editMatForm = document.getElementById("editMatForm");
+  if (!row || !editMatForm) return;
+  
+  document.getElementById("editMat_id").value = id;
+  document.getElementById("editMat_code").value = row.querySelector(".col-code")?.innerText.trim() || "";
+  document.getElementById("editMat_libelle").value = row.querySelector(".col-libelle")?.innerText.trim() || "";
+  document.getElementById("editMat_type").value = row.querySelector(".col-type")?.innerText.trim() || "";
+  
+  bootstrap.Modal.getOrCreateInstance(document.getElementById("editMatModal")).show();
+};
+
+// Gestion de la soumission du formulaire d'édition
+const editMatForm = document.getElementById("editMatForm");
+if (editMatForm) {
+  editMatForm.addEventListener("submit", async e => {
+    e.preventDefault();
+    
+    // Validation du formulaire
+    if (!editMatForm.checkValidity()) {
+      editMatForm.classList.add("was-validated");
+      return;
+    }
+    
+    const id = document.getElementById("editMat_id").value;
+    const formData = new FormData(editMatForm);
+    
     try {
-      const res = await fetch(`/matieres/detail/${id}`);
+      const res = await fetch(`/matieres/update/${id}`, {
+        method: "POST",
+        body: formData
+      });
+      
       const data = await res.json();
-      if (!res.ok) { showNotification("Erreur récupération détail", "danger"); return; }
-      const detailMatContent = document.getElementById("detailMatContent");
-      if (detailMatContent) {
-        detailMatContent.innerHTML = `
-          <p><b>Code:</b> ${data.code}</p>
-          <p><b>Libellé:</b> ${data.libelle}</p>
-          <p><b>Type:</b> ${data.type}</p>
-          <p><b>Etat:</b> ${data.etat || ""}</p>
-        `;
+      
+      if (!res.ok) {
+        showNotification(data.error || "Erreur lors de la modification", "danger");
+        return;
       }
-      bootstrap.Modal.getOrCreateInstance(document.getElementById("detailMatModal")).show();
+      
+      showNotification("Matière modifiée avec succès", "success");
+      
+      // Mise à jour dynamique de la ligne
+      const row = document.querySelector(`tr[data-id="matiere-${id}"]`);
+      if (row) {
+        row.querySelector(".col-code").textContent = data.code;
+        row.querySelector(".col-libelle").textContent = data.libelle;
+        row.querySelector(".col-type").textContent = data.type;
+      }
+      
+      // Reset et fermeture
+      editMatForm.reset();
+      editMatForm.classList.remove("was-validated");
+      cleanupModal(document.getElementById("editMatModal"));
+      
     } catch (err) {
       console.error(err);
-      showNotification("Erreur réseau", "danger");
+      showNotification("Erreur réseau lors de la modification", "danger");
     }
-  };
+  });
+}
+
+// Fonction pour afficher les détails (déjà existante)
+window.showMatDetail = async id => {
+  try {
+    const res = await fetch(`/matieres/detail/${id}`);
+    const data = await res.json();
+    if (!res.ok) { 
+      showNotification("Erreur récupération détail", "danger"); 
+      return; 
+    }
+    const detailMatContent = document.getElementById("detailMatContent");
+    if (detailMatContent) {
+      detailMatContent.innerHTML = `
+        <p><b>Code:</b> ${data.code}</p>
+        <p><b>Libellé:</b> ${data.libelle}</p>
+        <p><b>Type:</b> ${data.type}</p>
+        <p><b>Etat:</b> ${data.etat || ""}</p>
+      `;
+    }
+    bootstrap.Modal.getOrCreateInstance(document.getElementById("detailMatModal")).show();
+  } catch (err) {
+    console.error(err);
+    showNotification("Erreur réseau", "danger");
+  }
+};
 
 });

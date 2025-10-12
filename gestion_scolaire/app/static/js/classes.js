@@ -376,38 +376,92 @@ document.addEventListener("DOMContentLoaded", () => {
     new bootstrap.Modal(document.getElementById("detailClModal")).show();
   };
 
-  // 🔽 Insérer ici
-window.openEditModal = function (classe) {
-  document.getElementById("editCl_id").value = classe.id;
-  document.getElementById("editCl_code").value = classe.code;
-  document.getElementById("editCl_nom").value = classe.nom;
-  document.getElementById("editCl_effectif").value = classe.effectif;
+// ======================= AMELIORATION VISUELLE SELECTION ENSEIGNANTS =======================
 
-  const select = document.getElementById("editCl_enseignants");
-  [...select.options].forEach(opt => {
-      opt.selected = classe.enseignants.includes(opt.textContent.trim());
-  });
-
-  new bootstrap.Modal(document.getElementById("editClModal")).show();
-};
-// Toggle sélection des enseignants sans Ctrl
-function enableMultiSelectToggle(selectId) {
-  const select = document.getElementById(selectId);
-  if (!select) return;
-
-  select.addEventListener('mousedown', function(e) {
-    e.preventDefault(); // empêche le comportement par défaut Ctrl
-    const option = e.target;
-    if (option.tagName === 'OPTION') {
-      option.selected = !option.selected;
-    }
-    // déclenche l'événement change pour mises à jour
-    const event = new Event('change', { bubbles: true });
-    select.dispatchEvent(event);
-  });
+function enhanceTeacherSelection() {
+    const teacherSelects = document.querySelectorAll('#addCl_enseignants, #editCl_enseignants');
+    
+    teacherSelects.forEach(select => {
+        // Mettre à jour un compteur visuel
+        function updateSelectionCounter() {
+            const selectedCount = Array.from(select.selectedOptions).length;
+            let counter = select.parentNode.querySelector('.selection-counter');
+            
+            if (!counter) {
+                counter = document.createElement('span');
+                counter.className = 'selection-counter';
+                select.parentNode.appendChild(counter);
+            }
+            
+            counter.textContent = `${selectedCount} sélectionné(s)`;
+            
+            // Changer la couleur selon le nombre
+            if (selectedCount === 0) {
+                counter.style.backgroundColor = '#6c757d';
+            } else if (selectedCount === 1) {
+                counter.style.backgroundColor = '#198754';
+            } else {
+                counter.style.backgroundColor = '#0d6efd';
+            }
+        }
+        
+        // Mettre à jour au changement
+        select.addEventListener('change', updateSelectionCounter);
+        
+        // Initialiser le compteur
+        updateSelectionCounter();
+        
+        // Améliorer le focus visuel
+        select.addEventListener('focus', function() {
+            this.style.borderColor = '#0d6efd';
+            this.style.boxShadow = '0 0 0 0.2rem rgba(13, 110, 253, 0.25)';
+        });
+        
+        select.addEventListener('blur', function() {
+            this.style.borderColor = '#dee2e6';
+            this.style.boxShadow = 'none';
+        });
+    });
 }
 
-// Appliquer sur ajout et édition
-enableMultiSelectToggle('addCl_enseignants');
-enableMultiSelectToggle('editCl_enseignants');
+
+  // Initialiser l'amélioration visuelle
+  enhanceTeacherSelection();
+
+  // ======================= FONCTIONS UTILITAIRES =======================
+
+  window.openEditModal = function (classe) {
+    document.getElementById("editCl_id").value = classe.id;
+    document.getElementById("editCl_code").value = classe.code;
+    document.getElementById("editCl_nom").value = classe.nom;
+    document.getElementById("editCl_effectif").value = classe.effectif;
+
+    const select = document.getElementById("editCl_enseignants");
+    [...select.options].forEach(opt => {
+        opt.selected = classe.enseignants.includes(opt.textContent.trim());
+    });
+
+    new bootstrap.Modal(document.getElementById("editClModal")).show();
+  };
+
+  // Toggle sélection des enseignants sans Ctrl
+  function enableMultiSelectToggle(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+
+    select.addEventListener('mousedown', function(e) {
+      e.preventDefault(); // empêche le comportement par défaut Ctrl
+      const option = e.target;
+      if (option.tagName === 'OPTION') {
+        option.selected = !option.selected;
+      }
+      // déclenche l'événement change pour mises à jour
+      const event = new Event('change', { bubbles: true });
+      select.dispatchEvent(event);
+    });
+  }
+
+  // Appliquer sur ajout et édition
+  enableMultiSelectToggle('addCl_enseignants');
+  enableMultiSelectToggle('editCl_enseignants');
 });

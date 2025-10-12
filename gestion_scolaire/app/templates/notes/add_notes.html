@@ -80,13 +80,20 @@
             </div>
 
           <div class="col">
-          <select id="enseignantSelect" class="form-select">
-           <option value="">Sélectionner un enseignant</option>
-           {% for ens in enseignements %}
-             <option value="{{ ens.id }}">{{ ens.enseignant.nom }} {{ ens.enseignant.prenoms }}</option>
-            {% endfor %}
-          </select>
-         </div>
+            <select id="enseignantSelect" class="form-select">
+            <option value="">Sélectionner un enseignant</option>
+    <!-- CORRECTION : Utiliser enseignants au lieu de enseignements -->
+           {% for ens in enseignants %}
+              <option value="{{ ens.id }}">
+            {% if ens.utilisateur %}
+                  {{ ens.utilisateur.nom }} {{ ens.utilisateur.prenoms }}
+            {% else %}
+                 Enseignant #{{ ens.id }}
+            {% endif %}
+            </option>
+          {% endfor %}
+        </select>
+       </div>
 
           </div>
 

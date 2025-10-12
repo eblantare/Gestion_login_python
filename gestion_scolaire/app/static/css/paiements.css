@@ -1,3 +1,71 @@
+/* =============================================
+   STYLES POUR LA PAGE DE LISTE DES PAIEMENTS
+   ============================================= */
+
+/* Styles pour les colonnes du tableau */
+.table-responsive {
+  font-size: 0.8rem;
+}
+
+.col-code {
+  width: 80px;
+  min-width: 80px;
+}
+
+.col-libelle {
+  width: 140px;
+  min-width: 140px;
+}
+
+.col-eleve {
+  width: 120px;
+  min-width: 120px;
+}
+
+.col-classe {
+  width: 80px;
+  min-width: 80px;
+}
+
+.col-date {
+  width: 90px;
+  min-width: 90px;
+}
+
+.col-montant {
+  width: 90px;
+  min-width: 90px;
+}
+
+.col-etat {
+  width: 120px;
+  min-width: 120px;
+}
+
+.col-actions {
+  width: 90px;
+  min-width: 90px;
+}
+
+/* Assurer que le texte ne dépasse pas */
+.text-truncate-fixed {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 0;
+}
+
+/* Alignement des montants */
+.montant-cell {
+  text-align: right;
+  font-family: 'Courier New', monospace;
+  font-weight: 500;
+}
+
+/* =============================================
+   STYLES EXISTANTS + NOUVEAUX STYLES
+   ============================================= */
+
 /* Filtrage */
 #filterForm {
   gap: 0.5rem;
@@ -5,12 +73,22 @@
 
 #filterForm input,
 #filterForm select {
-  min-width: 150px;
+  min-width: 120px;
 }
 
 /* Bouton Ajouter paiement */
 .btn-success {
-  white-space: nowrap; /* évite de couper "Ajouter paiement" */
+  white-space: nowrap;
+}
+
+/* Boutons actions plus compacts */
+.btn-group-sm .btn {
+  padding: 0.15rem 0.3rem;
+  font-size: 0.7rem;
+}
+
+.btn-group-sm .btn i {
+  font-size: 0.75rem;
 }
 
 /* Tableau paiements - troncature et tooltip */
@@ -26,15 +104,15 @@
 }
 
 .table td.col-libelle {
-  max-width: 150px;
+  max-width: 140px;
 }
 
 .table td.col-eleve {
-  max-width: 150px;
+  max-width: 120px;
 }
 
 .table td.col-classe {
-  max-width: 100px;
+  max-width: 80px;
 }
 
 /* Alignement des montants à droite */
@@ -52,62 +130,115 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  font-size: 0.8rem;
+  padding: 0.5rem 0.3rem;
 }
 
 /* Largeurs spécifiques pour les colonnes */
 .table th.col-code { max-width: 80px; }
-.table th.col-libelle { max-width: 150px; }
-.table th.col-eleve { max-width: 150px; }
-.table th.col-classe { max-width: 100px; }
+.table th.col-libelle { max-width: 140px; }
+.table th.col-eleve { max-width: 120px; }
+.table th.col-classe { max-width: 80px; }
 
 /* Alignement des montants à droite */
 .table th.text-end { text-align: right; }
 
-/* Augmenter largeur de la colonne État */
-table th.col-etat,
-table td .btn-workflow {
-    min-width: 100px;  /* ou 120px selon besoin */
-    white-space: normal; /* pour afficher tout le texte sur plusieurs lignes si besoin */
-    text-align: center;
+/* Colonne État optimisée */
+table th.col-etat {
+  min-width: 120px;
+  white-space: normal;
+  text-align: center;
 }
 
-/* Optionnel : couleurs différentes selon l'état */
-.btn-workflow {
-    padding: 0.25rem 0.5rem;
-    font-weight: 500;
+/* Badge d'état plus compact */
+.col-etat .badge {
+  display: inline-block;
+  max-width: 50px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  font-size: 0.7rem;
+  padding: 0.25rem 0.4rem;
 }
 
-.btn-workflow[data-etat="Inactif"] {
-    background-color: #6c757d; /* gris */
-}
-.btn-workflow[data-etat="Activer"] {
-    background-color: #0d6efd; /* bleu */
-}
-.btn-workflow[data-etat="Valider"] {
-    background-color: #198754; /* vert */
-}
-
-/* Limiter la largeur du badge d'état et centrer le texte */
-td.etat .badge {
-    display: inline-block;
-    max-width: 60px; /* ou 50px selon ton design */
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    text-align: center;
-    font-size: 0.85rem;
+/* Select d'action plus compact */
+.col-etat .select-action {
+  display: inline-block;
+  width: 70px;
+  font-size: 0.65rem;
+  padding: 0.1rem 0.2rem;
+  margin-left: 0.2rem;
+  vertical-align: middle;
 }
 
-/* Réduire la taille du select et l’empêcher de dépasser */
-td.etat .select-action {
-    display: inline-block;
-    width: 80px; /* largeur fixe pour que ça reste sur la même ligne */
+/* Cellule état pour éviter les débordements */
+.col-etat {
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+/* Cellules plus compactes */
+.table td {
+  padding: 0.3rem 0.3rem;
+  vertical-align: middle;
+}
+
+/* Texte plus petit dans les cellules */
+.table td small {
+  font-size: 0.75rem;
+}
+
+/* Styles pour les messages vides */
+.text-muted .display-4 {
+  font-size: 2.5rem;
+  opacity: 0.5;
+}
+
+/* Pagination améliorée */
+.pagination-sm .page-link {
+  border-radius: 0.25rem;
+  margin: 0 0.1rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+/* Notifications */
+.toast-container {
+  z-index: 9999;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .table-responsive {
     font-size: 0.75rem;
-    padding: 0.15rem 0.25rem;
-    vertical-align: middle;
-}
+  }
+  
+  .col-code,
+  .col-libelle,
+  .col-eleve,
+  .col-classe,
+  .col-date,
+  .col-montant,
+  .col-etat,
+  .col-actions {
+    min-width: auto;
+  }
+  
+  #filterForm {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  #filterForm .input-group,
+  #filterForm select {
+    width: 100% !important;
+    margin-bottom: 0.5rem;
+  }
 
-/* Optionnel : ajuster la cellule pour ne pas étirer la ligne */
-td.etat {
-    white-space: nowrap;
+  /* Cacher certaines colonnes en mobile */
+  .col-code,
+  .col-classe {
+    display: none;
+  }
 }

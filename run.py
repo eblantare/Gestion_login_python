@@ -2,6 +2,8 @@ import os
 from urllib.parse import quote_plus
 from flask import Flask, send_from_directory
 from dotenv import load_dotenv
+from gestion_login.gestion_login.models import Utilisateur
+import uuid
 
 # Ajouter le package courant au sys.path pour éviter ModuleNotFound
 import sys
@@ -14,7 +16,7 @@ from gestion_login.gestion_login.routes import auth_bp
 from gestion_scolaire.app.routes import (
     main_bp, eleves_bp, appreciations_bp, classes_bp, matieres_bp,
     enseignants_bp, paiements_bp, notes_bp, moyennes_bp,enseignements_bp,
-    ecoles_bp,services_bp, moyennes_export_bp
+    ecoles_bp,services_bp, moyennes_export_bp, bulletins_export_bp
 )
 
 # Import models pour db.create_all()
@@ -24,6 +26,40 @@ from gestion_scolaire.app.models import (
 )
 
 load_dotenv()
+
+def create_default_admin():
+    """Crée l'utilisateur admin par défaut s'il n'existe pas"""
+    try:
+        # Vérifier si l'admin existe déjà
+        existing_admin = Utilisateur.query.filter_by(username='admin').first()
+        if existing_admin:
+            print("✅ Utilisateur admin existe déjà")
+            return True
+
+        # Créer le nouvel admin
+        admin_user = Utilisateur(
+            id=uuid.uuid4(),
+            nom="Admin",
+            prenoms="System", 
+            sexe="Masculin",
+            username="admin",
+            telephone="+2250102030405",
+            email="admin@geslog.com",
+            role="admin"
+        )
+        admin_user.set_password("Admin@123")
+        
+        db.session.add(admin_user)
+        db.session.commit()
+        
+        print("✅ Utilisateur admin créé avec succès!")
+        print("📧 Identifiants: admin / Admin@123")
+        return True
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Erreur création admin: {e}")
+        return False
 
 def create_app():
     app = Flask(
@@ -72,6 +108,7 @@ def create_app():
     app.register_blueprint(ecoles_bp, url_prefix='/ecoles')
     app.register_blueprint(services_bp, url_prefix='/services')
     app.register_blueprint(moyennes_export_bp, url_prefix='/moyennes')
+    app.register_blueprint(bulletins_export_bp, url_prefix='/')
 
     # Middleware login
     from gestion_login.gestion_login.utils import login_required_middleware
@@ -88,6 +125,12 @@ def create_app():
             "gestion_login", "gestion_login", "static", "upload"
         )
         return send_from_directory(upload_folder, filename)
+    
+    # Commande CLI pour créer l'admin manuellement
+    @app.cli.command("create-admin")
+    def create_admin_cli():
+        """Crée un utilisateur admin par défaut (commande manuelle)"""
+        create_default_admin()
 
     return app
 
@@ -95,8 +138,12 @@ from sqlalchemy import text
 if __name__ == "__main__":
     app = create_app()
     with app.app_context():
-        # Crée toutes les tables si elles n'existent pas
+        # Créer le schéma et les tables
         db.session.execute(text("CREATE SCHEMA IF NOT EXISTS geslog_schema;"))
         db.session.commit()
         db.create_all()
+        
+        # Créer l'admin par défaut automatiquement
+        create_default_admin()
+        
     app.run(debug=True, port=5000)

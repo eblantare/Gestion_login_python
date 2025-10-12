@@ -189,6 +189,32 @@
     </div>
 </div>
 
+<!-- Carte pour les bulletins - NOUVELLE CARTE -->
+<div class="col-md-6 col-lg-4">
+    <div class="export-card bg-purple text-white p-4">
+        <div class="text-center">
+            <i class="bi bi-file-text-fill export-icon"></i>
+            <h4>Bulletins de Notes</h4>
+            <p class="mb-3">Exportez les bulletins individuels ou par classe</p>
+            
+            <div class="export-options">
+                <h6 class="mb-3">Types d'export :</h6>
+                <div class="mb-3">
+                    <span class="badge-filter">Bulletin individuel</span>
+                    <span class="badge-filter">Par classe</span>
+                    <span class="badge-filter">Toutes les classes</span>
+                    <span class="badge-filter">Format complet</span>
+                </div>
+                
+                <div class="d-flex justify-content-center flex-wrap gap-2">
+                    <button class="export-btn btn-pdf" onclick="openBulletinsExportModal()">
+                        <i class="bi bi-file-pdf"></i> Exporter
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 <!-- Modal pour sélection de classe (pour les élèves) -->
 <div class="modal fade" id="classeSelectionModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -409,6 +435,113 @@
                 </button>
                 <button type="button" class="btn btn-success" onclick="exportMoyennes('excel')">
                     <i class="bi bi-file-spreadsheet"></i> Exporter Excel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'exportation des bulletins - AJOUTÉ APRÈS LE MODAL DES MOYENNES -->
+<div class="modal fade" id="bulletinsExportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-purple text-white">
+                <h5 class="modal-title">📋 Exporter les Bulletins</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="bulletinsExportForm">
+                    <!-- Type d'export -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Type d'export</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="export_type" id="export_individuel" value="individuel" checked>
+                                <label class="form-check-label" for="export_individuel">
+                                    Bulletin individuel (élève spécifique)
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="export_type" id="export_classe" value="classe">
+                                <label class="form-check-label" for="export_classe">
+                                    Tous les bulletins d'une classe
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="export_type" id="export_toutes_classes" value="toutes_classes">
+                                <label class="form-check-label" for="export_toutes_classes">
+                                    Tous les bulletins (toutes classes)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dans votre modal HTML, modifiez les sélecteurs : -->
+
+          <!-- Sélection de l'élève (visible seulement pour individuel) -->
+                <div class="row g-3 mb-3" id="eleve_selection">
+                  <div class="col-md-6">
+                     <label for="export_bulletins_classe_eleve" class="form-label">Classe</label>
+                     <select class="form-select" id="export_bulletins_classe_eleve" name="classe_id" onchange="onClasseSelectChange(this, 'export_bulletins_eleve')">
+                       <option value="">Sélectionnez une classe</option>
+            <!-- Chargé dynamiquement -->
+                    </select>
+                 </div>
+                 <div class="col-md-6">
+                   <label for="export_bulletins_eleve" class="form-label">Élève</label>
+                   <select class="form-select" id="export_bulletins_eleve" name="eleve_id" disabled>
+                  <option value="">Sélectionnez d'abord une classe</option>
+                 </select>
+               </div>
+             </div>
+
+<!-- Sélection de la classe (visible seulement pour export par classe) -->
+            <div class="row g-3 mb-3" id="classe_selection" style="display: none;">
+             <div class="col-12">
+            <label for="export_bulletins_classe" class="form-label">Classe</label>
+              <select class="form-select" id="export_bulletins_classe" name="classe_id">
+             <option value="">Sélectionnez une classe</option>
+            <!-- Chargé dynamiquement -->
+            </select>
+           </div>
+          </div>
+
+                    <!-- Paramètres communs -->
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="export_bulletins_trimestre" class="form-label">Trimestre</label>
+                            <select class="form-select" id="export_bulletins_trimestre" name="trimestre" required>
+                                <option value="1">Trimestre 1</option>
+                                <option value="2">Trimestre 2</option>
+                                <option value="3">Trimestre 3</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="export_bulletins_annee" class="form-label">Année scolaire</label>
+                            <select class="form-select" id="export_bulletins_annee" name="annee_scolaire" required>
+                                <option value="">Sélectionnez une année</option>
+                                <!-- Chargé dynamiquement -->
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Informations de l'export -->
+                    <div class="mt-4 p-3 bg-light rounded">
+                        <h6>Contenu du bulletin :</h6>
+                        <div id="bulletinsExportInfo" class="small">
+                            <div><strong>En-tête :</strong> Informations ministère, école, élève, classe</div>
+                            <div><strong>Notes :</strong> Matières littéraires, scientifiques, spécialisées avec moyennes</div>
+                            <div><strong>Statistiques :</strong> Moyennes fortes/faibles, classement, effectifs</div>
+                            <div><strong>Décisions :</strong> Appréciations, mentions, décision du conseil</div>
+                            <div><strong>Signatures :</strong> Titulaire et chef d'établissement</div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-purple" onclick="exportBulletins()">
+                    <i class="bi bi-file-pdf"></i> Générer les Bulletins
                 </button>
             </div>
         </div>

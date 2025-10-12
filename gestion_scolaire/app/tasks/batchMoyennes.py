@@ -4,7 +4,47 @@ import uuid, traceback, logging
 
 logger = logging.getLogger(__name__)
 
+def init_appreciations():
+    """Initialise toutes les appréciations si elles n'existent pas"""
+    appreciations_data = [
+        ('Très Bien', 16, 20),
+        ('Bien', 14, 15.9),
+        ('Assez Bien', 12, 13.9),
+        ('Passable', 10, 11.9),
+        ('Insuffisant', 5, 9.9),
+        ('Très Insuffisant', 0, 4.9)
+    ]
+    
+    created_count = 0
+    for libelle, seuil_min, seuil_max in appreciations_data:
+        if not Appreciations.query.filter_by(libelle=libelle).first():
+            appreciation = Appreciations(
+                id=str(uuid.uuid4()),
+                libelle=libelle,
+                seuil_min=seuil_min,
+                seuil_max=seuil_max,
+                description=f"Appréciation: {libelle}",
+                etat="Actif"
+            )
+            db.session.add(appreciation)
+            created_count += 1
+            print(f"[INIT] Création de l'appréciation: {libelle} ({seuil_min}-{seuil_max})")
+    
+    if created_count > 0:
+        db.session.commit()
+        print(f"[INIT] {created_count} appréciation(s) créée(s)")
+    
+    return created_count
+
 def get_appreciation(moyenne):
+    """Retourne l'appréciation correspondante à la moyenne"""
+    if moyenne is None:
+        moyenne = 0
+        
+    # Initialiser les appréciations si nécessaire
+    init_appreciations()
+    
+    # Trouver l'appréciation correspondante
     if moyenne >= 16:
         return Appreciations.query.filter_by(libelle='Très Bien').first()
     elif moyenne >= 14:
@@ -41,6 +81,9 @@ def calcul_classement(sorted_list):
 def calculer_moyennes(classe_id, annee_scolaire, trimestre):
     resume = {"success": [], "errors": [], "created": 0, "updated": 0, "total": 0}
     try:
+        # Initialiser les appréciations au début du batch
+        init_appreciations()
+        
         eleves = Eleve.query.filter_by(classe_id=classe_id).all()
         if not eleves:
             resume["errors"].append(f"Aucun élève trouvé pour la classe {classe_id}")
@@ -85,6 +128,27 @@ def calculer_moyennes(classe_id, annee_scolaire, trimestre):
         for eleve in eleves:
             moy_trim = notes_par_eleve.get(eleve.id, 0)
             appreciation = get_appreciation(moy_trim)
+            
+            # Vérification finale de sécurité
+            if not appreciation:
+                print(f"[ERREUR] Aucune appréciation trouvée pour moyenne {moy_trim}, utilisation de 'Passable'")
+                appreciation = Appreciations.query.filter_by(libelle='Passable').first()
+                if not appreciation:
+                    # Créer Passable en urgence
+                    appreciation = Appreciations(
+                        id=str(uuid.uuid4()),
+                        libelle='Passable',
+                        seuil_min=10,
+                        seuil_max=11.9,
+                        description="Appréciation: Passable",
+                        etat="Actif"
+                    )
+                    db.session.add(appreciation)
+                    db.session.commit()
+            
+            # CORRECTION : Calculer moy_mat (colonne NOT NULL)
+            moy_mat = moy_trim
+            
             moyenne_obj = Moyenne.query.filter_by(eleve_id=eleve.id,
                                                  annee_scolaire=annee_scolaire,
                                                  trimestre=trimestre).first()
@@ -95,6 +159,7 @@ def calculer_moyennes(classe_id, annee_scolaire, trimestre):
                                       trimestre=trimestre,
                                       eleve_id=eleve.id,
                                       enseignement_id=default_enseignement_id,
+                                      moy_mat=moy_mat,
                                       etat="Inactif")
                 db.session.add(moyenne_obj)
                 resume["created"] += 1
@@ -102,6 +167,7 @@ def calculer_moyennes(classe_id, annee_scolaire, trimestre):
                 resume["updated"] += 1
 
             moyenne_obj.moy_trim = moy_trim
+            moyenne_obj.moy_mat = moy_mat
             moyenne_obj.moy_class = moy_class
             moyenne_obj.moy_forte = moy_forte
             moyenne_obj.moy_faible = moy_faible

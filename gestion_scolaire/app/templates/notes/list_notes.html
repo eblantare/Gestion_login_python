@@ -74,36 +74,36 @@
         <!-- SUPPRIMER LE BOUTON EXPORTER ICI -->
     </form>
 
-    <!-- 📊 Tableau des notes -->
-    <div class="table-responsive">
-        <table id="notesTable" class="table table-bordered table-hover text-center align-middle" style="min-width: 1000px;">
-            <thead class="table-dark">
+     <!-- 📊 Tableau des notes -->
+   <div class="table-responsive">
+     <table id="notesTable" class="table table-bordered table-hover text-center align-middle" style="min-width: 1000px;">
+        <thead class="table-dark">
+            <tr>
+                <th scope="col" data-bs-toggle="tooltip" title="Nom et prénom de l'élève">Élève</th>
+                <th scope="col" data-bs-toggle="tooltip" title="Matière concernée">Matière</th>
+                <th scope="col" data-bs-toggle="tooltip" title="Première note">Note 1</th>
+                <th scope="col" data-bs-toggle="tooltip" title="Deuxième note">Note 2</th>
+                <th scope="col" data-bs-toggle="tooltip" title="Troisième note">Note 3</th>
+                <th scope="col" data-bs-toggle="tooltip" title="Note de composition">Comp.</th>
+                <th scope="col" data-bs-toggle="tooltip" title="Coefficient de la matière">Coef.</th>
+                <th scope="col" data-bs-toggle="tooltip" title="Enseignant responsable">Enseignant</th>
+                <th scope="col" data-bs-toggle="tooltip" title="Trimestre (1, 2 ou 3)">Trim.</th>
+                <th scope="col" data-bs-toggle="tooltip" title="Année scolaire">Année</th>
+                <th scope="col" data-bs-toggle="tooltip" title="Date de saisie">Date</th>
+                <th scope="col" class="actions" data-bs-toggle="tooltip" title="Actions disponibles">Actions</th>
+                <th scope="col" class="etat" data-bs-toggle="tooltip" title="État de la note">État</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for note in notes %}
+                {% include "notes/_note_row.html" %}
+            {% else %}
                 <tr>
-                    <th scope="col">Élève</th>
-                    <th scope="col">Matière</th>
-                    <th scope="col">Note 1</th>
-                    <th scope="col">Note 2</th>
-                    <th scope="col">Note 3</th>
-                    <th scope="col">Comp.</th>
-                    <th scope="col">Coef.</th>
-                    <th scope="col">Enseignant</th>
-                    <th scope="col">Trimestre</th>
-                    <th scope="col">Année</th>
-                    <th scope="col">Date</th>
-                    <th scope="col" class="actions">Actions</th>
-                    <th scope="col" class="etat">État</th>
+                    <td colspan="13" class="text-center">Aucune note trouvée</td>
                 </tr>
-            </thead>
-            <tbody>
-                {% for note in notes %}
-                    {% include "notes/_note_row.html" %}
-                {% else %}
-                    <tr>
-                        <td colspan="13" class="text-center">Aucune note trouvée</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+            {% endfor %}
+        </tbody>
+      </table>
     </div>
 
     <!-- 📌 Pagination -->

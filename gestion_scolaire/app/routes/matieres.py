@@ -147,7 +147,7 @@ def update_mat(id):
         "libelle": matiere.libelle,
         "type": matiere.type,
         "etat": matiere.etat
-    })
+    }),200
 
 @matieres_bp.route("/liste", methods=["GET"])
 def liste_matieres():

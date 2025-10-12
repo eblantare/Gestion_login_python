@@ -2,13 +2,19 @@
 document.addEventListener("DOMContentLoaded", () => {
   'use strict';
 
+  const confirmModalEl = document.getElementById("confirmActionModal");
+  const confirmYesBtn = document.getElementById("confirmYesBtn");
+    // Si les éléments n'existent pas sur cette page, on arrête
+  if (!confirmModalEl || !confirmYesBtn) {
+    console.log('Éléments workflow non trouvés - page services probablement');
+    return; // On quitte le script
+  }
   // Au début du fichier, après DOMContentLoaded
   console.log('Initialisation eleves.js');
   console.log('Selects workflow trouvés:', document.querySelectorAll(".select-action").length);
 
   // Variables globales pour le workflow
-  const confirmModalEl = document.getElementById("confirmActionModal");
-  const confirmYesBtn = document.getElementById("confirmYesBtn");
+
   let currentAction = null;
   let currentEleveId = null;
   let currentSelect = null;

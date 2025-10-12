@@ -11,7 +11,7 @@
         <!-- Recherche -->
         <div class="col-md-4 col-12">
             <div class="input-group rounded-pill border overflow-hidden">
-                <input type="text" name="search" value="{{ search }}" class="form-control border-0" placeholder="Rechercher">
+                <input type="text" name="search" value="{{ search }}" class="form-control border-0" placeholder="Rechercher une classe...">
                 <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i></button>
             </div>
         </div>
@@ -27,76 +27,97 @@
         <div class="col-md-4 text-end ms-2 flex-grow-1">
             {% if user_role in ['admin', 'administrateur'] %}
             <button type="button" class="btn btn-success rounded-pill" data-bs-toggle="modal" data-bs-target="#addClModal">
-                <i class="bi bi-plus-circle"></i>
+                <i class="bi bi-plus-circle me-1"></i>Ajouter
             </button>
             {% endif %}
         </div>
     </form>
 
     <!-- Tableau des classes -->
-    <table class="table table-bordered table-striped text-center align-middle" id="table-classes">
-        <thead class="table-dark">
-            <tr>
-                <th>Code</th>
-                <th>Nom</th>
-                <th>Effectif</th>
-                <th>Enseignants</th>
-                <th>Etat</th>
-                <th class="bs-large">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for classe in classes %}
-            <tr data-id="classe-{{ classe.id }}">
-              <td class="col-code text-truncate-ellipsis" title="{{ classe.code }}">{{ classe.code }}</td>
-              <td class="col-nom text-truncate-ellipsis" title="{{ classe.nom }}">{{ classe.nom }}</td>
-              <td class="col-effectif">{{ classe.effectif }}</td>
-             <td class="col-enseignant text-truncate-ellipsis" 
-             title="{% for ens in classe.enseignants %}{{ ens.utilisateur.prenoms }} {{ ens.utilisateur.nom }}{% if not loop.last %}, {% endif %}{% endfor %}">
-            {% for ens in classe.enseignants %}
-            <span class="badge bg-info text-dark">{{ ens.utilisateur.prenoms }} {{ ens.utilisateur.nom }}</span>
-            {% endfor %}
-             </td>
-            <td class="etat text-center">
-            <span class="badge
-            {% if classe.etat == 'Actif' %}bg-success
-            {% elif classe.etat == 'Fermé' %}bg-dark
-            {% else %}bg-secondary
-            {% endif %}">
-            {{ classe.etat }}
-            </span>
-            {% if user_role in ['admin', 'administrateur'] and classe.etat != "Fermé" %}
-            <select class="form-select form-select-sm d-inline-block w-auto ms-2 select-action" data-id="{{ classe.id }}">
-            <option value="">---Action---</option>
-            {% if classe.etat | lower == 'inactif' %}
-               <option value="Activer">Activer</option>
-            {% elif classe.etat | lower == 'actif' %}
-            <option value="Fermer">Fermer</option>
-           {% endif %}
-          </select>
-         {% endif %}
-         </td>
-                <td class="text-nowrap">
-                    <button class="btn btn-info btn-sm btn-detail" data-id="{{ classe.id }}" title="Détail">
-                        <i class="bi bi-eye"></i>
-                    </button>
-                    {% if user_role in ['admin', 'administrateur'] and classe.etat | lower == 'inactif' %}
-                    <button type="button" class="btn btn-warning btn-sm btn-edit" data-id="{{ classe.id }}" title="Modifier">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-danger btn-sm" data-id="{{ classe.id }}" title="Supprimer">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                    {% endif %}
-                </td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="6" class="text-center">Aucune classe sur la liste</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="table-responsive">
+        <table class="table table-bordered table-striped text-center align-middle" id="table-classes">
+            <thead class="table-dark">
+                <tr>
+                    <th width="10%">Code</th>
+                    <th width="10%">Classe</th>
+                    <th width="2%">Effectif</th>
+                    <th width="60%">Enseignants</th>
+                    <th width="8%">État</th>
+                    <th width="8%">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for classe in classes %}
+                <tr data-id="classe-{{ classe.id }}">
+                    <td class="col-code">
+                        <span class="fw-bold text-primary">{{ classe.code }}</span>
+                    </td>
+                    <td class="col-nom text-start ps-3">
+                        <span class="text-truncate d-inline-block" style="max-width: 200px;" title="{{ classe.nom }}">
+                            {{ classe.nom }}
+                        </span>
+                    </td>
+                    <td class="col-effectif">
+                        <span class="badge bg-secondary fs-6">{{ classe.effectif }}</span>
+                    </td>
+                   <td class="col-enseignant" title="{% for ens in classe.enseignants %}{{ ens.utilisateur.prenoms }} {{ ens.utilisateur.nom }}{% if not loop.last %}, {% endif %}{% endfor %}">
+                       <div class="enseignants-container">
+                           {% for ens in classe.enseignants %}
+                               <span class="badge badge-enseignant">
+                                 {{ ens.utilisateur.prenoms }} {{ ens.utilisateur.nom }}
+                               </span>
+                              {% else %}
+                              <span class="text-muted small">Aucun enseignant</span>
+                             {% endfor %}
+                           </div>
+                        </td>
+                      <td class="etat text-center">
+                        <span class="badge
+                            {% if classe.etat == 'Actif' %}bg-success
+                            {% elif classe.etat == 'Fermé' %}bg-dark
+                            {% else %}bg-secondary
+                            {% endif %}">
+                            {{ classe.etat }}
+                        </span>
+                        
+                        {% if user_role in ['admin', 'administrateur'] and classe.etat != "Fermé" %}
+                        <select class="form-select form-select-sm d-inline-block w-auto ms-1 select-action" data-id="{{ classe.id }}">
+                            <option value="">Action</option>
+                            {% if classe.etat | lower == 'inactif' %}
+                            <option value="Activer">Activer</option>
+                            {% elif classe.etat | lower == 'actif' %}
+                            <option value="Fermer">Fermer</option>
+                            {% endif %}
+                        </select>
+                        {% endif %}
+                    </td>
+                    <td class="text-nowrap actions-cell">
+                        <button class="btn btn-info btn-sm btn-detail" data-id="{{ classe.id }}" title="Détails">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        {% if user_role in ['admin', 'administrateur'] and classe.etat | lower == 'inactif' %}
+                        <button type="button" class="btn btn-warning btn-sm btn-edit" data-id="{{ classe.id }}" title="Modifier">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-danger btn-sm btn-delete" data-id="{{ classe.id }}" title="Supprimer">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center py-4">
+                        <div class="text-muted">
+                            <i class="bi bi-building display-4"></i>
+                            <p class="mt-2">Aucune classe trouvée</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
     <!-- Pagination -->
     <nav>
@@ -148,4 +169,6 @@
         </div>
     </div>
 </div>
+
+
 {% endblock %}

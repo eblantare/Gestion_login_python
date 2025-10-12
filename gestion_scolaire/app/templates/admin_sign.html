@@ -1,0 +1,86 @@
+{% extends "ebase.html" %}
+
+{% block title %}Administration des Signatures{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_signatures.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="mb-0">Administration des Signatures</h1>
+                <div class="btn-group">
+                    <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-2"></i>Retour au dashboard
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Section Chef d'Établissement -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-person-badge me-2"></i>Chef d'Établissement
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="form-chef">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label">Civilité:</label>
+                                <select id="civilite-chef" class="form-select">
+                                    <option value="M.">M.</option>
+                                    <option value="Mme">Mme</option>
+                                    <option value="Mlle">Mlle</option>
+                                </select>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label">Titre:</label>
+                                <input type="text" id="titre-chef" class="form-control" value="LE CHEF D'ÉTABLISSEMENT">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Nom complet:</label>
+                                <input type="text" id="nom-chef" class="form-control" placeholder="Ex: DUPONT Jean" required>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-check-lg me-2"></i>Enregistrer le Chef
+                            </button>
+                        </div>
+                        <div id="message-chef" class="mt-2"></div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Section Titulaires des Classes -->
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-people-fill me-2"></i>Titulaires des Classes
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="classes-list">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Chargement...</span>
+                            </div>
+                            <p class="mt-2">Chargement des classes...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/admin_signatures.js') }}"></script>
+{% endblock %}

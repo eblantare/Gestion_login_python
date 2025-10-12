@@ -8,22 +8,35 @@
         </div>
         <div class="modal-body">
           <input type="hidden" name="id" id="editCl_id">
-          <input id="editCl_code" name="code" class="form-control mb-2" placeholder="Code (laisser vide pour générer)">
+          <input id="editCl_code" name="code" class="form-control mb-2" placeholder="Code" required>
           <input id="editCl_nom" name="nom" class="form-control mb-2" placeholder="Nom" required>
           <input id="editCl_effectif" type="number" min="0" name="effectif" class="form-control mb-2" placeholder="Effectif" required>
 
-          <!-- Sélection multiple enseignants -->
-          <label for="editCl_enseignants">Enseignants :</label>
-          <select name="enseignants[]" id="editCl_enseignants" class="form-select" multiple >
-            {% for ens in enseignants %}
-              <option value="{{ ens.id }}">{{ ens.utilisateur.prenoms }} {{ ens.utilisateur.nom }}</option>
-            {% endfor %}
-          </select>
-          <small class="text-muted">Cliquez pour sélectionner/désélectionner</small>
+          <!-- Sélection multiple enseignants - AMÉLIORÉE -->
+          <div class="mb-3">
+            <label for="editCl_enseignants" class="form-label select-multiple-label">
+              Enseignants responsables
+            </label>
+            
+            <select name="enseignants[]" id="editCl_enseignants" class="form-select" multiple size="4">
+              {% for enseignant in enseignants %}
+                <option value="{{ enseignant.id }}">
+                  👨‍🏫 {{ enseignant.utilisateur.prenoms }} {{ enseignant.utilisateur.nom }}
+                </option>
+              {% endfor %}
+            </select>
+            
+            <!-- <div class="select-multiple-hint">
+              <strong>💡 Comment sélectionner :</strong><br>
+              • <kbd>Ctrl</kbd> + clic : Sélection multiple<br>
+              • <kbd>Shift</kbd> + clic : Sélection par plage<br>
+              • <kbd>Ctrl</kbd> + <kbd>A</kbd> : Tout sélectionner
+            </div> -->
+          </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
-          <button class="btn btn-warning rounded-pill">Modifier</button>
+          <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
+          <button type="submit" class="btn btn-warning rounded-pill">Modifier</button>
         </div>
       </form>
     </div>

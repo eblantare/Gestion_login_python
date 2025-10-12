@@ -135,65 +135,66 @@ document.addEventListener("DOMContentLoaded", () => {
   // ===============================
   // Charger élèves et matières
   // ===============================
-  async function loadElevesMatieres() {
+ async function loadElevesMatieres() {
     try {
-      const resp = await fetch("/notes/list_elements");
-      const data = await resp.json();
+        const resp = await fetch("/notes/list_elements");
+        const data = await resp.json();
 
-      // Classes
-      classeFilter.innerHTML = '<option value="">Toutes les classes</option>';
-      data.classes.forEach(c => {
-        const option = document.createElement('option');
-        option.value = c.id;
-        option.textContent = c.nom;
-        classeFilter.appendChild(option);
-      });
-
-      // Élèves
-      const eleveTree = addModalEl.querySelector("#eleveTree");
-      eleveTree.innerHTML = "";
-      data.eleves.forEach(e => {
-        const li = document.createElement("li");
-        li.className = "list-group-item eleve-item";
-        li.dataset.classe = e.classe_id;
-        li.dataset.id = e.id;
-        li.textContent = `${e.nom} ${e.prenoms}`;
-        li.style.cursor = "pointer";
-        eleveTree.appendChild(li);
-      });
-
-      // Enseignants
-      const enseignantSelect = addModalEl.querySelector("#enseignantSelect");
-      enseignantSelect.innerHTML = '<option value="">-- Sélectionnez un enseignant --</option>';
-      data.enseignants.forEach(e => {
-        const opt = document.createElement("option");
-        opt.value = e.id;
-        opt.textContent = `${e.nom || e.noms} ${e.prenoms}`;
-        enseignantSelect.appendChild(opt);
-      });
-
-      // Matières
-      const matiereTree = addModalEl.querySelector("#matiereTree");
-      matiereTree.innerHTML = "";
-      data.matieres.forEach(m => matiereTree.appendChild(createMatiereNode(m)));
-
-      // Edition enseignants
-      const enseignantEditSelect = editModalEl?.querySelector("#editEnseignantSelect");
-      if (enseignantEditSelect) {
-        enseignantEditSelect.innerHTML = '<option value="">-- Sélectionnez un enseignant --</option>';
-        data.enseignants.forEach(e => {
-          const opt = document.createElement("option");
-          opt.value = e.id;
-          opt.textContent = `${e.noms} ${e.prenoms}`;
-          enseignantEditSelect.appendChild(opt);
+        // Classes
+        classeFilter.innerHTML = '<option value="">Toutes les classes</option>';
+        data.classes.forEach(c => {
+            const option = document.createElement('option');
+            option.value = c.id;
+            option.textContent = c.nom;
+            classeFilter.appendChild(option);
         });
-      }
 
-      initListeners();
+        // Élèves
+        const eleveTree = addModalEl.querySelector("#eleveTree");
+        eleveTree.innerHTML = "";
+        data.eleves.forEach(e => {
+            const li = document.createElement("li");
+            li.className = "list-group-item eleve-item";
+            li.dataset.classe = e.classe_id;
+            li.dataset.id = e.id;
+            li.textContent = `${e.nom} ${e.prenoms}`;
+            li.style.cursor = "pointer";
+            eleveTree.appendChild(li);
+        });
+
+        // CORRECTION : Enseignants - utilisation correcte des champs
+        const enseignantSelect = addModalEl.querySelector("#enseignantSelect");
+        enseignantSelect.innerHTML = '<option value="">-- Sélectionnez un enseignant --</option>';
+        data.enseignants.forEach(e => {
+            const opt = document.createElement("option");
+            opt.value = e.id;
+            // Utiliser les bons champs du JSON
+            opt.textContent = `${e.noms || ''} ${e.prenoms || ''}`.trim();
+            enseignantSelect.appendChild(opt);
+        });
+
+        // Matières
+        const matiereTree = addModalEl.querySelector("#matiereTree");
+        matiereTree.innerHTML = "";
+        data.matieres.forEach(m => matiereTree.appendChild(createMatiereNode(m)));
+
+        // Edition enseignants
+        const enseignantEditSelect = editModalEl?.querySelector("#editEnseignantSelect");
+        if (enseignantEditSelect) {
+            enseignantEditSelect.innerHTML = '<option value="">-- Sélectionnez un enseignant --</option>';
+            data.enseignants.forEach(e => {
+                const opt = document.createElement("option");
+                opt.value = e.id;
+                opt.textContent = `${e.noms || ''} ${e.prenoms || ''}`.trim();
+                enseignantEditSelect.appendChild(opt);
+            });
+        }
+
+        initListeners();
     } catch (err) {
-      console.error("Erreur chargement :", err);
+        console.error("Erreur chargement :", err);
     }
-  }
+}
 
   function updateNoteInputsVisibility() {
     noteInputsContainer.classList.toggle("d-none", !(selectedEleve && selectedMatiere));
@@ -325,9 +326,8 @@ function validateNoteInput(input) {
   });
 
   // ===============================
-  // Détail note
-  // ===============================
-  document.addEventListener("click", async (e) => {
+// Dans la partie Détail note
+document.addEventListener("click", async (e) => {
     const detailBtn = e.target.closest("button.btn-detail-note");
     if (!detailBtn) return;
     const id = detailBtn.dataset.id;
@@ -335,29 +335,29 @@ function validateNoteInput(input) {
     const body = document.getElementById("noteDetailContent");
     body.innerHTML = "<p>Chargement...</p>";
     try {
-      const resp = await fetch(`/notes/${id}`);
-      const note = await resp.json();
-      if (resp.ok) {
-        body.innerHTML = `
-          <ul class="list-group">
-            <li class="list-group-item"><b>Élève:</b> ${note.eleve_nom}</li>
-            <li class="list-group-item"><b>Matière:</b> ${note.matiere_nom}</li>
-            <li class="list-group-item"><b>Enseignant:</b> ${note.enseignant_nom || ""} ${note.enseignant_prenoms || ""}</li>
-            <li class="list-group-item"><b>Notes:</b> ${note.note1 || ""}, ${note.note2 || ""}, ${note.note3 || ""}, Comp: ${note.note_comp || ""}</li>
-            <li class="list-group-item"><b>Coefficient:</b> ${note.coefficient}</li>
-            <li class="list-group-item"><b>Trimestre:</b> ${note.trimestre}</li>
-            <li class="list-group-item"><b>Année:</b> ${note.annee_scolaire}</li>
-            <li class="list-group-item"><b>État:</b> ${note.etat}</li>
-          </ul>
-        `;
-      } else {
-        body.innerHTML = `<p class="text-danger">${note.error}</p>`;
-      }
+        const resp = await fetch(`/notes/${id}`);
+        const note = await resp.json();
+        if (resp.ok) {
+            body.innerHTML = `
+                <ul class="list-group">
+                    <li class="list-group-item"><b>Élève:</b> ${note.eleve_nom}</li>
+                    <li class="list-group-item"><b>Matière:</b> ${note.matiere_nom}</li>
+                    <li class="list-group-item"><b>Enseignant:</b> ${note.enseignant_nom || ""} ${note.enseignant_prenoms || ""}</li>
+                    <li class="list-group-item"><b>Notes:</b> ${note.note1 || "-"}, ${note.note2 || "-"}, ${note.note3 || "-"}, Comp: ${note.note_comp || "-"}</li>
+                    <li class="list-group-item"><b>Coefficient:</b> ${note.coefficient}</li>
+                    <li class="list-group-item"><b>Trimestre:</b> ${note.trimestre}</li>
+                    <li class="list-group-item"><b>Année:</b> ${note.annee_scolaire}</li>
+                    <li class="list-group-item"><b>État:</b> ${note.etat}</li>
+                </ul>
+            `;
+        } else {
+            body.innerHTML = `<p class="text-danger">${note.error}</p>`;
+        }
     } catch (err) {
-      body.innerHTML = `<p class="text-danger">Erreur : ${err.message}</p>`;
+        body.innerHTML = `<p class="text-danger">Erreur : ${err.message}</p>`;
     }
     modal.show();
-  });
+});
 
   // ===============================
   // Modification note
@@ -658,4 +658,21 @@ loadClasseFilterList();
     
 //     showNotification(`Export ${format.toUpperCase()} des notes en cours...`, 'info');
 // }
+// Fonction de debug
+async function debugSaveNote() {
+    const data = {
+        eleve_id: selectedEleve,
+        matiere_id: selectedMatiere,
+        enseignant_id: document.querySelector("#enseignantSelect").value,
+        trimestre: trimestreSelect.value,
+        annee_scolaire: anneeSelect.value,
+        note1: note1Input.value || null,
+        note2: note2Input.value || null,
+        note3: note3Input.value || null,
+        note_comp: noteCompInput.value || null,
+        coefficient: coefficientSelect.value
+    };
+    
+    console.log("Données envoyées:", data);
+}
 });

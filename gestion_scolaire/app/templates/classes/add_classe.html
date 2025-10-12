@@ -2,27 +2,40 @@
   <div class="modal-dialog">
     <form id="addClForm" class="modal-content needs-validation" novalidate>
       <div class="modal-header">
-        <h5>Ajouter une classe</h5>
+        <h5 class="modal-title">Ajouter une classe</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
       </div>
       <div class="modal-body">
-        <input name="code" id="addCl_code" class="form-control mb-2" placeholder="Code (laisser vide pour générer)" >
+        <input name="code" id="addCl_code" class="form-control mb-2" placeholder="Code (laisser vide pour générer)">
         <input name="nom" class="form-control mb-2" placeholder="Nom" required>
         <input name="effectif" class="form-control mb-2" placeholder="Effectif" type="number" required>
 
-        <!-- Select multiple pour enseignants -->
-        <label for="addCl_enseignants">Enseignants</label>
-        <select name="enseignants[]" id="addCl_enseignants" class="form-select mb-2" multiple required>
-          {% for enseignant in enseignants %}
-            <option value="{{ enseignant.id }}">{{ enseignant.utilisateur.nom }} {{ enseignant.utilisateur.prenoms }}</option>
-          {% endfor %}
-        </select>
-        <small class="text-muted">Cliquez pour sélectionner/désélectionner</small>
+        <!-- Sélection multiple enseignants - AMÉLIORÉE -->
+        <div class="mb-3">
+          <label for="addCl_enseignants" class="form-label select-multiple-label">
+            Enseignants responsables
+          </label>
+          
+          <select name="enseignants[]" id="addCl_enseignants" class="form-select" multiple size="4">
+            {% for enseignant in enseignants %}
+              <option value="{{ enseignant.id }}">
+                👨‍🏫 {{ enseignant.utilisateur.prenoms }} {{ enseignant.utilisateur.nom }}
+              </option>
+            {% endfor %}
+          </select>
+<!--           
+          <div class="select-multiple-hint">
+            <strong>💡 Comment sélectionner :</strong><br>
+            • <kbd>Ctrl</kbd> + clic : Sélection multiple<br>
+            • <kbd>Shift</kbd> + clic : Sélection par plage<br>
+            • <kbd>Ctrl</kbd> + <kbd>A</kbd> : Tout sélectionner
+          </div> -->
+        </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
-        <button class="btn btn-success rounded-pill" type="submit">Enregistrer</button>
+        <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
+        <button type="submit" class="btn btn-success rounded-pill">Enregistrer</button>
       </div>
     </form>
   </div>
 </div>
-

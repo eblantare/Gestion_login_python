@@ -92,44 +92,45 @@ document.addEventListener("DOMContentLoaded", () => {
   // ======================
   function initWorkflowButtons() {
     document.querySelectorAll(".select-action").forEach(select => {
-      select.removeEventListener("change", workflowChangeHandler); // éviter doublons
+      select.removeEventListener("change", workflowChangeHandler);
       select.addEventListener("change", workflowChangeHandler);
     });
   }
 
   async function workflowChangeHandler(e) {
-     const action = e.target.value;
-     if (!action) return;
+    const action = e.target.value;
+    if (!action) return;
 
-     const paiementId = e.target.dataset.id;
-     const currentSelect = e.target;
-     const tr = currentSelect.closest("tr"); // ligne du paiement
+    const paiementId = e.target.dataset.id;
+    const currentSelect = e.target;
+    const tr = currentSelect.closest("tr");
 
     showConfirm(`Voulez-vous vraiment ${action.toLowerCase()} ce paiement ?`, async () => {
-    try {
-      const res = await fetch(`/paiements/workflow/${paiementId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action })
-      });
-      const result = await res.json();
+      try {
+        const res = await fetch(`/paiements/workflow/${paiementId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action })
+        });
+        const result = await res.json();
 
-      if (res.ok && !result.error) {
-        // Mettre à jour le badge
-        const badge = tr.querySelector(".badge");
-        if (badge) {
-          badge.textContent = result.etat;
-          badge.className = "badge " + (
-            result.etat === "Actif" ? "bg-success" :
-            result.etat === "Validé" ? "bg-dark" :
-            "bg-secondary"
+        if (res.ok && !result.error) {
+          // Mettre à jour le badge
+          const badge = tr.querySelector(".badge");
+          if (badge) {
+            badge.textContent = result.etat;
+            badge.className = "badge " + (
+              result.etat === "Actif" ? "bg-success" :
+              result.etat === "Validé" ? "bg-dark" :
+              "bg-secondary"
             );
           }
-                
-          // 🔹 Supprimer boutons edit/delete après première action
-        if (result.etat.toLowerCase() === "actif") {
-          tr.querySelectorAll(".btn-edit, .btn-delete").forEach(btn => btn.remove());
-        }
+          
+          // Supprimer boutons edit/delete après première action
+          if (result.etat.toLowerCase() === "actif") {
+            tr.querySelectorAll(".btn-edit, .btn-delete").forEach(btn => btn.remove());
+          }
+          
           rebuildWorkflowSelect(currentSelect, paiementId, result.etat, tr);
           showNotification(result.message, "success");
         } else {
@@ -144,38 +145,37 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-function rebuildWorkflowSelect(select, id, etat, tr) {
-  const td = select.closest("td");
-  if (!td) return;
+  function rebuildWorkflowSelect(select, id, etat, tr) {
+    const td = select.closest("td");
+    if (!td) return;
 
-  // On supprime l'ancien select
-  select.remove();
+    // On supprime l'ancien select
+    select.remove();
 
-  // 🔹 Si état final "Validé", on ne recrée pas le select
-  if (etat.toLowerCase() === "validé") return;
+    // Si état final "Validé", on ne recrée pas le select
+    if (etat.toLowerCase() === "validé") return;
 
-  // 🔹 Recréer le select pour les états intermédiaires
-  const newSelect = document.createElement("select");
-  newSelect.className = "form-select form-select-sm d-inline-block w-auto ms-2 select-action";
-  newSelect.dataset.id = id;
+    // Recréer le select pour les états intermédiaires
+    const newSelect = document.createElement("select");
+    newSelect.className = "form-select form-select-sm d-inline-block w-auto ms-1 select-action";
+    newSelect.dataset.id = id;
 
-  let options = `<option value="">---Action---</option>`;
-  switch (etat.toLowerCase()) {
-    case "inactif":
-      options += `<option value="Activer">Activer</option>`;
-      break;
-    case "actif":
-      options += `<option value="Valider">Valider</option>`;
-      break;
+    let options = `<option value="">Action</option>`;
+    switch (etat.toLowerCase()) {
+      case "inactif":
+        options += `<option value="Activer">Activer</option>`;
+        break;
+      case "actif":
+        options += `<option value="Valider">Valider</option>`;
+        break;
+    }
+
+    newSelect.innerHTML = options;
+    td.appendChild(newSelect);
+
+    // Réattacher le handler
+    initWorkflowButtons();
   }
-
-  newSelect.innerHTML = options;
-  td.appendChild(newSelect);
-
-  // 🔹 Réattacher le handler
-  initWorkflowButtons();
-}
-
 
   // ======================
   // 6️⃣ Paiement Actions (edit, detail, delete)
@@ -239,18 +239,17 @@ function rebuildWorkflowSelect(select, id, etat, tr) {
     modal.show();
   }
 
- async function deletePaiement(id) {
-  const res = await fetch(`/paiements/delete/${id}`, { method: "POST" });
-  const result = await res.json();
+  async function deletePaiement(id) {
+    const res = await fetch(`/paiements/delete/${id}`, { method: "POST" });
+    const result = await res.json();
 
-  if (res.ok && result.status === "success") {
-    showNotification(result.message, "success");
-    location.reload();
-  } else {
-    showNotification(result.error || result.message, "danger");
+    if (res.ok && result.status === "success") {
+      showNotification(result.message, "success");
+      location.reload();
+    } else {
+      showNotification(result.error || result.message, "danger");
+    }
   }
-}
-
 
   // ======================
   // 7️⃣ Formulaire édition
@@ -304,6 +303,9 @@ function rebuildWorkflowSelect(select, id, etat, tr) {
     const paiementForm = document.getElementById("paiementForm");
     if (!paiementForm) return;
 
+    // Initialiser la date du jour par défaut
+    setDefaultDate();
+
     paiementForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       const formData = new FormData(paiementForm);
@@ -317,6 +319,8 @@ function rebuildWorkflowSelect(select, id, etat, tr) {
           showNotification(result.message, "success");
           bootstrap.Modal.getInstance(document.getElementById("paiementModal"))?.hide();
           paiementForm.reset();
+          // Réinitialiser la date après soumission
+          setDefaultDate();
           document.getElementById("montant_rest").value = "";
           location.reload();
         } else {
@@ -327,6 +331,16 @@ function rebuildWorkflowSelect(select, id, etat, tr) {
         showNotification("Erreur lors de l'ajout du paiement", "danger");
       }
     });
+  }
+
+  // Fonction pour définir la date du jour par défaut
+  function setDefaultDate() {
+    const dateInput = document.getElementById("date_payement");
+    if (dateInput) {
+      const today = new Date();
+      const formattedDate = today.toISOString().split('T')[0];
+      dateInput.value = formattedDate;
+    }
   }
 
   // ======================

@@ -26,6 +26,16 @@ def liste_moyennes():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 10, type=int)
 
+    # CORRECTION : Récupérer les années scolaires depuis la table Moyenne
+    # Utiliser une sous-requête ou une jointure appropriée
+    annees_scolaires = db.session.query(Moyenne.annee_scolaire).distinct().all()
+    annees_scolaires = [a[0] for a in annees_scolaires if a[0]]  # Filtrer les valeurs None
+    
+    # Si aucune année n'est trouvée, fournir des valeurs par défaut
+    if not annees_scolaires:
+        # Vous pouvez définir des années par défaut ou les récupérer d'ailleurs
+        annees_scolaires = ["2024-2025", "2025-2026"]  # Exemple
+
     # Requête principale
     query = (
         db.session.query(
@@ -67,14 +77,18 @@ def liste_moyennes():
     items = pagination.items
 
     classes = Classe.query.all()
-    annees_scolaires = [m.annee_scolaire for m in db.session.query(Moyenne.annee_scolaire).distinct()]
 
     # Calcul du récapitulatif
     if items:
-        moy_forte = max([i.moy_forte for i in items if i.moy_forte is not None], default=0)
-        moy_faible = min([i.moy_faible for i in items if i.moy_faible is not None], default=0)
-        moy_class = round((moy_forte + moy_faible) / 2, 2) if (moy_forte or moy_faible) else 0
+        # Filtrer les valeurs None avant de calculer
+        moy_fortes = [i.moy_forte for i in items if i.moy_forte is not None]
+        moy_faibles = [i.moy_faible for i in items if i.moy_faible is not None]
+        
+        moy_forte = max(moy_fortes) if moy_fortes else 0
+        moy_faible = min(moy_faibles) if moy_faibles else 0
+        moy_class = round((moy_forte + moy_faible) / 2, 2) if moy_fortes and moy_faibles else 0
         effectif_composants = sum([1 for i in items if i.moy_trim is not None and i.moy_trim > 0])
+        
         classe_recap = {
             "moy_class": moy_class,
             "moy_forte": moy_forte,
@@ -94,7 +108,7 @@ def liste_moyennes():
         trimestre=trimestre,
         per_page=per_page,
         classes=classes,
-        annees_scolaires=annees_scolaires,
+        annees_scolaires=annees_scolaires,  # CORRECTION : Utiliser la variable calculée
         classe_recap=classe_recap,
     )
 

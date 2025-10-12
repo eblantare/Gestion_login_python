@@ -5,22 +5,31 @@
       <input type="hidden" name="id" id="edit_id">
       <div class="modal-header"><h5>Modifier un élève</h5></div>
       <div class="modal-body">
+       <div class="row g-3">
+        <div class="col-md-6">
         <input id="edit_matricule" name="matricule" class="form-control mb-2" placeholder="Matricule" required>
+        </div>
+        <div class="col-md-6">
         <input id="edit_nom" name="nom" class="form-control mb-2" placeholder="Nom" required>
+        </div>
+        <div class="col-md-6">
         <input id="edit_prenoms" name="prenoms" class="form-control mb-2" placeholder="Prénoms" required>
+        </div>
+        <div class="col-md-6">
         <input type="date" id="edit_date_naissance" name="date_naissance" class="form-control mb-2" required>
-        <div class="mb-3">
+         </div>
+        <div class="col-md-6">
             <label class="form-label">Sexe</label><br>
             <div class="form-check form-check-inline">
             <input class="form-check-input" type="radio" name="sexe" id="sexeM" value="M" required>
             <label class="form-check-label" for="sexeM">Masculin</label>
-      </div>
-      <div class="form-check form-check-inline">
+         </div>
+        <div class="form-check form-check-inline">
           <input class="form-check-input" type="radio" name="sexe" id="sexeF" value="F">
           <label class="form-check-label" for="sexeF">Féminin</label>
-      </div>
-      </div>
-      <div class="mb-3">
+        </div>
+        </div>
+        <div class="col-md-6">
           <label class="form-label">Status</label><br>
           <div class="form-check form-check-inline">
           <input class="form-check-input" type="radio" name="status" id="statusNouveau" value="Nouveau" checked>
@@ -31,13 +40,15 @@
           <label class="form-check-label" for="statusAncien">Ancien</label>
       </div>
       </div>
+      <div class="col-md-6">
         <select id="edit_classe" name="classe_id" class="form-control mb-2" required>
           <option value="">-- Classe --</option>
           {% for c in classes %}
              <option value="{{ c.id }}">{{ c.nom }}</option>
           {% endfor %}
         </select>
-
+      </div>
+      </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
