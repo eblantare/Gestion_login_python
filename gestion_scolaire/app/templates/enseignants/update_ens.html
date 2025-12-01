@@ -1,68 +1,101 @@
 <!-- Modal Edition -->
 <div class="modal fade" id="editEnsModal">
-  <div class="modal-dialog">
+  <div class="modal-dialog modal-lg">
     <form id="editEnsForm" class="modal-content needs-validation" novalidate>
       <input type="hidden" name="id" id="editEns_id">
 
       <div class="modal-header">
-        <h5>Modifier un enseignant</h5>
+        <h5 class="modal-title">Modifier un enseignant</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
 
       <div class="modal-body">
-        <!-- Champs non modifiables (readonly) -->
-        <div class="mb-2">
-          <label class="form-label">Nom</label>
-          <input id="editEns_nom" name="nom" class="form-control" readonly>
-        </div>
-        <div class="mb-2">
-          <label class="form-label">Prénoms</label>
-          <input id="editEns_prenoms" name="prenoms" class="form-control" readonly>
-        </div>
-        <div class="mb-2">
-          <label class="form-label">Email</label>
-          <input id="editEns_email" name="email" class="form-control" readonly>
-        </div>
-        <div class="mb-2">
-          <label class="form-label">Téléphone</label>
-          <input id="editEns_telephone" name="telephone" class="form-control" readonly>
-        </div>
-        <div class="mb-2">
-          <label class="form-label">Matière</label>
-          <input id="editEns_matiere" name="matiere" class="form-control" readonly>
-        </div>
-        <!-- Champs modifiables -->
-        <div class="mb-2">
-          <label class="form-label">Titre</label>
-          <input id="editEns_titre" name="titre" class="form-control" required>
-        </div>
-        <div class="mb-2">
-          <label class="form-label">Date prise fonction</label>
-          <input type="date" id="editEns_date_fonction" name="date_fonction" class="form-control" required>
+        <!-- Section 1: Informations personnelles (2 champs par ligne) -->
+        <h6 class="text-primary mb-3">Informations personnelles</h6>
+        
+        <div class="row">
+          <!-- Ligne 1: Nom et Prénoms -->
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Nom</label>
+            <input id="editEns_nom" name="nom" class="form-control bg-light" readonly>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Prénoms</label>
+            <input id="editEns_prenoms" name="prenoms" class="form-control bg-light" readonly>
+          </div>
         </div>
 
-        <!-- Sexe affiché mais désactivé -->
-        <div class="mb-3">
-          <label class="form-label">Sexe</label><br>
-          <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="sexe" id="sexeM" value="M" disabled>
-            <label class="form-check-label" for="sexeM">Masculin</label>
+        <div class="row">
+          <!-- Ligne 2: Email et Téléphone -->
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Email</label>
+            <input id="editEns_email" name="email" class="form-control bg-light" readonly>
           </div>
-          <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="sexe" id="sexeF" value="F" disabled>
-            <label class="form-check-label" for="sexeF">Féminin</label>
-          </div>
-         <div class="mb-2">
-              <label class="form-label">Photo</label>
-             <input id="editEns_photo_filename" name="photo_filename" class="form-control" readonly>
-             <img id="edit_photo_preview" class="img-thumbnail mt-2" style="max-width:120px; 
-             display:none;" alt="Photo utilisateur">
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Téléphone</label>
+            <input id="editEns_telephone" name="telephone" class="form-control bg-light" readonly>
           </div>
         </div>
+
+        <div class="row">
+          <!-- Ligne 3: Sexe et Photo -->
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Sexe</label>
+            <div class="mt-1">
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="sexe" id="edit_sexeM" value="M" disabled>
+                <label class="form-check-label" for="edit_sexeM">Masculin</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="sexe" id="edit_sexeF" value="F" disabled>
+                <label class="form-check-label" for="edit_sexeF">Féminin</label>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Photo</label>
+            <input id="editEns_photo_filename" name="photo_filename" class="form-control bg-light mb-2" readonly>
+            <img id="edit_photo_preview" class="img-thumbnail" style="max-width:120px; display:none;" alt="Photo enseignant">
+          </div>
+        </div>
+
+        <!-- Section 2: Informations professionnelles -->
+        <h6 class="text-primary mb-3 mt-4">Informations professionnelles</h6>
+        
+        <div class="row">
+          <!-- Ligne 4: Titre et Date de prise de fonction -->
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Titre <span class="text-danger">*</span></label>
+            <input id="editEns_titre" name="titre" class="form-control" required>
+            <div class="invalid-feedback">Veuillez saisir le titre.</div>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Date prise fonction <span class="text-danger">*</span></label>
+            <input type="date" id="editEns_date_fonction" name="date_fonction" class="form-control" required>
+            <div class="invalid-feedback">Veuillez sélectionner la date.</div>
+          </div>
+        </div>
+        <div class="mb-3">
+    <label for="edit_matiere_id" class="form-label fw-bold">Matière(s) enseignée(s)</label>
+    <small class="select-multiple-hint">
+        <i class="bi bi-mouse"></i> Cliquez pour sélectionner/désélectionner une matière
+    </small>
+    <select id="edit_matiere_id" name="matiere_id" multiple class="form-select" size="4">
+        <!-- Chargé dynamiquement -->
+    </select>
+    <div class="mt-2">
+        <label class="form-label text-muted small">Matières sélectionnées :</label>
+        <input type="text" id="edit_matiere_libelle" class="form-control" readonly 
+               placeholder="Aucune matière sélectionnée">
+      </div>
+    </div>
       </div>
 
       <div class="modal-footer">
-        <button class="btn btn-secondary rounded-pill" data-bs-dismiss="modal" type="button">Annuler</button>
-        <button class="btn btn-warning rounded-pill" type="submit">Modifier</button>
+        <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
+        <button type="submit" class="btn btn-warning rounded-pill">
+          <i class="fas fa-edit me-1"></i>Modifier
+        </button>
       </div>
     </form>
   </div>

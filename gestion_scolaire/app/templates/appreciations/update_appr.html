@@ -3,16 +3,46 @@
   <div class="modal-dialog">
     <form id="editAppForm" class="modal-content needs-validation" novalidate>
       <input type="hidden" name="id" id="editApp_id">
-      <div class="modal-header"><h5>Modifier une appréciation</h5></div>
+      <div class="modal-header bg-warning">
+        <h5 class="modal-title">Modifier une appréciation</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
       <div class="modal-body">
-        <input id="editApp_libelle" name="libelle" class="form-control mb-2" placeholder="Libelle" required>
-        <input id="editApp_seuil_min" name="seuil_min" class="form-control mb-2" placeholder="seuil_min" required>
-        <input id="editApp_seuil_max" name="seuil_max" class="form-control mb-2" placeholder="seuil_max" required>
-        <input id="editApp_description" name="description" class="form-control mb-2" placeholder="Description" required>
+        <div class="mb-3">
+          <label for="editApp_libelle" class="form-label">Libellé <span class="text-danger">*</span></label>
+          <input type="text" id="editApp_libelle" name="libelle" class="form-control" required>
+          <div class="invalid-feedback">Veuillez saisir le libellé.</div>
+        </div>
+        
+        <div class="row g-2">
+          <div class="col-md-6 mb-3">
+            <label for="editApp_seuil_min" class="form-label">Seuil minimal <span class="text-danger">*</span></label>
+            <input type="number" id="editApp_seuil_min" name="seuil_min" class="form-control" min="0" step="0.1" required>
+            <div class="invalid-feedback">Veuillez saisir le seuil minimal.</div>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label for="editApp_seuil_max" class="form-label">Seuil maximal <span class="text-danger">*</span></label>
+            <input type="number" id="editApp_seuil_max" name="seuil_max" class="form-control" min="0" step="0.1" required>
+            <div class="invalid-feedback">Veuillez saisir le seuil maximal.</div>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label for="editApp_echelle_max" class="form-label">Échelle maximale</label>
+          <input type="number" id="editApp_echelle_max" class="form-control bg-light" readonly>
+          <small class="form-text text-muted">L'échelle ne peut pas être modifiée après création.</small>
+        </div>
+
+        <div class="mb-3">
+          <label for="editApp_description" class="form-label">Description</label>
+          <textarea id="editApp_description" name="description" class="form-control" rows="3"></textarea>
+        </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
-        <button class="btn btn-warning rounded-pill">Modifier</button>
+        <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
+        <button type="submit" class="btn btn-warning rounded-pill">
+          <i class="bi bi-pencil me-1"></i>Modifier
+        </button>
       </div>
     </form>
   </div>

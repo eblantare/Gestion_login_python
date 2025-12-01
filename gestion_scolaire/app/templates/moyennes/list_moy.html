@@ -1,6 +1,31 @@
 {% extends "ebase.html" %}
 
 {% block content %}
+{% block styles %}
+<style>
+.loading-indicator {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.95);
+    padding: 20px 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 9999;
+    border: 1px solid #e0e0e0;
+    display: none;
+}
+
+.loading-indicator p {
+    margin: 0;
+    margin-top: 10px;
+    font-weight: 500;
+    color: #333;
+}
+</style>
+{% endblock %}
+
 <div class="container mt-4">
     <h2 class="mb-4">Liste des Moyennes</h2>
 
@@ -29,6 +54,13 @@
             </select>
         </div>
         <div class="col-auto">
+            <select name="trimestre" class="form-select">
+                <option value="1" {% if trimestre == 1 %}selected{% endif %}>Trimestre 1</option>
+                <option value="2" {% if trimestre == 2 %}selected{% endif %}>Trimestre 2</option>
+                <option value="3" {% if trimestre == 3 %}selected{% endif %}>Trimestre 3</option>
+            </select>
+        </div>
+        <div class="col-auto">
             <select name="per_page" class="form-select">
                 {% for n in [10,20,50,100,500,1000] %}
                     <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }} / page</option>
@@ -41,13 +73,48 @@
         </div>
     </form>
 
-    {# 🔹 Bouton Batch placé en haut à droite du tableau #}
-    {% if current_user.role in ["admin", "administrateur"] %}
-    <div class="d-flex justify-content-end mb-2">
+    {# 🔹 Boutons Batch et Export placés en haut à droite du tableau #}
+    {% if current_user.role.lower() in ["admin", "administrateur"] %}
+    <div class="d-flex justify-content-end mb-2 gap-2">
+        {# Menu déroulant pour les exports #}
+        <div class="dropdown">
+            <button class="btn btn-success dropdown-toggle d-flex align-items-center px-3" 
+                    type="button" id="exportDropdown" data-bs-toggle="dropdown" 
+                    aria-expanded="false" {% if not classe_id or not annee_scolaire %}disabled{% endif %}>
+                <img src="{{ url_for('static', filename='images/export_icon.png') }}" alt="Export" width="18" height="18" class="me-2" title="Exporter les moyennes">
+                <span>Exporter</span>
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="exportDropdown">
+                <li>
+                    <a class="dropdown-item export-option" href="#" data-format="excel">
+                        <i class="fas fa-file-excel text-success me-2"></i>
+                        Excel (.xlsx)
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item export-option" href="#" data-format="pdf">
+                        <i class="fas fa-file-pdf text-danger me-2"></i>
+                        PDF (.pdf)
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item export-option" href="#" data-format="csv">
+                        <i class="fas fa-file-csv text-primary me-2"></i>
+                        CSV (.csv)
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Formulaire batch -->
         <form id="batchForm" method="POST" action="{{ url_for('moyennes.lancer_batch') }}">
+            <input type="hidden" name="classe_id" id="batchClasseId" value="{{ classe_id or '' }}">
+            <input type="hidden" name="annee_scolaire" id="batchAnnee" value="{{ annee_scolaire or '' }}">
+            <input type="hidden" name="trimestre" value="{{ trimestre }}">
+            
             <button type="submit" id="batchBtn" class="btn btn-warning d-flex align-items-center px-3" disabled>
                 <img src="{{ url_for('static', filename='images/e_cone.png') }}" alt="Batch" width="22" height="22" class="me-2" title="Calcul des moyennes">
-                <span id="batchBtnText"></span>
+                <span id="batchBtnText">Calculer moyenne</span>
                 <span id="batchSpinner" class="spinner-border spinner-border-sm d-none ms-2"></span>
             </button>
         </form>
@@ -84,19 +151,19 @@
                         </td>
                         <td>
                             <span class="fw-bold {% if row.moy_trim >= 10 %}text-success{% else %}text-danger{% endif %}">
-                                {{ row.moy_trim if row.moy_trim > 0 else "—" }}
+                                {{ row.moy_trim if row.moy_trim and row.moy_trim > 0 else "—" }}
                             </span>
                         </td>
                         {% if trimestre == 3 %}
                         <td>
                             <span class="fw-bold {% if row.moy_gen >= 10 %}text-success{% else %}text-danger{% endif %}">
-                                {{ row.moy_gen if row.moy_gen > 0 else "—" }}
+                                {{ row.moy_gen if row.moy_gen and row.moy_gen > 0 else "—" }}
                             </span>
                         </td>
                         {% endif %}
                         <td>
                             <span class="badge {% if row.classement_str == '1er' %}bg-warning text-dark{% elif row.classement_str in ['2èm', '3èm'] %}bg-info{% else %}bg-light text-dark{% endif %}">
-                                {{ row.classement_str if row.moy_trim > 0 else "—" }}
+                                {{ row.classement_str if row.moy_trim and row.moy_trim > 0 else "—" }}
                             </span>
                         </td>
                         <td>
@@ -106,12 +173,12 @@
                                 {% elif row.appreciation == 'Assez Bien' %}bg-info
                                 {% elif row.appreciation == 'Passable' %}bg-warning text-dark
                                 {% else %}bg-secondary{% endif %}">
-                                {{ row.appreciation if row.moy_trim > 0 else "—" }}
+                                {{ row.appreciation if row.moy_trim and row.moy_trim > 0 else "—" }}
                             </span>
                         </td>
                         <td>
                             <span class="fw-bold text-muted">
-                                {{ row.moy_class if row.moy_trim > 0 else "—" }}
+                                {{ row.moy_class if row.moy_class else "—" }}
                             </span>
                         </td>
                     </tr>
@@ -120,9 +187,10 @@
                     {# 🔹 Ligne de résumé de classe #}
                     <tr class="table-info fw-bold">
                         <td colspan="{% if trimestre == 3 %}8{% else %}7{% endif %}" class="text-center py-2">
-                            <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap">
                                 <span>Résumé Classe</span>
-                                <span>Effectif: {{ classe_recap.effectif_composants }}</span>
+                                <span>Effectif Total: {{ classe_recap.effectif_total }}</span>
+                                <span>Effectif Composé: {{ classe_recap.effectif_composants }}</span>
                                 <span>Moy_class: {{ classe_recap.moy_class or "—" }}</span>
                                 <span>Moy_faible: {{ classe_recap.moy_faible or "—" }}</span>
                                 <span>Moy_forte: {{ classe_recap.moy_forte or "—" }}</span>
@@ -135,6 +203,9 @@
                             <div class="text-muted">
                                 <i class="fas fa-inbox fa-2x mb-2"></i>
                                 <p>Aucune moyenne disponible</p>
+                                {% if classe_id and annee_scolaire %}
+                                <p class="small">Utilisez le bouton "Calculer moyenne" pour générer les moyennes de cette classe</p>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>
@@ -169,5 +240,86 @@
     </nav>
     {% endif %}
 </div>
+{% endblock %}
 
+{% block scripts %}
+<!-- Dans list_moy.html, ajoutez ce script -->
+<script>
+function verifierExport() {
+    const classeId = document.querySelector('[name="classe_id"]').value;
+    const anneeScolaire = document.querySelector('[name="annee_scolaire"]').value;
+    const trimestre = document.querySelector('[name="trimestre"]').value;
+    
+    if (!classeId || !anneeScolaire) {
+        alert('Veuillez sélectionner une classe et une année scolaire');
+        return;
+    }
+    
+    // Afficher un indicateur de chargement
+    const exportBtn = document.querySelector('#export-btn');
+    const originalText = exportBtn.innerHTML;
+    exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vérification...';
+    
+    fetch(`/moyennes/verifier-export?classe_id=${classeId}&annee_scolaire=${anneeScolaire}&trimestre=${trimestre}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.available) {
+                if (data.has_duplicates) {
+                    if (confirm(`ATTENTION: ${data.duplicate_count} doublons détectés. Voulez-vous les nettoyer automatiquement avant l'export ?`)) {
+                        nettoyerDoublonsAvantExport(classeId, anneeScolaire, trimestre);
+                    } else {
+                        lancerExport();
+                    }
+                } else {
+                    lancerExport();
+                }
+            } else {
+                alert('Aucune donnée disponible pour l\'export avec ces critères');
+            }
+            exportBtn.innerHTML = originalText;
+        })
+        .catch(error => {
+            console.error('Erreur vérification:', error);
+            alert('Erreur lors de la vérification');
+            exportBtn.innerHTML = originalText;
+        });
+}
+
+function nettoyerDoublonsAvantExport(classeId, anneeScolaire, trimestre) {
+    fetch('/moyennes/nettoyer-doublons', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `classe_id=${classeId}&annee_scolaire=${anneeScolaire}&trimestre=${trimestre}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert(`✅ ${data.message}\n${data.deleted} doublons supprimés`);
+            lancerExport();
+        } else {
+            alert('❌ Erreur lors du nettoyage: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur nettoyage:', error);
+        alert('Erreur lors du nettoyage des doublons');
+    });
+}
+
+function lancerExport() {
+    // Votre code d'export existant
+    const format = document.querySelector('[name="format"]:checked').value;
+    const url = `/moyennes/export?${new URLSearchParams({
+        classe_id: document.querySelector('[name="classe_id"]').value,
+        annee_scolaire: document.querySelector('[name="annee_scolaire"]').value,
+        trimestre: document.querySelector('[name="trimestre"]').value,
+        format: format
+    })}`;
+    
+    window.open(url, '_blank');
+}
+</script>
+<script src="{{ url_for('static', filename='js/moyennes.js') }}"></script>
 {% endblock %}

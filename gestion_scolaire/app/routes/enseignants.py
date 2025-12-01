@@ -1,8 +1,8 @@
-from flask import Blueprint, request, render_template, jsonify, send_file
+from flask import Blueprint, request, render_template, jsonify, send_file, current_app,session
 from ..models import Enseignant, Matiere, Ecole
 from sqlalchemy import cast, String, extract
 from gestion_login.gestion_login.models import Utilisateur
-from flask_login import current_user
+from flask_login import current_user, login_required
 from extensions import db
 from sqlalchemy.orm import joinedload
 import io
@@ -16,11 +16,26 @@ import os
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill
+from ..utils import ecole_required, get_current_ecole_id, is_system_admin
+from ..routes.main import get_user_accessible_ecoles
 
 enseignants_bp = Blueprint('enseignants', __name__)
 
 def is_admin():
     return getattr(current_user, "role", "").lower() in ["admin", "administrateur"]
+
+# Fonction améliorée pour détecter l'admin système
+def is_system_admin_enhanced():
+    """Vérifie si l'utilisateur est administrateur système"""
+    if not current_user.is_authenticated:
+        return False
+    
+    # Vérifier le rôle ET le username pour plus de sécurité
+    user_role = getattr(current_user, "role", "").lower()
+    username = getattr(current_user, "username", "").lower()
+    
+    # Admin système = rôle admin ET username 'admin'
+    return user_role in ["admin", "administrateur"] and username == "admin"
 
 # ---------------- Filtrage ----------------
 FILTER_DIC = {
@@ -45,25 +60,67 @@ FILTER_DIC = {
 }
 
 @enseignants_bp.route("/")
+@login_required
 def liste_enseignants():
+    """Liste des enseignants - VERSION CORRIGÉE URGENCE"""
     data = request.args
     search = data.get("search", "", type=str)
     per_page = data.get("per_page", 5, type=int)
     page = data.get("page", 1, type=int)
 
-    query = Enseignant.query
-    matieres = Matiere.query.with_entities(Matiere.id, Matiere.libelle).all()
+    # CORRECTION URGENTE : Priorité ABSOLUE au paramètre URL
+    ecole_url = data.get("ecole", "", type=str)
+    user_is_system_admin = is_system_admin_enhanced()
     
-    # Récupérer toutes les années distinctes de date_fonction
-    annees = (
-        db.session.query(extract("year", Enseignant.date_fonction).label("annee"))
-        .distinct()
-        .order_by("annee")
-        .all()
-    )
-    annees = [int(a.annee) for a in annees if a.annee is not None]
+    # DÉTERMINATION CRITIQUE DE L'ÉCOLE
+    if user_is_system_admin:
+        # ADMIN SYSTÈME : Le paramètre URL a la PRIORITÉ ABSOLUE
+        if ecole_url:
+            ecole_id = ecole_url
+            current_app.logger.info(f"🚀 ADMIN - Utilisation école URL: {ecole_id}")
+        else:
+            # Si pas de paramètre URL, on utilise l'école de session
+            ecole_id = get_current_ecole_id()
+            current_app.logger.info(f"ℹ️ ADMIN - Utilisation école session: {ecole_id}")
+    else:
+        # Non-admin : toujours l'école courante
+        ecole_id = get_current_ecole_id()
+        current_app.logger.info(f"👤 NON-ADMIN - Utilisation école session: {ecole_id}")
 
-    # Recherche dans le texte
+    # Récupérer l'école sélectionnée pour affichage
+    ecole_selectionnee = None
+    if ecole_id:
+        ecole_selectionnee = Ecole.query.get(ecole_id)
+        if ecole_selectionnee:
+            current_app.logger.info(f"🏫 ÉCOLE SÉLECTIONNÉE: {ecole_selectionnee.nom}")
+
+    # Logique de requête
+    if user_is_system_admin:
+        if ecole_id:  # Une école spécifique est sélectionnée
+            query = Enseignant.query.filter_by(ecole_id=ecole_id)
+            matieres = Matiere.query.filter_by(ecole_id=ecole_id).with_entities(Matiere.id, Matiere.libelle).all()
+            annees_query = db.session.query(extract("year", Enseignant.date_fonction).label("annee")).filter(Enseignant.ecole_id == ecole_id).distinct().order_by("annee").all()
+        else:  # Aucune école spécifique = toutes les écoles
+            query = Enseignant.query
+            matieres = Matiere.query.with_entities(Matiere.id, Matiere.libelle).all()
+            annees_query = db.session.query(extract("year", Enseignant.date_fonction).label("annee")).distinct().order_by("annee").all()
+    else:
+        # Utilisateurs normaux : seulement leur école
+        if not ecole_id:
+            return render_template("error.html", message="Aucune école sélectionnée"), 400
+        query = Enseignant.query.filter_by(ecole_id=ecole_id)
+        matieres = Matiere.query.filter_by(ecole_id=ecole_id).with_entities(Matiere.id, Matiere.libelle).all()
+        annees_query = db.session.query(extract("year", Enseignant.date_fonction).label("annee")).filter(Enseignant.ecole_id == ecole_id).distinct().order_by("annee").all()
+
+    # Charger les relations
+    query = query.options(
+        joinedload(Enseignant.utilisateur),
+        joinedload(Enseignant.matieres)
+    )
+
+    annees = [int(a.annee) for a in annees_query if a.annee is not None]
+
+    # Recherche
     if search:
         query = (
             query.join(Utilisateur, Enseignant.utilisateur)
@@ -79,29 +136,40 @@ def liste_enseignants():
             )
         )
 
-    # Filtrage spécifique
+    # Filtrage
     filter_value = data.get("filter", "", type=str)
-    query = query.options(joinedload(Enseignant.matieres))
-
     if filter_value:
-        key, val = filter_value.split(":", 1)
-        if key == "sexe":
-            query = query.join(Utilisateur).filter(Utilisateur.sexe == val)
-        elif key == "date_fonction":
-            query = query.filter(extract("year", Enseignant.date_fonction) == int(val))
-        elif key == "matiere" and val:
-            query = query.join(Enseignant.matieres).filter(Matiere.id == int(val))
-        elif key in FILTER_DIC and val in FILTER_DIC[key]:
-            query = query.filter(getattr(Enseignant, key).in_(FILTER_DIC[key][val]))
-        else:
+       key, val = filter_value.split(":", 1)
+       if key == "sexe":
+          query = query.join(Utilisateur).filter(Utilisateur.sexe == val)
+       elif key == "date_fonction":
+           try:
+              query = query.filter(extract("year", Enseignant.date_fonction) == int(val))
+           except ValueError:
+            # Si la conversion échoue, ignorer ce filtre
+            current_app.logger.warning(f"⚠️ Valeur de date invalide: {val}")
+       elif key == "matiere" and val:
+             try:
+                query = query.join(Enseignant.matieres).filter(Matiere.id == val)
+             except ValueError:
+            # Si la conversion échoue, ignorer ce filtre
+               current_app.logger.warning(f"⚠️ ID matière invalide: {val}")
+       elif key in FILTER_DIC and val in FILTER_DIC[key]:
+             query = query.filter(getattr(Enseignant, key).in_(FILTER_DIC[key][val]))
+       else:
             query = query.filter(getattr(Enseignant, key) == val)
+    
 
     # Pagination
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     enseignants = pagination.items
 
-    # Récupérer l'utilisateur courant
+    # Récupération des données pour le template
     user_role = (getattr(current_user, "role", "guest") or "guest").lower()
+    
+    # CORRECTION CRITIQUE : Variables cohérentes pour le template
+    ecoles_list = get_user_accessible_ecoles() if user_is_system_admin else [ecole_selectionnee] if ecole_selectionnee else []
+    
     return render_template("enseignants/ens_liste.html",
                           enseignants=enseignants,
                           pagination=pagination,
@@ -110,61 +178,137 @@ def liste_enseignants():
                           user_role=user_role,
                           filter_value=filter_value,
                           matieres=matieres,
-                          annees=annees)
+                          annees=annees,
+                          current_ecole_id=ecole_id,
+                          selected_ecole_id=ecole_id,  # Uniformisation
+                          is_system_admin=user_is_system_admin,
+                          selected_ecole=ecole_selectionnee,
+                          ecoles=ecoles_list)
 
 # --------------CRUD-------------
 @enseignants_bp.route("/add", methods=["POST"])
+@login_required
+@ecole_required
 def add_ens():
+    ecole_id = get_current_ecole_id()
     data = request.form
     utilisateur_id = data.get("utilisateur_id")
 
-    # Vérification si cet utilisateur est déjà enregistré comme enseignant
-    existing_ens = Enseignant.query.filter_by(utilisateur_id=utilisateur_id).first()
+    # Vérification si cet utilisateur est déjà enregistré comme enseignant dans cette école
+    existing_ens = Enseignant.query.filter_by(utilisateur_id=utilisateur_id, ecole_id=ecole_id).first()
     if existing_ens:
-        return jsonify({"error": "Cet utilisateur est déjà enregistré comme enseignant"}), 400
+        return jsonify({"error": "Cet utilisateur est déjà enregistré comme enseignant dans cette école"}), 400
 
     enseignant = Enseignant(
         utilisateur_id=utilisateur_id,
         titre=data.get("titre"),
         date_fonction=data.get("date_fonction"),
-        etat="Inactif"
+        etat="Inactif",
+        ecole_id=ecole_id  # Lier à l'école courante
     )
     db.session.add(enseignant)
     db.session.commit()
 
-    # Ajouter les matières sélectionnées
+    # Ajouter les matières sélectionnées (vérifier qu'elles appartiennent à l'école)
     matieres_ids = request.form.getlist("matiere_id")
     if matieres_ids:
-        enseignant.matieres = Matiere.query.filter(Matiere.id.in_(matieres_ids)).all()
+        matieres = Matiere.query.filter(
+            Matiere.id.in_(matieres_ids),
+            Matiere.ecole_id == ecole_id
+        ).all()
+        enseignant.matieres = matieres
         db.session.commit()
 
     return jsonify({"message": "Ajout réussi"}), 200
 
 @enseignants_bp.route("/update/<string:id>", methods=["POST"])
+@login_required
 def update_ens(id):
+    """Modifier un enseignant - CORRECTION : Sans @ecole_required pour admin système"""
     if not is_admin():
         return jsonify({"error": "Accès refusé"}), 403
     
-    enseignant = Enseignant.query.get_or_404(id)
+    user_is_system_admin = is_system_admin_enhanced()
+    
+    if user_is_system_admin:
+        # Admin système peut modifier n'importe quel enseignant
+        enseignant = Enseignant.query.filter_by(id=id).first_or_404()
+    else:
+        # Autres admins : seulement les enseignants de leur école
+        ecole_id = get_current_ecole_id()
+        enseignant = Enseignant.query.filter_by(id=id, ecole_id=ecole_id).first_or_404()
+    
     # Contrôle sur l'état
     if enseignant.etat.lower() != 'inactif':
         return jsonify({"error": "État non inactif"}), 403
     
-    for field in ["titre", "date_fonction"]:
-        setattr(enseignant, field, request.form.get(field))
-    
-    db.session.commit()
-    return jsonify({
-        "titre": enseignant.titre,
-        "date_fonction": enseignant.date_fonction.strftime("%Y-%m-%d")
-    })
+    try:
+        # Mettre à jour les champs de base
+        for field in ["titre", "date_fonction"]:
+            if field in request.form:
+                setattr(enseignant, field, request.form.get(field))
+        
+        # CORRECTION CRITIQUE : Gestion de la relation many-to-many
+        matiere_ids = request.form.getlist('matiere_id')
+        current_app.logger.info(f"🔍 Matières reçues pour mise à jour: {matiere_ids}")
+        
+        # Filtrer les IDs vides
+        matiere_ids = [mid for mid in matiere_ids if mid.strip()]
+        
+        if matiere_ids:
+            # Récupérer les matières depuis la base (SQLAlchemy gère la conversion UUID)
+            ecole_id = enseignant.ecole_id if not user_is_system_admin else get_current_ecole_id()
+            nouvelles_matieres = Matiere.query.filter(
+                Matiere.id.in_(matiere_ids),
+                Matiere.ecole_id == ecole_id
+            ).all()
+            
+            current_app.logger.info(f"✅ Matières trouvées en base: {[m.libelle for m in nouvelles_matieres]}")
+            
+            # Mettre à jour la relation many-to-many
+            enseignant.matieres = nouvelles_matieres
+        else:
+            # Aucune matière sélectionnée - vider la relation
+            enseignant.matieres = []
+            current_app.logger.info("ℹ️ Aucune matière sélectionnée - relation vidée")
+        
+        db.session.commit()
+        
+        # Préparer la réponse
+        matieres_libelles = [m.libelle for m in enseignant.matieres]
+        
+        return jsonify({
+            "message": "Enseignant modifié avec succès",
+            "titre": enseignant.titre,
+            "date_fonction": enseignant.date_fonction.strftime("%Y-%m-%d") if enseignant.date_fonction else None,
+            "matiere": ', '.join(matieres_libelles) if matieres_libelles else None,
+            "matiere_ids": [str(m.id) for m in enseignant.matieres]
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"❌ Erreur lors de la modification: {str(e)}")
+        import traceback
+        current_app.logger.error(f"📋 Stack trace: {traceback.format_exc()}")
+        return jsonify({"error": f"Erreur lors de la modification: {str(e)}"}), 500
 
 @enseignants_bp.route("/delete/<string:id>", methods=["POST"])
+@login_required
 def delete_ens(id):
+    """Supprimer un enseignant - CORRECTION : Sans @ecole_required pour admin système"""
     if not is_admin():
         return jsonify({"error": "Accès refusé"}), 403
     
-    enseignant = Enseignant.query.get_or_404(id)
+    user_is_system_admin = is_system_admin_enhanced()
+    
+    if user_is_system_admin:
+        # Admin système peut supprimer n'importe quel enseignant
+        enseignant = Enseignant.query.filter_by(id=id).first_or_404()
+    else:
+        # Autres admins : seulement les enseignants de leur école
+        ecole_id = get_current_ecole_id()
+        enseignant = Enseignant.query.filter_by(id=id, ecole_id=ecole_id).first_or_404()
+    
     # Contrôle sur l'état
     if enseignant.etat.lower() != 'inactif':
         return jsonify({"error": "Impossible de supprimer"}), 403
@@ -174,8 +318,19 @@ def delete_ens(id):
     return jsonify({"success": True})
 
 @enseignants_bp.route("/get/<string:enseignant_id>", methods=["GET"])
+@login_required
 def get_enseignant(enseignant_id):
-    enseignant = Enseignant.query.get_or_404(enseignant_id)
+    """Récupérer un enseignant - CORRECTION : Sans @ecole_required pour admin système"""
+    user_is_system_admin = is_system_admin_enhanced()
+    
+    if user_is_system_admin:
+        # Admin système peut voir n'importe quel enseignant
+        enseignant = Enseignant.query.filter_by(id=enseignant_id).first_or_404()
+    else:
+        # Autres utilisateurs : seulement les enseignants de leur école
+        ecole_id = get_current_ecole_id()
+        enseignant = Enseignant.query.filter_by(id=enseignant_id, ecole_id=ecole_id).first_or_404()
+        
     utilisateur = enseignant.utilisateur if hasattr(enseignant, "utilisateur") else None
     matieres_str = ", ".join([m.libelle for m in enseignant.matieres]) if hasattr(enseignant, "matieres") else ""
 
@@ -194,10 +349,27 @@ def get_enseignant(enseignant_id):
     })
 
 @enseignants_bp.route("/detail/<string:id>", methods=["GET"])
+@login_required
 def get_ens(id):
-    enseignant = Enseignant.query.get_or_404(id)
+    """Détail d'un enseignant - CORRECTION : Sans @ecole_required pour admin système"""
+    user_is_system_admin = is_system_admin_enhanced()
+    
+    if user_is_system_admin:
+        # Admin système peut voir n'importe quel enseignant
+        enseignant = Enseignant.query.filter_by(id=id).first_or_404()
+    else:
+        # Autres utilisateurs : seulement les enseignants de leur école
+        ecole_id = get_current_ecole_id()
+        enseignant = Enseignant.query.filter_by(id=id, ecole_id=ecole_id).first_or_404()
+        
     utilisateur = enseignant.utilisateur
-    matieres_str = ", ".join([m.libelle for m in enseignant.matieres]) if hasattr(enseignant, "matieres") else ""
+    # CORRECTION : Récupérer les matières via la relation many-to-many
+    matieres_data = []
+    matiere_ids = []
+    
+    for matiere in enseignant.matieres:
+        matieres_data.append(matiere.libelle)
+        matiere_ids.append(str(matiere.id))
 
     return jsonify({
         "id": str(enseignant.id),
@@ -207,8 +379,8 @@ def get_ens(id):
         "sexe": utilisateur.sexe,
         "email": utilisateur.email,
         "telephone": utilisateur.telephone,
-        "matiere_id": ",".join([str(m.id) for m in enseignant.matieres]) if hasattr(enseignant, "matieres") else "",
-        "matiere": matieres_str,
+        "matiere": ", ".join(matieres_data) if matieres_data else None,
+        "matiere_id": ",".join(matiere_ids) if matiere_ids else None,
         "titre": enseignant.titre,
         "date_fonction": enseignant.date_fonction.strftime("%Y-%m-%d") if enseignant.date_fonction else None,
         "photo_filename": utilisateur.photo_filename,
@@ -216,13 +388,21 @@ def get_ens(id):
     })
 
 @enseignants_bp.route("/<string:ens_id>/changer_etat", methods=["POST"])
+@login_required
 def changer_etat(ens_id):
+    """Changer l'état d'un enseignant - CORRECTION : Sans @ecole_required pour admin système"""
     if not is_admin():
         return jsonify({"error": "Accès refusé"}), 403
     
-    enseignant = db.session.get(Enseignant, ens_id)
-    if not enseignant:
-        return jsonify({"error": "Enseignant introuvable"}), 404
+    user_is_system_admin = is_system_admin_enhanced()
+    
+    if user_is_system_admin:
+        # Admin système peut changer l'état de n'importe quel enseignant
+        enseignant = Enseignant.query.filter_by(id=ens_id).first_or_404()
+    else:
+        # Autres admins : seulement les enseignants de leur école
+        ecole_id = get_current_ecole_id()
+        enseignant = Enseignant.query.filter_by(id=ens_id, ecole_id=ecole_id).first_or_404()
 
     data = request.get_json()
     action = (data.get("action") or "").lower()
@@ -245,73 +425,196 @@ def changer_etat(ens_id):
 
     return jsonify({"message": "État mis à jour", "etat": enseignant.etat})
 
-# ---------------- Routes AJAX pour auto-remplissage ----------------
 @enseignants_bp.route("/options", methods=["GET"])
+@login_required
 def enseignants_options():
     """
     Renvoie en une seule requête :
-      - liste des utilisateurs (id, nom, prenoms, sexe, email, telephone, photo_filename)
-      - liste des matieres (id, libelle)
+      - liste des utilisateurs (selon le rôle : tous pour admin système, seulement l'école pour les autres)
+      - liste des matieres (id, libelle) de l'école courante
+    CORRECTION : Gestion des matières pour admin système avec école sélectionnée
     """
     try:
-        users = Utilisateur.query.with_entities(
-            Utilisateur.id,
-            Utilisateur.nom,
-            Utilisateur.prenoms,
-            Utilisateur.sexe,
-            Utilisateur.email,
-            Utilisateur.telephone,
-            Utilisateur.photo_filename
-        ).all()
+        ecole_id = get_current_ecole_id()
+        user_is_system_admin = is_system_admin_enhanced()
+        
+        # CORRECTION CRITIQUE : Récupérer l'école depuis l'URL pour l'admin système
+        ecole_url = request.args.get('ecole', '', type=str)
+        
+        # DÉTERMINATION DE L'ÉCOLE POUR LES MATIÈRES
+        if user_is_system_admin:
+            # Admin système : utiliser l'école de l'URL si disponible, sinon l'école courante
+            ecole_matiere_id = ecole_url if ecole_url else ecole_id
+            current_app.logger.info(f"🔍 ADMIN SYSTÈME - Ecole matières: URL={ecole_url}, Courante={ecole_id}, Utilisée={ecole_matiere_id}")
+        else:
+            # Autres utilisateurs : toujours l'école courante
+            ecole_matiere_id = ecole_id
+            current_app.logger.info(f"🔍 AUTRE UTILISATEUR - Ecole matières: {ecole_matiere_id}")
 
-        matieres = Matiere.query.with_entities(Matiere.id, Matiere.libelle).all()
+        # ========== CHARGEMENT DES UTILISATEURS ==========
+        if user_is_system_admin:
+            users = Utilisateur.query.all()
+            current_app.logger.info(f"🔍 Admin système - {len(users)} utilisateurs chargés")
+        else:
+            if not ecole_id:
+                return jsonify({"error": "Aucune école sélectionnée"}), 400
+            users = Utilisateur.query.filter_by(ecole_id=ecole_id).all()
+            current_app.logger.info(f"🔍 Utilisateur normal - Ecole {ecole_id}, {len(users)} utilisateurs chargés")
 
-        users_list = [
-            {
+        # ========== CHARGEMENT CRITIQUE DES MATIÈRES ==========
+        current_app.logger.info(f"🔍 Chargement des matières pour école: {ecole_matiere_id}")
+        
+        if user_is_system_admin and not ecole_matiere_id:
+            # CAS 1 : Admin système sans école spécifique - AUCUNE matière
+            matieres = []
+            current_app.logger.info(f"🔍 Admin système - AUCUNE matière (pas d'école sélectionnée)")
+        elif ecole_matiere_id:
+            # CAS 2 : École spécifique (admin système ou autre) - matières de cette école
+            matieres_query = Matiere.query.filter_by(ecole_id=ecole_matiere_id)
+            matieres_count = matieres_query.count()
+            current_app.logger.info(f"🔍 Nombre total de matières pour l'école {ecole_matiere_id}: {matieres_count}")
+            
+            # Récupération effective avec DISTINCT pour éviter les doublons
+            matieres = matieres_query.with_entities(Matiere.id, Matiere.libelle).distinct().all()
+            current_app.logger.info(f"🔍 Matières récupérées (distinct): {len(matieres)}")
+            
+            # Log détaillé de chaque matière
+            for i, matiere in enumerate(matieres):
+                current_app.logger.info(f"🔍 Matière {i+1}: ID={matiere.id}, Libellé='{matiere.libelle}'")
+        else:
+            # CAS 3 : Autre utilisateur sans école - AUCUNE matière
+            matieres = []
+            current_app.logger.info(f"🔍 Aucune école - matières vides")
+
+        # ========== CONSTRUCTION DE LA RÉPONSE ==========
+        users_list = []
+        for u in users:
+            # CORRECTION : Récupérer le nom de l'école via une requête séparée si nécessaire
+            ecole_nom = None
+            if u.ecole_id:
+                ecole = Ecole.query.get(u.ecole_id)
+                ecole_nom = ecole.nom if ecole else "École inconnue"
+            
+            user_data = {
                 "id": str(u.id),
                 "nom": u.nom,
                 "prenoms": u.prenoms,
                 "sexe": u.sexe,
                 "email": u.email,
                 "telephone": u.telephone,
-                "photo_filename": u.photo_filename
-            } for u in users
-        ]
+                "photo_filename": u.photo_filename,
+                "ecole_id": str(u.ecole_id) if u.ecole_id else None,
+                "ecole_nom": ecole_nom
+            }
+            users_list.append(user_data)
 
-        matieres_list = [
-            {"id": str(m.id), "libelle": m.libelle} for m in matieres
-        ]
+        # CORRECTION : Supprimer les doublons de matières par ID
+        matieres_dict = {}
+        for m in matieres:
+            matieres_dict[str(m.id)] = {"id": str(m.id), "libelle": m.libelle}
+        
+        matieres_list = list(matieres_dict.values())
+        current_app.logger.info(f"🔍 Matières finales après déduplication: {len(matieres_list)}")
 
-        return jsonify({"utilisateurs": users_list, "matieres": matieres_list}), 200
+        response_data = {
+            "utilisateurs": users_list, 
+            "matieres": matieres_list,
+            "debug": {
+                "ecole_id": str(ecole_id) if ecole_id else None,
+                "ecole_url": ecole_url,
+                "ecole_matiere_id": str(ecole_matiere_id) if ecole_matiere_id else None,
+                "is_system_admin": user_is_system_admin,
+                "users_count": len(users_list),
+                "matieres_count": len(matieres_list),
+                "matieres_details": [f"{m['id']}: {m['libelle']}" for m in matieres_list]
+            }
+        }
+
+        return jsonify(response_data), 200
 
     except Exception as exc:
-        print(f"Erreur lors de l'envoi des options enseignants: {exc}")
-        return jsonify({"error": "Impossible de charger les options"}), 500
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Impossible de charger les options: {str(exc)}"}), 500
 
-# ---------------- EXPORTATIONS CORRIGÉES ----------------
+
+# ---------------- EXPORTATIONS CORRIGÉES AVEC EN-TÊTE UNIFORMISÉ ----------------
+def get_logo_path_enseignants(ecole):
+    """Retourne le chemin du logo de l'école - POUR ENSEIGNANTS - VERSION CORRIGÉE"""
+    if not ecole or not ecole.logo_filename:
+        print(f"❌ Logo non disponible - Ecole: {ecole}, Logo_filename: {getattr(ecole, 'logo_filename', None)}")
+        return None
+    
+    # CHEMIN DÉFINITIF confirmé (identique à eleves.py)
+    logo_path = os.path.join(
+        current_app.root_path, 
+        'gestion_scolaire', 
+        'app', 
+        'static', 
+        'logos', 
+        ecole.logo_filename
+    )
+    
+    if os.path.exists(logo_path) and os.path.getsize(logo_path) > 0:
+        print(f"✅ Logo trouvé pour enseignants: {logo_path}")
+        return logo_path
+    
+    print(f"❌ Logo non trouvé pour enseignants: {logo_path}")
+    return None
+
 @enseignants_bp.route("/export/pdf")
+@login_required
+@ecole_required
 def export_enseignants_pdf():
-    """Export PDF de la liste des enseignants - Version corrigée"""
+    """Export PDF de la liste des enseignants - Version avec en-tête uniformisé"""
     try:
-        # Récupérer tous les enseignants avec leurs relations
-        enseignants = Enseignant.query.options(
+        ecole_id = get_current_ecole_id()
+        
+        # Récupérer tous les enseignants de l'école courante avec leurs relations
+        enseignants = Enseignant.query.filter_by(ecole_id=ecole_id).options(
             joinedload(Enseignant.utilisateur),
             joinedload(Enseignant.matieres)
         ).all()
 
-        # Récupérer les informations de l'école depuis la base de données
-        ecole = Ecole.query.first()  # Prend la première école de la base
-        nom_ecole = ecole.nom if ecole else "COLLÈGE D'ENSEIGNEMENT GÉNÉRAL 'SAINT BLANT'"
-        dre = ecole.dre if ecole and ecole.dre else "MARITIME"
-        inspection = ecole.inspection if ecole and ecole.inspection else "TSÉVIÉ"
+        # Récupérer les informations de l'école COURANTE
+        ecole = Ecole.query.get(ecole_id)
+        if not ecole:
+            return jsonify({"error": "École non trouvée"}), 404
+
+        # DEBUG: Informations sur le logo
+        print(f"🔍 RECHERCHE LOGO ENSEIGNANTS - Ecole: {ecole.nom}, Logo_filename: {ecole.logo_filename}")
+        logo_path = get_logo_path_enseignants(ecole)
+        print(f"📁 Chemin logo final enseignants: {logo_path}")
+
+        # UTILISER LES VALEURS DYNAMIQUES DE L'ÉCOLE COURANTE
+        nom_ecole = ecole.nom if ecole.nom else "École non renseignée"
+        dre = ecole.dre if ecole.dre else "DRE non renseignée"
+        inspection = ecole.inspection if ecole.inspection else "Inspection non renseignée"
+        telephone = ecole.telephone1 if ecole.telephone1 else "Téléphone non renseigné"
+        devise_ecole = ecole.devise if ecole.devise else "Travail - Liberté - Patrie"
 
         # Créer le PDF en mémoire
         buffer = io.BytesIO()
+        
+        def add_page_number(canvas, doc):
+            canvas.saveState()
+            page_num = canvas.getPageNumber()
+            total_pages = doc.page
+            
+            footer_text = f"Page {page_num}/{total_pages}"
+            canvas.setFont('Helvetica', 8)
+            canvas.setFillColor(colors.gray)
+            canvas.drawRightString(doc.pagesize[0] - 20*mm, 10*mm, footer_text)
+            
+            info_text = f"Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}"
+            canvas.drawString(20*mm, 10*mm, info_text)
+            canvas.restoreState()
+        
         doc = SimpleDocTemplate(
             buffer, 
             pagesize=A4, 
             topMargin=15*mm, 
-            bottomMargin=15*mm,
+            bottomMargin=20*mm,
             leftMargin=10*mm,
             rightMargin=10*mm
         )
@@ -319,27 +622,29 @@ def export_enseignants_pdf():
         elements = []
         styles = getSampleStyleSheet()
         
-        # ========== EN-TÊTE ==========
-        # Chemin absolu vers le logo
-        logo_path = r"C:\projets\python\gestion_scolaire\app\static\images\logo.png"
-        
-        # Vérifier si le logo existe
-        if os.path.exists(logo_path):
+        # ========== EN-TÊTE UNIFORMISÉ (identique à eleves.py) ==========
+        logo = None
+        if logo_path:
             try:
-                logo = Image(logo_path, width=35*mm, height=35*mm)
-                logo.hAlign = 'CENTER'
-            except:
-                logo = Paragraph("<b>[LOGO]</b>", styles['Normal'])
+                # Vérifier que le fichier existe et n'est pas vide
+                if os.path.exists(logo_path) and os.path.getsize(logo_path) > 0:
+                    logo = Image(logo_path, width=35*mm, height=35*mm)
+                    logo.hAlign = 'CENTER'
+                    print("✅ Logo chargé avec succès dans le PDF enseignants")
+                else:
+                    print("❌ Logo trouvé mais fichier vide ou inexistant")
+            except Exception as e:
+                print(f"❌ Erreur chargement logo enseignants: {e}")
+                logo = None
         else:
-            logo = Paragraph("<b>[LOGO ÉCOLE]</b>", styles['Normal'])
+            print("❌ Aucun chemin de logo fourni pour enseignants")
         
-        # Style pour l'entête
         header_style = ParagraphStyle(
             'CustomHeader',
             parent=styles['Normal'],
             fontSize=9,
-            alignment=1,  # Centré
-            spaceAfter=0,  # SUPPRIMÉ pour éliminer l'espace
+            alignment=1,
+            spaceAfter=0,
             leading=10
         )
         
@@ -348,21 +653,19 @@ def export_enseignants_pdf():
             parent=styles['Normal'],
             fontSize=8,
             alignment=1,
-            spaceAfter=0,  # SUPPRIMÉ pour éliminer l'espace
+            spaceAfter=0,
             leading=8
         )
         
-        # CORRECTION : Structure compacte sans espaces entre les lignes
-        # Colonne gauche - Ministère (éléments bien groupés)
+        # Structure avec valeurs DYNAMIQUES (identique à eleves.py)
         left_col_content = [
-            Paragraph("<b>MINISTÈRE DES ENSEIGNEMENTS PRIMAIRES ET SECONDAIRE</b>", header_style),
+            Paragraph("<b>MINISTÈRE DE L'EDUCATION NATIONALE</b>", header_style),
             Paragraph("-----------", small_header_style),
             Paragraph(f"DIRECTION RÉGIONALE DE L'ÉDUCATION - {dre}", header_style),
             Paragraph("-----------", small_header_style),
             Paragraph(f"INSPECTION DE L'ENSEIGNEMENT SECONDAIRE GÉNÉRAL - {inspection}", header_style)
         ]
         
-        # Colonne droite - République (éléments bien groupés)
         right_col_content = [
             Paragraph("<b>RÉPUBLIQUE TOGOLAISE</b>", header_style),
             Paragraph("-----------", small_header_style),
@@ -371,18 +674,25 @@ def export_enseignants_pdf():
                 parent=styles['Normal'],
                 fontSize=7,
                 alignment=1,
-                spaceAfter=0,  # SUPPRIMÉ
+                spaceAfter=0,
                 leading=8
             ))
         ]
         
-        # Colonne centre
-        center_col_content = [
-            logo,
-            Paragraph(f"<b>{nom_ecole}</b>", header_style)
-        ]
+        # Colonne centrale avec logo (identique à eleves.py)
+        center_col_content = []
+        if logo:
+            center_col_content.append(logo)
+        else:
+            # Si pas de logo, ajouter un espace vide pour l'équilibre
+            center_col_content.append(Spacer(1, 35*mm))
+            
+        center_col_content.extend([
+            Paragraph(f"<b>{nom_ecole}</b>", header_style),
+            Paragraph(f"Tél: {telephone}", small_header_style),
+            Paragraph(f"{devise_ecole}", small_header_style)
+        ])
 
-        # Tableau en-tête avec 3 colonnes
         header_table = Table([[
             left_col_content, 
             center_col_content, 
@@ -392,8 +702,8 @@ def export_enseignants_pdf():
         header_table.setStyle(TableStyle([
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),  # SUPPRIMÉ
-            ('TOPPADDING', (0, 0), (-1, -1), 0),     # SUPPRIMÉ
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
             ('LEFTPADDING', (0, 0), (-1, -1), 2),
             ('RIGHTPADDING', (0, 0), (-1, -1), 2),
         ]))
@@ -401,7 +711,6 @@ def export_enseignants_pdf():
         elements.append(header_table)
         elements.append(Spacer(1, 6*mm))
         
-        # Ligne de séparation
         separation_line = Table([['']], colWidths=[doc.width])
         separation_line.setStyle(TableStyle([
             ('LINEABOVE', (0, 0), (0, 0), 1, colors.black),
@@ -422,7 +731,6 @@ def export_enseignants_pdf():
         title = Paragraph("LISTE DES ENSEIGNANTS", title_style)
         elements.append(title)
         
-        # Date de génération
         date_style = ParagraphStyle(
             'DateStyle',
             parent=styles['Normal'],
@@ -436,7 +744,6 @@ def export_enseignants_pdf():
         elements.append(date_text)
         
         # ========== TABLEAU DES ENSEIGNANTS ==========
-        # En-têtes du tableau avec largeurs optimisées
         headers = [
             'Nom & Prénoms',
             'Sexe', 
@@ -491,8 +798,8 @@ def export_enseignants_pdf():
             # Lignes de données
             ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
             ('FONTSIZE', (0, 1), (-1, -1), 7),
-            ('ALIGN', (0, 1), (1, -1), 'CENTER'),  # Sexe et date centrés
-            ('ALIGN', (2, 1), (-1, -1), 'LEFT'),   # Reste à gauche
+            ('ALIGN', (0, 1), (1, -1), 'CENTER'),
+            ('ALIGN', (2, 1), (-1, -1), 'LEFT'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             
             # Bordures
@@ -502,7 +809,7 @@ def export_enseignants_pdf():
             # Alternance des couleurs des lignes
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8F9FA')]),
             
-            # Padding réduit pour économiser l'espace
+            # Padding réduit
             ('LEFTPADDING', (0, 0), (-1, -1), 3),
             ('RIGHTPADDING', (0, 0), (-1, -1), 3),
             ('TOPPADDING', (0, 0), (-1, -1), 2),
@@ -538,10 +845,10 @@ def export_enseignants_pdf():
             elements.append(element)
         
         # ========== GÉNÉRATION DU PDF ==========
-        doc.build(elements)
+        doc.build(elements, onFirstPage=add_page_number, onLaterPages=add_page_number)
         buffer.seek(0)
         
-        # Retourner le PDF avec des headers améliorés
+        # Retourner le PDF
         filename = f"liste_enseignants_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
         
         response = send_file(
@@ -551,7 +858,6 @@ def export_enseignants_pdf():
             mimetype='application/pdf'
         )
         
-        # Headers supplémentaires pour forcer le téléchargement
         response.headers['Content-Disposition'] = f'attachment; filename={filename}'
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response.headers['Pragma'] = 'no-cache'
@@ -560,24 +866,38 @@ def export_enseignants_pdf():
         return response
         
     except Exception as e:
-        print(f"Erreur génération PDF: {str(e)}")
+        current_app.logger.error(f"Erreur génération PDF enseignants: {str(e)}")
         return jsonify({"error": f"Erreur lors de la génération du PDF: {str(e)}"}), 500
 
 @enseignants_bp.route("/export/excel")
+@login_required
+@ecole_required
 def export_enseignants_excel():
-    """Export Excel de la liste des enseignants avec en-tête"""
+    """Export Excel de la liste des enseignants avec en-tête uniformisé"""
     try:
-        # Récupérer les données
-        enseignants = Enseignant.query.options(
+        ecole_id = get_current_ecole_id()
+        
+        # Récupérer les données de l'école courante
+        enseignants = Enseignant.query.filter_by(ecole_id=ecole_id).options(
             joinedload(Enseignant.utilisateur),
             joinedload(Enseignant.matieres)
         ).all()
 
-        # Récupérer les informations de l'école
-        ecole = Ecole.query.first()
-        nom_ecole = ecole.nom if ecole else "COLLÈGE D'ENSEIGNEMENT GÉNÉRAL 'SAINT BLANT'"
-        prefecture = ecole.prefecture if ecole and ecole.prefecture else "MARITIME"
-        inspection = ecole.inspection if ecole and ecole.inspection else "TSÉVIÉ"
+        # Récupérer les informations de l'école COURANTE
+        ecole = Ecole.query.get(ecole_id)
+        if not ecole:
+            return jsonify({"error": "École non trouvée"}), 404
+
+        # CORRECTION: Récupérer le logo pour Excel
+        logo_path = get_logo_path_enseignants(ecole)
+        print(f"📊 Excel enseignants - Chemin logo: {logo_path}")
+
+        # UTILISER LES VALEURS DYNAMIQUES DE L'ÉCOLE COURANTE
+        nom_ecole = ecole.nom if ecole.nom else "École non renseignée"
+        dre = ecole.dre if ecole.dre else "DRE non renseignée"
+        inspection = ecole.inspection if ecole.inspection else "Inspection non renseignée"
+        telephone = ecole.telephone1 if ecole.telephone1 else "Téléphone non renseigné"
+        devise_ecole = ecole.devise if ecole.devise else "Travail - Liberté - Patrie"
         
         # Créer le fichier Excel
         buffer = io.BytesIO()
@@ -585,128 +905,167 @@ def export_enseignants_excel():
         ws = wb.active
         ws.title = "Liste des enseignants"
         
-        # ========== EN-TÊTE EXCEL ==========
+        # ========== EN-TÊTE EXCEL UNIFORMISÉ AVEC LOGO ==========
         center_align = Alignment(horizontal="center", vertical="center")
         
-        # CORRECTION : Structure organisée comme dans le PDF
-        # Ligne 1: Ministère à gauche
-        ws.merge_cells('A1:E1')
-        ws['A1'] = "MINISTÈRE DES ENSEIGNEMENTS PRIMAIRES ET SECONDAIRE"
-        ws['A1'].font = Font(bold=True, size=10)
-        ws['A1'].alignment = center_align
+        # CORRECTION: Structure d'en-tête optimisée avec logo
+        current_row = 1
         
-        # Ligne 1: République à droite
-        ws.merge_cells('F1:I1')
-        ws['F1'] = "RÉPUBLIQUE TOGOLAISE"
-        ws['F1'].font = Font(bold=True, size=10)
-        ws['F1'].alignment = center_align
+        # Structure d'en-tête textuelle
+        ws.merge_cells(f'A{current_row}:F{current_row}')
+        ws[f'A{current_row}'] = "MINISTÈRE DE L'EDUCATION NATIONALE"
+        ws[f'A{current_row}'].font = Font(bold=True, size=10)
+        ws[f'A{current_row}'].alignment = center_align
         
-        # Ligne 2: tirets
-        ws.merge_cells('A2:E2')
-        ws['A2'] = "-----------"
-        ws['A2'].alignment = center_align
+        ws.merge_cells(f'G{current_row}:J{current_row}')
+        ws[f'G{current_row}'] = "RÉPUBLIQUE TOGOLAISE"
+        ws[f'G{current_row}'].font = Font(bold=True, size=10)
+        ws[f'G{current_row}'].alignment = center_align
         
-        ws.merge_cells('F2:I2')
-        ws['F2'] = "-----------"
-        ws['F2'].alignment = center_align
+        current_row += 1
+        ws.merge_cells(f'A{current_row}:F{current_row}')
+        ws[f'A{current_row}'] = "-----------"
+        ws[f'A{current_row}'].alignment = center_align
         
-        # Ligne 3: Direction Régionale
-        ws.merge_cells('A3:E3')
-        ws['A3'] = f"DIRECTION RÉGIONALE DE L'ÉDUCATION - {prefecture}"
-        ws['A3'].font = Font(size=9)
-        ws['A3'].alignment = center_align
+        ws.merge_cells(f'G{current_row}:J{current_row}')
+        ws[f'G{current_row}'] = "-----------"
+        ws[f'G{current_row}'].alignment = center_align
         
-        # Ligne 3: Devise
-        ws.merge_cells('F3:I3')
-        ws['F3'] = "Travail - Liberté - Patrie"
-        ws['F3'].font = Font(bold=True, size=8)
-        ws['F3'].alignment = center_align
+        current_row += 1
+        ws.merge_cells(f'A{current_row}:F{current_row}')
+        ws[f'A{current_row}'] = f"DIRECTION RÉGIONALE DE L'ÉDUCATION - {dre}"
+        ws[f'A{current_row}'].font = Font(size=9)
+        ws[f'A{current_row}'].alignment = center_align
         
-        # Ligne 4: tirets
-        ws.merge_cells('A4:E4')
-        ws['A4'] = "-----------"
-        ws['A4'].alignment = center_align
+        ws.merge_cells(f'G{current_row}:J{current_row}')
+        ws[f'G{current_row}'] = "Travail - Liberté - Patrie"
+        ws[f'G{current_row}'].font = Font(bold=True, size=8)
+        ws[f'G{current_row}'].alignment = center_align
         
-        # Ligne 5: Inspection
-        ws.merge_cells('A5:E5')
-        ws['A5'] = f"INSPECTION DE L'ENSEIGNEMENT SECONDAIRE GÉNÉRAL - {inspection}"
-        ws['A5'].font = Font(size=9)
-        ws['A5'].alignment = center_align
+        current_row += 1
+        ws.merge_cells(f'A{current_row}:F{current_row}')
+        ws[f'A{current_row}'] = "-----------"
+        ws[f'A{current_row}'].alignment = center_align
         
-        # Ligne 6: Nom de l'école (CENTRÉ sur toutes les colonnes)
-        ws.merge_cells('A6:I6')
-        ws['A6'] = nom_ecole
-        ws['A6'].font = Font(bold=True, size=14, color="2C3E50")
-        ws['A6'].alignment = center_align
+        current_row += 1
+        ws.merge_cells(f'A{current_row}:F{current_row}')
+        ws[f'A{current_row}'] = f"INSPECTION DE L'ENSEIGNEMENT SECONDAIRE GÉNÉRAL - {inspection}"
+        ws[f'A{current_row}'].font = Font(size=9)
+        ws[f'A{current_row}'].alignment = center_align
         
-        # Ligne 7: Titre du document
-        ws.merge_cells('A7:I7')
-        ws['A7'] = "LISTE DES ENSEIGNANTS"
-        ws['A7'].font = Font(bold=True, size=16, color="2C3E50")
-        ws['A7'].alignment = center_align
+        # Nom de l'école et informations
+        current_row += 1
+        ws.merge_cells(f'A{current_row}:J{current_row}')
+        ws[f'A{current_row}'] = nom_ecole
+        ws[f'A{current_row}'].font = Font(bold=True, size=14, color="2C3E50")
+        ws[f'A{current_row}'].alignment = center_align
         
-        # Ligne 8: Date de génération
-        ws.merge_cells('A8:I8')
-        ws['A8'] = f"Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}"
-        ws['A8'].font = Font(size=8, italic=True, color="666666")
-        ws['A8'].alignment = center_align
+        current_row += 1
+        ws.merge_cells(f'A{current_row}:J{current_row}')
+        ws[f'A{current_row}'] = f"Tél: {telephone} - {devise_ecole}"
+        ws[f'A{current_row}'].alignment = center_align
+        
+        # Titre du document
+        current_row += 1
+        ws.merge_cells(f'A{current_row}:J{current_row}')
+        ws[f'A{current_row}'] = "LISTE DES ENSEIGNANTS"
+        ws[f'A{current_row}'].font = Font(bold=True, size=16, color="2C3E50")
+        ws[f'A{current_row}'].alignment = center_align
+        
+        # Date de génération
+        current_row += 1
+        ws.merge_cells(f'A{current_row}:J{current_row}')
+        ws[f'A{current_row}'] = f"Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}"
+        ws[f'A{current_row}'].font = Font(size=8, italic=True, color="666666")
+        ws[f'A{current_row}'].alignment = center_align
         
         # Ligne vide
-        ws['A9'] = ""
+        current_row += 1
+        ws[f'A{current_row}'] = ""
         
-        # ========== TABLEAU DES DONNÉES ==========
-        # En-têtes du tableau
+        # CORRECTION: Ajouter le logo APRÈS la structure d'en-tête
+        if logo_path and os.path.exists(logo_path):
+            try:
+                from openpyxl.drawing.image import Image as ExcelImage
+                img = ExcelImage(logo_path)
+                
+                # Redimensionner le logo pour qu'il soit discret
+                img.width = 50
+                img.height = 50
+                
+                # Placer le logo en dehors de la zone de texte (colonne K, ligne 1)
+                img.anchor = 'K1'
+                ws.add_image(img)
+                print("✅ Logo ajouté discrètement dans Excel enseignants (colonne K)")
+                
+                # Ajuster la largeur de la colonne K pour accommoder le logo
+                ws.column_dimensions['K'].width = 15
+                
+            except Exception as e:
+                print(f"❌ Erreur ajout logo Excel enseignants: {e}")
+        
+        # ========== TABLEAU DES DONNÉES - MÊMES COLONNES QUE PDF ==========
+        # CORRECTION: Utiliser les mêmes colonnes que le PDF
         headers = [
-            'Nom', 'Prénoms', 'Sexe', 'Date de prise de fonction', 
-            'Téléphone', 'Email', 'Matière(s)', 'Titre', 'État'
+            'Nom & Prénoms',  # Même que PDF
+            'Sexe',           # Même que PDF  
+            'Date prise fonction',  # Même que PDF
+            'Téléphone',      # Même que PDF
+            'Email',          # Même que PDF
+            'Matière(s)'      # Même que PDF
         ]
         
-        # Commencer à la ligne 10 pour les données
-        start_row = 10
-        ws.append(headers)
+        # Commencer après l'en-tête
+        start_row = current_row + 1
         
-        # Style des en-têtes du tableau
-        table_header_fill = PatternFill(start_color="34495E", end_color="34495E", fill_type="solid")
-        table_header_font = Font(color="FFFFFF", bold=True)
-        
-        for col in range(1, len(headers) + 1):
+        # Ajouter les en-têtes manuellement pour éviter les problèmes d'indexation
+        for col, header in enumerate(headers, 1):
             cell = ws.cell(row=start_row, column=col)
-            cell.fill = table_header_fill
-            cell.font = table_header_font
+            cell.value = header
+            cell.fill = PatternFill(start_color="34495E", end_color="34495E", fill_type="solid")
+            cell.font = Font(color="FFFFFF", bold=True)
             cell.alignment = center_align
         
-        # Données
+        # Données - MÊME FORMAT QUE PDF
         for enseignant in enseignants:
             utilisateur = enseignant.utilisateur
             matieres = ", ".join([m.libelle for m in enseignant.matieres]) if enseignant.matieres else "Non assigné"
             date_fonction = enseignant.date_fonction.strftime("%d/%m/%Y") if enseignant.date_fonction else "Non définie"
             
-            row = [
-                utilisateur.nom,
-                utilisateur.prenoms,
-                utilisateur.sexe,
-                date_fonction,
-                utilisateur.telephone or "Non renseigné",
-                utilisateur.email or "Non renseigné",
-                matieres,
-                enseignant.titre,
-                enseignant.etat
+            # Même format que PDF (pas de troncature pour Excel)
+            row_data = [
+                f"{utilisateur.nom} {utilisateur.prenoms}",  # Nom & Prénoms combinés
+                utilisateur.sexe,                            # Sexe
+                date_fonction,                               # Date fonction
+                utilisateur.telephone or "Non renseigné",    # Téléphone
+                utilisateur.email or "Non renseigné",        # Email
+                matieres                                     # Matières
             ]
-            ws.append(row)
+            
+            # Ajouter la ligne
+            row_num = start_row + len([e for e in enseignants if enseignants.index(e) < enseignants.index(enseignant)]) + 1
+            for col, value in enumerate(row_data, 1):
+                cell = ws.cell(row=row_num, column=col)
+                cell.value = value
         
         # ========== MISE EN FORME FINALE ==========
-        # Ajuster la largeur des colonnes
+        # Ajuster les largeurs de colonnes pour correspondre au PDF
         column_widths = {
-            'A': 20, 'B': 20, 'C': 8, 'D': 18, 
-            'E': 15, 'F': 25, 'G': 30, 'H': 15, 'I': 12
+            'A': 30,  # Nom & Prénoms (plus large car combiné)
+            'B': 10,  # Sexe
+            'C': 18,  # Date fonction
+            'D': 15,  # Téléphone
+            'E': 25,  # Email
+            'F': 35   # Matières (plus large pour liste complète)
         }
         
         for col, width in column_widths.items():
             ws.column_dimensions[col].width = width
         
-        # Centrer le sexe
+        # Centrer les colonnes comme dans le PDF
         for row in range(start_row + 1, ws.max_row + 1):
-            ws[f'C{row}'].alignment = center_align
+            ws[f'B{row}'].alignment = center_align  # Sexe centré
+            # Les autres colonnes alignées à gauche comme dans le PDF
         
         # Ajouter des bordures au tableau
         from openpyxl.styles import Border, Side
@@ -721,17 +1080,17 @@ def export_enseignants_excel():
             for col in range(1, len(headers) + 1):
                 ws.cell(row=row, column=col).border = thin_border
         
-        # ========== STATISTIQUES ==========
+        # ========== STATISTIQUES - MÊME QUE PDF ==========
         stats_row = ws.max_row + 2
         total_enseignants = len(enseignants)
         hommes = sum(1 for e in enseignants if e.utilisateur.sexe and e.utilisateur.sexe.upper() == 'M')
         femmes = total_enseignants - hommes
         
-        ws.merge_cells(f'A{stats_row}:I{stats_row}')
+        ws.merge_cells(f'A{stats_row}:F{stats_row}')
         ws[f'A{stats_row}'] = "STATISTIQUES"
         ws[f'A{stats_row}'].font = Font(bold=True, size=10)
         
-        ws.merge_cells(f'A{stats_row + 1}:I{stats_row + 1}')
+        ws.merge_cells(f'A{stats_row + 1}:F{stats_row + 1}')
         ws[f'A{stats_row + 1}'] = f"Total enseignants : {total_enseignants} | Hommes : {hommes} | Femmes : {femmes}"
         ws[f'A{stats_row + 1}'].font = Font(size=9)
         
@@ -739,7 +1098,7 @@ def export_enseignants_excel():
         wb.save(buffer)
         buffer.seek(0)
         
-        # Retourner le fichier avec des headers améliorés
+        # Retourner le fichier
         filename = f"liste_enseignants_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
         
         response = send_file(
@@ -749,7 +1108,6 @@ def export_enseignants_excel():
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
         
-        # Headers supplémentaires pour forcer le téléchargement
         response.headers['Content-Disposition'] = f'attachment; filename={filename}'
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response.headers['Pragma'] = 'no-cache'
@@ -758,5 +1116,79 @@ def export_enseignants_excel():
         return response
         
     except Exception as e:
-        print(f"Erreur génération Excel: {str(e)}")
+        current_app.logger.error(f"Erreur génération Excel enseignants: {str(e)}")
         return jsonify({"error": f"Erreur lors de la génération du Excel: {str(e)}"}), 500
+
+@enseignants_bp.route("/init-matieres-ecole", methods=["POST"])
+@login_required
+@ecole_required
+def init_matieres_ecole():
+    """Initialise les matières pour une école qui n'en a pas"""
+    try:
+        ecole_id = get_current_ecole_id()
+        
+        # Vérifier si l'école existe
+        ecole = Ecole.query.get(ecole_id)
+        if not ecole:
+            return jsonify({"error": "École non trouvée"}), 404
+        
+        # Vérifier si l'école a déjà des matières
+        matieres_existantes = Matiere.query.filter_by(ecole_id=ecole_id).count()
+        if matieres_existantes > 0:
+            return jsonify({
+                "message": f"L'école a déjà {matieres_existantes} matière(s)",
+                "action": "aucune"
+            }), 200
+        
+        # Liste des matières standard à créer avec des codes UNIQUES
+        matieres_standard = [
+            {"libelle": "Mathématiques", "code": "MATH"},
+            {"libelle": "Français", "code": "FRANCAIS"}, 
+            {"libelle": "Physiques Chimies et Technologies", "code": "PHYSIQUE"},
+            {"libelle": "Histoire-Géographie", "code": "HISTGEO"},
+            {"libelle": "Sciences de la Vie et de la Terre", "code": "SVT"},
+            {"libelle": "Anglais", "code": "ANGLAIS"},
+            {"libelle": "Education civique et morale", "code": "EDUCIVIQUE"},
+            {"libelle": "Agriculture", "code": "AGRICULT"},
+            {"libelle": "Ewe", "code": "EWE"},
+            {"libelle": "Kabyè", "code": "KABYE"},
+            {"libelle": "Education physique et sportive", "code": "EPS"},
+            {"libelle": "Musique", "code": "MUSIQUE"},
+            {"libelle": "Dessin", "code": "DESSIN"},
+            {"libelle": "Enseignement Ménager Couture", "code": "MENAGER"}
+        ]
+        
+        # Créer les matières
+        matieres_creees = []
+        for matiere_data in matieres_standard:
+            # Vérifier si le code existe déjà globalement (au cas où)
+            code_existe = Matiere.query.filter_by(code=matiere_data["code"]).first()
+            if code_existe:
+                # Ajouter un suffixe unique si le code existe déjà
+                nouveau_code = f"{matiere_data['code']}_{ecole_id[:4]}"
+                matiere_data["code"] = nouveau_code
+            
+            matiere = Matiere(
+                libelle=matiere_data["libelle"],
+                code=matiere_data["code"],
+                ecole_id=ecole_id,
+                etat="Actif"
+            )
+            db.session.add(matiere)
+            matieres_creees.append(matiere_data["libelle"])
+        
+        db.session.commit()
+        
+        current_app.logger.info(f"✅ {len(matieres_creees)} matières créées pour l'école {ecole.nom}")
+        
+        return jsonify({
+            "message": f"{len(matieres_creees)} matières créées avec succès",
+            "matieres": matieres_creees,
+            "action": "créées"
+        }), 201
+        
+    except Exception as exc:
+        db.session.rollback()
+        current_app.logger.error(f"❌ Erreur création matières: {str(exc)}")
+        return jsonify({"error": f"Erreur lors de la création: {str(exc)}"}), 500
+        

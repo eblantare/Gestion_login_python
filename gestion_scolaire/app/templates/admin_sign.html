@@ -1,10 +1,102 @@
 {% extends "ebase.html" %}
 
-{% block title %}Administration des Signatures{% endblock %}
+{% block title %}Administration des Signatures - {{ ecole.nom }}{% endblock %}
 
 {% block styles %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_signatures.css') }}">
+<style>
+/* ... vos styles existants ... */
+
+.alert-chef-status {
+    border-left: 4px solid #ffc107;
+}
+.alert-chef-status.defined {
+    border-left-color: #198754;
+}
+.fix-button {
+    margin-left: 10px;
+}
+
+/* Styles pour l'affichage des classes en grille 3 par ligne */
+.classes-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.class-card {
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    background: #fff;
+    transition: all 0.2s ease;
+}
+
+.class-card:hover {
+    box-shadow: 0 0.125rem 0.75rem rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.class-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1rem;
+    border-radius: 0.375rem 0.375rem 0 0;
+}
+
+.class-body {
+    padding: 1rem;
+}
+
+.class-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.class-titulaire {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-bottom: 1rem;
+    min-height: 2.5rem;
+}
+
+.class-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .classes-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .classes-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: #6c757d;
+}
+
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: #dee2e6;
+}
+</style>
 {% endblock %}
 
 {% block content %}
@@ -12,7 +104,10 @@
     <div class="row">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h1 class="mb-0">Administration des Signatures</h1>
+                <div>
+                    <h1 class="mb-0">Administration des Signatures</h1>
+                    <p class="text-muted mb-0">École : <strong>{{ ecole.nom }}</strong></p>
+                </div>
                 <div class="btn-group">
                     <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary">
                         <i class="bi bi-arrow-left me-2"></i>Retour au dashboard
@@ -20,15 +115,26 @@
                 </div>
             </div>
             
+            <!-- Statut du chef d'établissement -->
+            <div id="chef-status-alert" class="alert alert-chef-status alert-dismissible fade show d-none">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong id="chef-status-title">Statut du chef d'établissement</strong>
+                        <span id="chef-status-message" class="ms-2"></span>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            </div>
+            
             <!-- Section Chef d'Établissement -->
             <div class="card mb-4">
                 <div class="card-header bg-primary text-white">
                     <h5 class="card-title mb-0">
-                        <i class="bi bi-person-badge me-2"></i>Chef d'Établissement
+                        <i class="bi bi-person-badge me-2"></i>Chef d'Établissement - {{ ecole.nom }}
                     </h5>
                 </div>
                 <div class="card-body">
-                    <form id="form-chef">
+                    <form id="form-chef" data-ecole-id="{{ ecole.id }}">
                         <div class="row g-3">
                             <div class="col-md-3">
                                 <label class="form-label">Civilité:</label>
@@ -44,12 +150,20 @@
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Nom complet:</label>
-                                <input type="text" id="nom-chef" class="form-control" placeholder="Ex: DUPONT Jean" required>
+                                <select id="nom-chef" class="form-select" required>
+                                    <option value="">-- Sélectionner un enseignant --</option>
+                                </select>
+                                <div class="form-text">
+                                    <small>Si l'enseignant n'est pas dans la liste, vous pouvez saisir le nom manuellement après sélection</small>
+                                </div>
                             </div>
                         </div>
                         <div class="mt-3">
                             <button type="submit" class="btn btn-success">
                                 <i class="bi bi-check-lg me-2"></i>Enregistrer le Chef
+                            </button>
+                            <button type="button" id="btn-auto-fill" class="btn btn-outline-primary ms-2">
+                                <i class="bi bi-magic me-2"></i>Remplir automatiquement
                             </button>
                         </div>
                         <div id="message-chef" class="mt-2"></div>
@@ -57,11 +171,11 @@
                 </div>
             </div>
             
-            <!-- Section Titulaires des Classes -->
+            <!-- Section Classes de l'école -->
             <div class="card">
                 <div class="card-header bg-success text-white">
                     <h5 class="card-title mb-0">
-                        <i class="bi bi-people-fill me-2"></i>Titulaires des Classes
+                        <i class="bi bi-building me-2"></i>Classes - {{ ecole.nom }}
                     </h5>
                 </div>
                 <div class="card-body">
@@ -70,10 +184,43 @@
                             <div class="spinner-border text-primary" role="status">
                                 <span class="visually-hidden">Chargement...</span>
                             </div>
-                            <p class="mt-2">Chargement des classes...</p>
+                            <p class="mt-2">Chargement des classes de {{ ecole.nom }}...</p>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour assigner un titulaire -->
+<div class="modal fade" id="assignTitulaireModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Assigner un titulaire</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-assign-titulaire">
+                    <input type="hidden" id="classe-id">
+                    <div class="mb-3">
+                        <label class="form-label">Classe:</label>
+                        <input type="text" id="classe-nom" class="form-control" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Titulaire:</label>
+                        <select id="enseignant-select" class="form-select">
+                            <option value="">-- Sélectionner un enseignant --</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" id="btn-save-titulaire">
+                    <i class="bi bi-check-lg me-2"></i>Enregistrer
+                </button>
             </div>
         </div>
     </div>
@@ -82,5 +229,9 @@
 
 {% block scripts %}
 {{ super() }}
+<script>
+    const currentEcoleId = "{{ ecole.id }}";
+    const currentEcoleNom = "{{ ecole.nom }}";
+</script>
 <script src="{{ url_for('static', filename='js/admin_signatures.js') }}"></script>
 {% endblock %}

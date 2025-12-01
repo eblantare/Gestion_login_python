@@ -149,3 +149,34 @@
 .btn:hover {
     transform: translateY(-1px);
 }
+
+/* Styles personnalisés pour les notifications d'erreur */
+.alert-custom-error {
+    color: #721c24;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    border-radius: 0.375rem;
+    padding: 0.75rem 1.25rem;
+    margin-bottom: 1rem;
+    border: 1px solid transparent;
+}
+
+.alert-custom-error .btn-close {
+    color: #721c24;
+}
+
+/* Animation pour les notifications */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.alert {
+    animation: slideInRight 0.3s ease-out;
+}

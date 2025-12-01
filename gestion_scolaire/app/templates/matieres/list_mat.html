@@ -3,29 +3,172 @@
 {% block title %}Liste des matières{% endblock %}
 
 {% block content %}
+<style>
+/* Styles optimisés pour les matières */
+.col-type { font-weight: bold; color: #0d6efd; }
+
+#table-matieres {
+    font-size: 0.9rem;
+    table-layout: fixed;
+    width: 100%;
+}
+
+#table-matieres th {
+    font-weight: 600;
+    padding: 0.8rem 0.5rem;
+    font-size: 0.85rem;
+}
+
+#table-matieres td {
+    padding: 0.7rem 0.4rem;
+    vertical-align: middle;
+}
+
+.col-code { font-weight: 600; color: #0d6efd; }
+
+.col-libelle .text-truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 250px;
+}
+
+.col-type .badge {
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.35rem 0.6rem;
+}
+
+.etat { min-width: 120px; white-space: nowrap; }
+.etat .badge { font-size: 0.75rem; padding: 0.3rem 0.5rem; }
+
+.select-action.form-select {
+    border: 1px solid #dee2e6 !important;
+    font-size: 0.7rem;
+    padding: 0.2rem 0.3rem;
+    height: 24px;
+    min-width: 80px;
+    max-width: 90px;
+    margin-left: 0.3rem;
+}
+
+.actions-cell {
+    width: 140px !important;
+    min-width: 140px !important;
+    max-width: 140px !important;
+    padding: 8px 4px !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+}
+
+.btn-group-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
+    min-width: 120px !important;
+}
+
+.btn-action {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    max-width: 32px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 6px !important;
+    border: 1px solid #dee2e6 !important;
+    font-size: 0.875rem !important;
+    flex-shrink: 0 !important;
+}
+
+.btn-detail { background: #e7f3ff !important; color: #0d6efd !important; border-color: #b6d4fe !important; }
+.btn-edit { background: #fff3cd !important; color: #ffc107 !important; border-color: #ffdf9e !important; }
+.btn-delete { background: #f8d7da !important; color: #dc3545 !important; border-color: #f1aeb5 !important; }
+
+.btn-detail:hover { background: #0d6efd !important; color: white !important; border-color: #0d6efd !important; }
+.btn-edit:hover { background: #ffc107 !important; color: white !important; border-color: #ffc107 !important; }
+.btn-delete:hover { background: #dc3545 !important; color: white !important; border-color: #dc3545 !important; }
+
+.input-group.rounded-pill,
+.form-select.rounded-pill { border-radius: 50px !important; height: 42px; }
+
+.btn-success.rounded-pill {
+    height: 42px;
+    width: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.btn-success.rounded-pill:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(25, 135, 84, 0.3);
+}
+
+.input-group.rounded-pill .form-control { height: 45px; font-size: 0.95rem; }
+.input-group.rounded-pill .btn { height: 45px; width: 50px; }
+
+.pagination .page-link { font-size: 0.85rem; padding: 0.5rem 0.8rem; }
+
+/* Responsive */
+@media (max-width: 768px) {
+    .actions-cell { width: 120px !important; min-width: 120px !important; max-width: 120px !important; }
+    .btn-action { width: 28px !important; height: 28px !important; font-size: 0.8rem !important; }
+    .btn-group-actions { gap: 4px !important; }
+    .table-responsive { font-size: 0.8rem; }
+    #table-matieres th, #table-matieres td { padding: 0.5rem 0.3rem; }
+    .col-libelle .text-truncate { max-width: 150px !important; }
+    .select-action.form-select { min-width: 70px; font-size: 0.65rem; margin-left: 0.2rem; }
+    
+    .input-group.rounded-pill,
+    .form-select.rounded-pill { height: 42px !important; }
+    
+    .btn-success.rounded-pill { height: 42px !important; width: 42px !important; }
+}
+</style>
+
 <div class="container mt-4">
     <h2 class="mb-3">LISTE DES MATIÈRES</h2>
     
-    <!-- Barre de recherche et affichage par page -->
-    <form method="get" class="row mb-3 g-2 align-items-center">
-        <div class="col-md-4 col-12">
-            <div class="input-group rounded-pill border overflow-hidden">
-                <input type="text" name="search" value="{{search}}" class="form-control border-0" placeholder="Rechercher une matière..."> 
-                <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i></button>
+    <!-- Formulaire de filtres -->
+    <form method="get" id="mainFilterForm" class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 mb-3 p-3 bg-light rounded-3 shadow-sm">
+        
+        <!-- Barre de recherche -->
+        <div class="flex-fill">
+            <div class="input-group rounded-pill border-0 overflow-hidden shadow">
+                <input type="text" name="search" value="{{ search }}" class="form-control border-0 py-3" placeholder="Rechercher une matière..."> 
+                <button class="btn btn-primary px-4" type="submit">
+                    <i class="bi bi-search"></i>
+                </button>
             </div>
         </div>
-        <div class="col-md-4 col-6 text-center flex-grow-1">
-            <select name="per_page" class="form-select d-inline-block w-auto rounded-pill" onchange="this.form.submit()">
-                {% for n in [5,10, 20, 30, 50, 100, 150, 200, 500] %}
+
+        <!-- Sélection du nombre par page -->
+        <div class="flex-shrink-0">
+            <select name="per_page" class="form-select rounded-pill shadow border-0 py-2" style="min-width: 160px;" 
+                    onchange="document.getElementById('mainFilterForm').submit()">
+                {% for n in [5, 10, 20, 30, 50, 100] %}
                 <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }} par page</option>
                 {% endfor %}
             </select>
         </div>
-        <div class="col-md-4 text-end ms-2 flex-grow-1">
+
+        <!-- Bouton d'ajout -->
+        <div class="flex-shrink-0">
             {% if user_role in ['admin', 'administrateur'] %}
-            <button type="button" class="btn btn-success rounded-pill" data-bs-toggle="modal" data-bs-target="#addMatModal">
-                <i class="bi bi-plus-circle me-1"></i>Ajouter
-            </button>
+                <button type="button" class="btn btn-success rounded-pill shadow border-0 d-flex align-items-center justify-content-center" 
+                        data-bs-toggle="modal" data-bs-target="#addMatModal" 
+                        style="width: 48px; height: 48px;">
+                    <i class="bi bi-plus-circle fs-5"></i>
+                </button>
             {% endif %}
         </div>
     </form>
@@ -43,70 +186,77 @@
                 </tr>
             </thead>
             <tbody>
-                {% for matiere in matieres %}
-                <tr data-id="matiere-{{ matiere.id }}">
-                    <td class="col-code">
-                        <span class="fw-bold text-primary">{{ matiere.code }}</span>
-                    </td>
-                    <td class="col-libelle text-start ps-3">
-                        <span class="text-truncate d-inline-block" style="max-width: 250px;" title="{{ matiere.libelle }}">
-                            {{ matiere.libelle }}
-                        </span>
-                    </td>
-                    <td class="col-type">
-                        <span class="badge 
-                            {% if 'scientifique' in matiere.type|lower %}bg-primary
-                            {% elif 'littéraire' in matiere.type|lower %}bg-success
-                            {% elif 'spécialisé' in matiere.type|lower %}bg-warning text-dark
-                            {% else %}bg-info text-dark
-                            {% endif %}">
-                            {{ matiere.type }}
-                        </span>
-                    </td>
-                    <td class="etat text-center">
-                        <span class="badge
-                            {% if matiere.etat == 'Actif' %}bg-success
-                            {% elif matiere.etat == 'Bloqué' %}bg-dark
-                            {% else %}bg-secondary
-                            {% endif %}">
-                            {{ matiere.etat }}
-                        </span>
-                        
-                        {% if user_role in ['admin', 'administrateur'] and matiere.etat != "Bloqué" %}
-                        <select class="form-select form-select-sm d-inline-block w-auto ms-1 select-action" data-id="{{matiere.id}}">
-                            <option value="">Action</option>
-                            {% if matiere.etat | lower == 'inactif' %}
-                            <option value="Activer">Activer</option>
-                            {% elif matiere.etat | lower == 'actif' %}
-                            <option value="Bloquer">Bloquer</option>
-                            {% endif %}
-                        </select>
-                        {% endif %}
-                    </td>
-                    <td class="text-nowrap actions-cell">
-                        <button class="btn btn-info btn-sm btn-detail" data-id="{{ matiere.id }}" title="Détails">
-                            <i class="bi bi-eye"></i>
-                        </button>
-                        {% if user_role in ['admin', 'administrateur'] and matiere.etat | lower == 'inactif' %}
-                        <button type="button" class="btn btn-warning btn-sm btn-edit" data-id="{{matiere.id}}" title="Modifier">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button class="btn btn-danger btn-sm btn-delete" data-id="{{matiere.id}}" title="Supprimer">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                        {% endif %}
-                    </td>
-                </tr>
+                {% if matieres %}
+                    {% for matiere in matieres %}
+                    <tr data-id="matiere-{{ matiere.id }}">
+                        <td class="col-code">
+                            <span class="fw-bold text-primary">{{ matiere.code }}</span>
+                        </td>
+                        <td class="col-libelle text-start ps-3">
+                            <span class="text-truncate d-inline-block" title="{{ matiere.libelle }}">
+                                {{ matiere.libelle }}
+                            </span>
+                        </td>
+                        <td class="col-type">
+                            <span class="badge 
+                                {% if 'scientifique' in matiere.type|lower %}bg-primary
+                                {% elif 'littéraire' in matiere.type|lower %}bg-success
+                                {% elif 'spécialisé' in matiere.type|lower %}bg-warning text-dark
+                                {% else %}bg-info text-dark
+                                {% endif %}">
+                                {{ matiere.type }}
+                            </span>
+                        </td>
+                         <td class="etat text-center">
+    <span class="badge
+        {% if matiere.etat == 'Actif' %}bg-success
+        {% elif matiere.etat == 'Bloqué' %}bg-dark
+        {% else %}bg-secondary
+        {% endif %}">
+        {{ matiere.etat }}
+    </span>
+
+    {% if user_role in ['admin', 'administrateur'] %}
+    <select class="form-select form-select-sm d-inline-block w-auto ms-1 select-action" data-id="{{matiere.id}}">
+        <option value="">Action</option>
+        {% if matiere.etat | lower == 'inactif' %}
+        <option value="Activer">Activer</option>
+        {% elif matiere.etat | lower == 'actif' %}
+        <option value="Bloquer">Bloquer</option>
+        {% endif %}
+    </select>
+    {% endif %}
+</td>
+<td class="actions-cell">
+    <div class="btn-group-actions">
+        <button class="btn btn-action btn-detail" data-id="{{ matiere.id }}" title="Détails">
+            <i class="bi bi-eye"></i>
+        </button>
+        {% if user_role in ['admin', 'administrateur'] %}
+            <button type="button" class="btn btn-action btn-edit" data-id="{{matiere.id}}" title="Modifier">
+                <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-action btn-delete" data-id="{{matiere.id}}" title="Supprimer">
+                <i class="bi bi-trash"></i>
+            </button>
+        {% endif %}
+    </div>
+</td>
+                    </tr>
+                    {% endfor %}
                 {% else %}
                 <tr>
                     <td colspan="5" class="text-center py-4">
                         <div class="text-muted">
                             <i class="bi bi-journal-text display-4"></i>
                             <p class="mt-2">Aucune matière trouvée</p>
+                            {% if user_role in ['admin', 'administrateur'] %}
+                            <p class="small">Utilisez le bouton <i class="bi bi-plus-circle"></i> pour ajouter une matière</p>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>
-                {% endfor %}
+                {% endif %}
             </tbody>
         </table>
     </div>
@@ -116,13 +266,13 @@
         <ul class="pagination justify-content-center">
             {% if pagination.has_prev %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ pagination.prev_num }}&per_page={{ per_page }}&search={{ search }}">Précédent</a>
+                <a class="page-link" href="?page={{ pagination.prev_num }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}">Précédent</a>
             </li>
             {% endif %}
             {% for p in pagination.iter_pages() %}
                 {% if p %}
                 <li class="page-item {% if p == pagination.page %}active{% endif %}">
-                    <a class="page-link" href="?page={{ p }}&per_page={{ per_page }}&search={{search}}">{{ p }}</a>
+                    <a class="page-link" href="?page={{ p }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}">{{ p }}</a>
                 </li>
                 {% else %}
                 <li class="page-item disabled"><span class="page-link">...</span></li>
@@ -130,7 +280,7 @@
             {% endfor %}
             {% if pagination.has_next %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ pagination.next_num }}&per_page={{ per_page }}&search={{ search }}">Suivant</a>
+                <a class="page-link" href="?page={{ pagination.next_num }}&per_page={{ per_page }}{% if search %}&search={{ search }}{% endif %}">Suivant</a>
             </li>
             {% endif %}
         </ul>
@@ -162,5 +312,30 @@
     </div>
 </div>
 
+<!-- Container pour les notifications -->
+<div id="notificationContainer" class="toast-container position-fixed top-0 end-0 p-3"></div>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Retour à la page 1 quand on change per_page
+document.addEventListener('DOMContentLoaded', function() {
+    const perPageSelect = document.querySelector('select[name="per_page"]');
+    const mainForm = document.getElementById('mainFilterForm');
+    
+    if (perPageSelect && mainForm) {
+        perPageSelect.addEventListener('change', function() {
+            let pageInput = mainForm.querySelector('input[name="page"]');
+            if (!pageInput) {
+                pageInput = document.createElement('input');
+                pageInput.type = 'hidden';
+                pageInput.name = 'page';
+                mainForm.appendChild(pageInput);
+            }
+            pageInput.value = '1';
+        });
+    }
+});
+</script>
 {% endblock %}

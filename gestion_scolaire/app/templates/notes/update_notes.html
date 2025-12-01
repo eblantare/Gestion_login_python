@@ -1,54 +1,85 @@
-<!-- Modal Édition Note -->
-<div class="modal fade" id="editNoteModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
+<div class="modal fade" id="updateNoteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Modifier une note</h5>
+        <h5 class="modal-title">Modifier la note</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <form id="editNoteForm">
-          <input type="hidden" name="note_id">
+          <input type="hidden" name="note_id" id="edit_note_id">
+          
+          <div class="mb-3">
+            <label for="edit_enseignant_id" class="form-label">Enseignant</label>
+            <select name="enseignant_id" id="edit_enseignant_id" class="form-select" required>
+              <option value="">-- Sélectionnez un enseignant --</option>
+              {% for ens in enseignants %}
+                <option value="{{ ens.id }}">
+                  {% if ens.utilisateur %}
+                    {{ ens.utilisateur.nom }} {{ ens.utilisateur.prenoms }}
+                  {% else %}
+                    Enseignant #{{ ens.id }}
+                  {% endif %}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
 
           <div class="row g-2 mb-3">
             <div class="col">
-              <input type="number" name="note1" class="form-control" placeholder="Note 1">
+              <input type="number" name="note1" id="edit_note1" class="form-control" placeholder="Note 1" min="0" max="20" step="0.01">
             </div>
             <div class="col">
-              <input type="number" name="note2" class="form-control" placeholder="Note 2">
+              <input type="number" name="note2" id="edit_note2" class="form-control" placeholder="Note 2" min="0" max="20" step="0.01">
             </div>
             <div class="col">
-              <input type="number" name="note3" class="form-control" placeholder="Note 3">
+              <input type="number" name="note3" id="edit_note3" class="form-control" placeholder="Note 3" min="0" max="20" step="0.01">
             </div>
             <div class="col">
-              <input type="number" name="note_comp" class="form-control" placeholder="Comp.">
+              <input type="number" name="note_comp" id="edit_note_comp" class="form-control" placeholder="Comp." min="0" max="20" step="0.01">
             </div>
-            <div class="col">
-              <select name="coefficient" class="form-select">
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
-              </select>
-            </div>
-           <div class="mb-3">
-            <!-- <label for="enseignantSelect" class="form-label">Enseignant</label> -->
-            <select id="editEnseignantSelect" name="enseignant_id" class="form-select" required>
-            <option value="">-- Sélectionnez un enseignant --</option>
-           {% for e in enseignements %}
-            <option value="{{ e.id }}">{{ e.enseignant.noms }} {{ e.enseignant.prenoms }}</option>
-          {% endfor %}
-        </select>
-      </div>
+          </div>
 
+          <div class="mb-3">
+            <select name="coefficient" id="edit_coefficient" class="form-select">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <select name="trimestre" id="edit_trimestre" class="form-select" required>
+              <option value="1">Trimestre 1</option>
+              <option value="2">Trimestre 2</option>
+              <option value="3">Trimestre 3</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <select name="annee_scolaire" id="edit_annee_scolaire" class="form-select" required>
+              <option value="">-- Sélectionnez une année --</option>
+              {% for annee in annees_scolaires %}
+                <option value="{{ annee }}">{{ annee }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <select name="etat" id="edit_etat" class="form-select">
+              <option value="Actif">Actif</option>
+              <option value="Inactif">Inactif</option>
+              <option value="Clôturé">Clôturé</option>
+            </select>
           </div>
         </form>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-        <button type="submit" form="editNoteForm" class="btn btn-primary">Enregistrer</button>
+        <button type="submit" form="editNoteForm" class="btn btn-primary">Modifier</button>
       </div>
     </div>
   </div>

@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, send_file, render_template
+from flask import Blueprint, request, jsonify, send_file, render_template,current_app
 from ..models import Moyenne, Eleve, Classe, Matiere, Enseignant, Enseignement, Ecole, Appreciations, Note
 from extensions import db
 from sqlalchemy.orm import joinedload
@@ -14,9 +14,185 @@ from uuid import UUID
 from collections import namedtuple
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from flask_login import login_required, current_user
+from ..utils import get_current_ecole_id
 
 bulletins_export_bp = Blueprint('bulletins_export', __name__)
 
+
+# ==================== FONCTIONS DE LOGO DYNAMIQUE ====================
+
+def get_logo_path(ecole_id=None):
+    """Récupère le chemin du logo de l'école - VERSION CORRIGÉE AVEC LA MÊME LOGIQUE QUE services.py"""
+    try:
+        print(f"🔍 Recherche logo pour école_id: {ecole_id}")
+        
+        # Si un ID d'école est fourni, utiliser cette école
+        if ecole_id:
+            ecole = Ecole.query.get(ecole_id)
+        else:
+            # Utiliser l'école de l'utilisateur connecté
+            if current_user and hasattr(current_user, 'ecole_id') and current_user.ecole_id:
+                ecole = Ecole.query.get(current_user.ecole_id)
+            else:
+                # Fallback: première école
+                ecole = Ecole.query.first()
+        
+        if not ecole:
+            print(f"❌ École non trouvée")
+            return get_default_logo_path()
+        
+        print(f"🏫 École: {ecole.nom}")
+        print(f"📁 Logo en BD: {ecole.logo_filename}")
+        
+        # ✅ UTILISER LE MÊME CHEMIN QUE DANS services.py
+        if ecole.logo_filename:
+            # CHEMIN DÉFINITIF confirmé qui fonctionne dans services.py
+            logo_path = os.path.join(
+                'gestion_scolaire', 
+                'app', 
+                'static', 
+                'logos', 
+                ecole.logo_filename
+            )
+            
+            # Vérifier si le fichier existe
+            if os.path.exists(logo_path) and os.path.isfile(logo_path):
+                file_size = os.path.getsize(logo_path)
+                print(f"✅ Logo TROUVÉ: {logo_path} ({file_size} octets)")
+                return logo_path
+            else:
+                print(f"❌ Logo non trouvé à: {logo_path}")
+        
+        # ✅ Si pas trouvé, chercher avec l'ID de l'école (même logique que services.py)
+        print("🔍 Recherche par ID d'école...")
+        id_based_paths = [
+            os.path.join('gestion_scolaire', 'app', 'static', 'logos', f"{ecole.id}.png"),
+            os.path.join('gestion_scolaire', 'app', 'static', 'logos', f"{ecole.id}.jpg"),
+            os.path.join('gestion_scolaire', 'app', 'static', 'logos', f"{ecole.id}.jpeg"),
+            os.path.join('app', 'static', 'logos', f"{ecole.id}.png"),
+            os.path.join('static', 'logos', f"{ecole.id}.png"),
+        ]
+        
+        for path in id_based_paths:
+            if os.path.exists(path) and os.path.isfile(path):
+                file_size = os.path.getsize(path)
+                print(f"✅ Logo TROUVÉ (par ID): {path} ({file_size} octets)")
+                return path
+        
+        # Finalement, logo par défaut
+        print("❌ Aucun logo trouvé, utilisation du défaut")
+        return get_default_logo_path()
+        
+    except Exception as e:
+        print(f"❌ Erreur get_logo_path: {e}")
+        import traceback
+        traceback.print_exc()
+        return get_default_logo_path()
+
+def get_default_logo_path():
+    """Retourne le chemin du logo par défaut - MÊME LOGIQUE QUE services.py"""
+    default_paths = [
+        os.path.join('gestion_scolaire', 'app', 'static', 'images', 'default_logo.png'),
+        os.path.join('app', 'static', 'images', 'default_logo.png'),
+        os.path.join('static', 'images', 'default_logo.png'),
+    ]
+    
+    for path in default_paths:
+        if os.path.exists(path):
+            print(f"✅ Logo par défaut trouvé: {path}")
+            return path
+    
+    # Créer un logo par défaut si nécessaire
+    print("🔄 Création du logo par défaut...")
+    return create_default_logo()
+
+def create_default_logo():
+    """Crée un logo par défaut simple si aucun n'existe"""
+    try:
+        default_logo_path = os.path.join('gestion_scolaire', 'app', 'static', 'images', 'default_logo.png')
+        
+        # Créer le dossier si nécessaire
+        os.makedirs(os.path.dirname(default_logo_path), exist_ok=True)
+        
+        # Créer une image simple avec PIL
+        from PIL import Image, ImageDraw
+        
+        # Créer une image 200x200 pixels
+        img = Image.new('RGB', (200, 200), color='lightblue')
+        draw = ImageDraw.Draw(img)
+        
+        # Dessiner un cercle et du texte simple
+        draw.ellipse([50, 50, 150, 150], fill='white', outline='darkblue', width=3)
+        draw.text((100, 100), "ECOLE", fill='darkblue', anchor='mm')
+        
+        # Sauvegarder
+        img.save(default_logo_path)
+        print(f"✅ Logo par défaut créé: {default_logo_path}")
+        return default_logo_path
+        
+    except Exception as e:
+        print(f"❌ Erreur création logo par défaut: {e}")
+        return None
+
+@bulletins_export_bp.route("/services/classes", methods=["GET"])
+def get_classes_for_export():
+    """Renvoie les classes filtrées par école courante - CORRECTION BUG 2"""
+    try:
+        ecole_id = request.args.get("ecole_id")
+        
+        # Si ecole_id est fourni, filtrer par cette école
+        if ecole_id:
+            classes = Classe.query.filter_by(ecole_id=ecole_id).order_by(Classe.nom).all()
+        else:
+            # Sinon utiliser l'école de l'utilisateur connecté
+            if current_user and hasattr(current_user, 'ecole_id') and current_user.ecole_id:
+                classes = Classe.query.filter_by(ecole_id=current_user.ecole_id).order_by(Classe.nom).all()
+            else:
+                # Fallback: toutes les classes
+                classes = Classe.query.order_by(Classe.nom).all()
+        
+        classes_data = []
+        for classe in classes:
+            classes_data.append({
+                "id": str(classe.id),
+                "nom": classe.nom,
+                "ecole_id": str(classe.ecole_id) if classe.ecole_id else None
+            })
+        
+        return jsonify(classes_data)
+        
+    except Exception as e:
+        print(f"❌ Erreur récupération classes: {str(e)}")
+        return jsonify({"error": f"Erreur lors de la récupération des classes: {str(e)}"}), 500
+
+@bulletins_export_bp.route("/services/notes/classes", methods=["GET"])
+def get_notes_classes():
+    """Renvoie les classes pour l'export des notes - CORRECTION BUG 2"""
+    try:
+        ecole_id = request.args.get("ecole_id")
+        
+        # Filtrage par école
+        if ecole_id:
+            classes = Classe.query.filter_by(ecole_id=ecole_id).order_by(Classe.nom).all()
+        else:
+            if current_user and hasattr(current_user, 'ecole_id') and current_user.ecole_id:
+                classes = Classe.query.filter_by(ecole_id=current_user.ecole_id).order_by(Classe.nom).all()
+            else:
+                classes = Classe.query.order_by(Classe.nom).all()
+        
+        classes_data = []
+        for classe in classes:
+            classes_data.append({
+                "id": str(classe.id),
+                "nom": classe.nom
+            })
+        
+        return jsonify(classes_data)
+        
+    except Exception as e:
+        print(f"❌ Erreur récupération classes notes: {str(e)}")
+        return jsonify({"error": f"Erreur lors de la récupération des classes: {str(e)}"}), 500
+    
 # ==================== FONCTIONS DE CALCUL CORRIGÉES ====================
 
 def calculer_moyenne_notes_eleve_matiere(note_obj):
@@ -1252,7 +1428,7 @@ def calculer_moyenne_annuelle(moyennes_trimestres):
 # ========== FONCTIONS DE GÉNÉRATION PDF UNIFORMISÉES ==========
 
 def create_signatures_section(doc_width, eleve_data, include_titulaire=True):
-    """Crée la section des signatures avec alignement gauche/droite - VERSION FINALE"""
+    """Crée la section des signatures avec alignement gauche/droite - VERSION CORRIGÉE"""
     
     # Style pour les noms - alignement selon colonne
     nom_gauche_style = ParagraphStyle(
@@ -1293,7 +1469,12 @@ def create_signatures_section(doc_width, eleve_data, include_titulaire=True):
     # Récupérer les données depuis la base de données
     try:
         classe = eleve_data['eleve'].classe
-        ecole = Ecole.query.first()
+        
+        # ✅ CORRECTION CRITIQUE : Récupérer l'école via la classe de l'élève
+        ecole = classe.ecole if classe.ecole else Ecole.query.first()
+        
+        print(f"🔍 Récupération signatures - École: {ecole.nom if ecole else 'NON TROUVÉE'}")
+        print(f"🔍 Chef d'établissement en base: {ecole.chef_etablissement_nom if ecole else 'N/A'}")
         
         # Nom du titulaire avec gestion d'erreur
         nom_titulaire = "NON ASSIGNÉ"
@@ -1305,18 +1486,39 @@ def create_signatures_section(doc_width, eleve_data, include_titulaire=True):
             civilite = getattr(classe.titulaire, 'civilite', 'M.')
             nom_titulaire = f"{civilite} {classe.titulaire.nom}".strip()
         
-        # Nom du chef d'établissement avec gestion d'erreur
+        # Nom du chef d'établissement avec gestion d'erreur AMÉLIORÉE
         if ecole:
-            nom_chef = ecole.chef_etablissement_nom or "NON DÉFINI"
-            titre_chef = ecole.chef_etablissement_titre or "LE CHEF D'ÉTABLISSEMENT"
-            civilite_chef = ecole.chef_etablissement_civilite or "M."
+            # Vérifier chaque champ individuellement avec des valeurs par défaut appropriées
+            nom_chef = ecole.chef_etablissement_nom 
+            titre_chef = ecole.chef_etablissement_titre 
+            civilite_chef = ecole.chef_etablissement_civilite 
+            
+            print(f"📋 Données chef en base - Nom: '{nom_chef}', Titre: '{titre_chef}', Civilité: '{civilite_chef}'")
+            
+            # Si le nom du chef n'est pas défini, utiliser une valeur par défaut explicite
+            if not nom_chef or nom_chef.strip() == '' or nom_chef == "NON DÉFINI":
+                nom_chef = "NON DÉFINI"
+                print(f"⚠️ Chef d'établissement non défini pour l'école: {ecole.nom}")
+            else:
+                print(f"✅ Chef d'établissement trouvé: {nom_chef}")
+            
+            # Valeurs par défaut si non définies
+            if not titre_chef or titre_chef.strip() == '':
+                titre_chef = "LE CHEF D'ÉTABLISSEMENT"
+            
+            if not civilite_chef or civilite_chef.strip() == '':
+                civilite_chef = "M."
+            
             nom_complet_chef = f"{civilite_chef} {nom_chef}".strip()
         else:
             nom_complet_chef = "NON DÉFINI"
             titre_chef = "LE CHEF D'ÉTABLISSEMENT"
+            print("❌ Aucune école trouvée pour la classe")
         
     except Exception as e:
         print(f"⚠️ Erreur récupération signatures: {str(e)}")
+        import traceback
+        traceback.print_exc()
         nom_titulaire = "NON ASSIGNÉ"
         nom_complet_chef = "NON DÉFINI"
         titre_chef = "LE CHEF D'ÉTABLISSEMENT"
@@ -1358,16 +1560,16 @@ def create_signatures_section(doc_width, eleve_data, include_titulaire=True):
     
     return signatures_table
 
-def create_unified_bulletin_pdf(eleve_data, trimestre, annee_scolaire, mode='normal'):
-    """Crée un bulletin PDF avec structure unifiée"""
+def create_unified_bulletin_pdf(eleve_data, trimestre, annee_scolaire, mode='normal', ecole_id=None):
+    """Crée un bulletin PDF avec structure unifiée et logo dynamique"""
     buffer = io.BytesIO()
     
     if mode == 'compact':
         doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=6*mm, bottomMargin=8*mm, leftMargin=6*mm, rightMargin=6*mm)
-        elements = create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc)
+        elements = create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc, ecole_id)
     else:
         doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=8*mm, bottomMargin=12*mm, leftMargin=8*mm, rightMargin=8*mm)
-        elements = create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc)
+        elements = create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc, ecole_id)
     
     doc.build(elements)
     buffer.seek(0)
@@ -1386,10 +1588,30 @@ def create_bulletin_elements(eleve_data, trimestre, annee_scolaire, doc):
             Paragraph(f"Classe: {eleve_data['eleve'].classe.nom}", styles['Normal'])
         ]
 
-# ========== CONTENU DES BULLETINS UNIFORMISÉS ==========
+def create_text_logo(ecole_nom):
+    """Crée un logo texte comme fallback - SIMILAIRE À services.py"""
+    try:
+        styles = getSampleStyleSheet()
+        logo_style = ParagraphStyle(
+            'TextLogo',
+            parent=styles['Normal'],
+            fontSize=10,
+            alignment=1,
+            textColor=colors.white,
+            backColor=colors.HexColor('#2C3E50'),
+            borderPadding=10,
+            borderColor=colors.HexColor('#34495E'),
+            borderWidth=1,
+            spaceAfter=12
+        )
+        
+        initials = ''.join([word[0].upper() for word in ecole_nom.split()[:2]]) or "ECOLE"
+        return Paragraph(f"<b>{initials}</b>", logo_style)
+    except:
+        return None
 
-def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None):
-    """Crée le contenu du bulletin normal - VERSION CORRIGÉE (M.CL → moyenne_notes)"""
+def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, ecole_id=None):
+    """Crée le contenu du bulletin normal - AVEC LOGO ET NOM D'ÉCOLE DYNAMIQUES"""
     if doc is None:
         from reportlab.lib.pagesizes import A4
         temp_doc = SimpleDocTemplate(None, pagesize=A4)
@@ -1400,48 +1622,116 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None):
     elements = []
     styles = getSampleStyleSheet()
     
-    # Styles optimisés pour économiser l'espace
+    # ✅ CORRECTION : Définir les styles AVANT de les utiliser
     title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=12, alignment=1, 
                                 textColor=colors.HexColor('#2C3E50'), spaceAfter=2, fontName='Helvetica-Bold')
     subtitle_style = ParagraphStyle('SubtitleStyle', parent=styles['Heading2'], fontSize=8, alignment=1,
                                    textColor=colors.HexColor('#34495E'), spaceAfter=0.5, fontName='Helvetica-Bold')
     small_text_style = ParagraphStyle('SmallText', parent=styles['Normal'], fontSize=6, leading=7, spaceAfter=0.5)
-    identite_field_style = ParagraphStyle('IdentiteField', parent=styles['Normal'], fontSize=8, alignment=0,
-                                         fontName='Helvetica', leftIndent=0, spaceAfter=0)
+    
+    # ✅✅✅ CORRECTION : NOUVEAUX STYLES OPTIMISÉS POUR L'IDENTITÉ DE L'ÉLÈVE
+    identite_title_style = ParagraphStyle('IdentiteTitle', parent=styles['Heading2'], fontSize=10, alignment=1, 
+                                         spaceAfter=2, fontName='Helvetica-Bold', textColor=colors.HexColor('#2C3E50'))
+    
+    # Style pour les LABELS (petit, non gras)
+    identite_label_style = ParagraphStyle('IdentiteLabel', parent=styles['Normal'], fontSize=7, alignment=0,
+                                         fontName='Helvetica', textColor=colors.HexColor('#34495E'),
+                                         leftIndent=0, spaceAfter=0, wordWrap='LTR')
+    
+    # Style pour les VALEURS (grand, gras)
+    identite_value_style = ParagraphStyle('IdentiteValue', parent=styles['Normal'], fontSize=9, alignment=0,
+                                         fontName='Helvetica-Bold', textColor=colors.black,
+                                         leftIndent=0, spaceAfter=0, wordWrap='LTR')
 
-    # En-tête professionnelle - ESPACES RÉDUITS
-    ecole = Ecole.query.first()
-    logo_path = r"C:\projets\python\gestion_scolaire\app\static\images\logo.png"
-    
-    if os.path.exists(logo_path):
-        try:
-            logo = Image(logo_path, width=20*mm, height=20*mm)
-            logo.hAlign = 'CENTER'
-        except:
-            logo = Paragraph("<b>[LOGO]</b>", styles['Normal'])
+    # ✅ CORRECTION : Récupération DYNAMIQUE de l'école
+    ecole = None
+    if ecole_id:
+        ecole = Ecole.query.get(ecole_id)
+        print(f"🎯 École depuis ecole_id: {ecole_id} -> {ecole.nom if ecole else 'NON TROUVÉE'}")
     else:
-        logo = Paragraph("<b>[LOGO ÉCOLE]</b>", styles['Normal'])
+        # Fallback : utiliser l'école de l'utilisateur connecté
+        if current_user and hasattr(current_user, 'ecole_id') and current_user.ecole_id:
+            ecole = Ecole.query.get(current_user.ecole_id)
+            print(f"🎯 École depuis current_user: {current_user.ecole_id} -> {ecole.nom if ecole else 'NON TROUVÉE'}")
+        else:
+            # Dernier fallback : première école
+            ecole = Ecole.query.first()
+            print(f"🎯 École par défaut (première): {ecole.nom if ecole else 'AUCUNE ÉCOLE'}")
     
+    # ✅ CORRECTION : Vérification que l'école est bien récupérée
+    if not ecole:
+        print("❌ ERREUR CRITIQUE: Aucune école trouvée!")
+        # Créer une école par défaut pour éviter les erreurs
+        ecole_nom = "ÉCOLE NON DÉFINIE"
+        ecole_localite = ""
+        ecole_boite_postale = ""
+        ecole_telephone = ""
+        ecole_devise = "Travail - Liberté - Patrie"
+    else:
+        ecole_nom = ecole.nom
+        ecole_localite = ecole.localite or ""
+        ecole_boite_postale = ecole.boite_postale or ""
+        ecole_telephone = ecole.telephone1 or ""
+        ecole_devise = ecole.devise or "Travail - Liberté - Patrie"
+        print(f"✅ École sélectionnée: {ecole_nom} (ID: {ecole.id})")
+
+    # Récupération du logo dynamique
+    logo_path = get_logo_path(ecole_id if ecole_id else (ecole.id if ecole else None))
+    logo = None
+    
+    print(f"🎯 Création bulletin - École: {ecole_nom}, Logo path: {logo_path}")
+    
+    if logo_path and os.path.exists(logo_path):
+        try:
+            from PIL import Image as PILImage
+            pil_img = PILImage.open(logo_path)
+            
+            if pil_img and pil_img.size[0] > 0 and pil_img.size[1] > 0:
+                logo = Image(logo_path, width=20*mm, height=20*mm)
+                logo.hAlign = 'CENTER'
+                print(f"✅ Logo chargé avec succès: {logo_path}")
+            else:
+                print(f"❌ Image invalide: {logo_path}")
+                logo = create_text_logo(ecole_nom)
+                
+        except Exception as e:
+            print(f"❌ Erreur chargement logo {logo_path}: {str(e)}")
+            logo = create_text_logo(ecole_nom)
+    else:
+        print(f"⚠️ Logo non trouvé: {logo_path}")
+        logo = create_text_logo(ecole_nom)
+    
+    # ✅✅✅ CORRECTION CRITIQUE : STRUCTURE DE L'ENTÊTE OPTIMISÉE
+    # Structure verticale centrée avec la logique demandée
+    center_content = [
+        # Logo en haut
+        logo,
+        Spacer(1, 1*mm),  # Espace après le logo
+        
+        # En bas du logo : le nom de l'école
+        Paragraph(f"<b>{ecole_nom}</b>", ParagraphStyle('CenterHeader', parent=styles['Normal'], fontSize=10, alignment=1, spaceAfter=1, fontName='Helvetica-Bold')),
+        
+        # En bas du nom de l'école : le téléphone
+        Paragraph(f"Tél: {ecole_telephone}", ParagraphStyle('CenterSub', parent=styles['Normal'], fontSize=8, alignment=1, spaceAfter=1)),
+        
+        # En bas : la devise de l'école
+        Paragraph(f"Devise: {ecole_devise}", ParagraphStyle('CenterSub', parent=styles['Normal'], fontSize=8, alignment=1))
+    ]
+    
+    # Contenu gauche inchangé
     left_content = [
-        Paragraph("<b>M.E.P.S</b>", ParagraphStyle('LeftHeader', parent=styles['Normal'], fontSize=9, alignment=0, spaceAfter=1, fontName='Helvetica-Bold')),
+        Paragraph("<b>MINISTÈRE DE L'EDUCATION NATIONALE</b>", ParagraphStyle('LeftHeader', parent=styles['Normal'], fontSize=9, alignment=0, spaceAfter=1, fontName='Helvetica-Bold')),
         Paragraph("D.R.E: MARITIME", ParagraphStyle('LeftSub', parent=styles['Normal'], fontSize=8, alignment=0, spaceAfter=1)),
         Paragraph("I.E.S.G: TSEVIE", ParagraphStyle('LeftSub', parent=styles['Normal'], fontSize=8, alignment=0))
     ]
     
-    adresse_complete = f"{ecole.localite if ecole and ecole.localite else ''} - BP: {ecole.boite_postale if ecole else ''} - Tél: {ecole.telephone1 if ecole else ''}"
-    
-    center_content = [
-        logo,
-        Paragraph(f"<b>{ecole.nom if ecole else 'ÉCOLE SECONDAIRE'}</b>", ParagraphStyle('CenterHeader', parent=styles['Normal'], fontSize=10, alignment=1, spaceAfter=1, fontName='Helvetica-Bold')),
-        Paragraph(adresse_complete, ParagraphStyle('CenterSub', parent=styles['Normal'], fontSize=8, alignment=1)),
-        Paragraph(f"{ecole.devise if ecole else ''}", ParagraphStyle('CenterSub', parent=styles['Normal'], fontSize=8, alignment=1))
-    ]
-    
+    # Contenu droit inchangé
     right_content = [
         Paragraph("<b>RÉPUBLIQUE TOGOLAISE</b>", ParagraphStyle('RightHeader', parent=styles['Normal'], fontSize=9, alignment=2, spaceAfter=1, fontName='Helvetica-Bold')),
         Paragraph("Travail - Liberté - Patrie", ParagraphStyle('RightSub', parent=styles['Normal'], fontSize=8, alignment=2, fontName='Helvetica-Bold'))
     ]
     
+    # Construction du tableau d'entête
     header_data = [[
         Table([[cell] for cell in left_content], colWidths=[doc_width/3], style=TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'TOP'), ('LEFTPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
@@ -1462,45 +1752,63 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None):
     elements.append(header_table)
     elements.append(Spacer(1, 2*mm))
     
-        # Titre principal
-    title = Paragraph(f"<b>BULLETIN TRIM.{trimestre} - {annee_scolaire}</b>", title_style)
+    # ✅ CORRECTION : Utilisation de la variable title_style DÉFINIE
+    title = Paragraph(f"<b>BULLETIN DU TRIMESTRE {trimestre} - {annee_scolaire}</b>", title_style)
     elements.append(title)
     elements.append(Spacer(1, 2*mm))
     
-    # Identité élève - COMPACTÉ
-    identite_title = Paragraph("<b>IDENTITÉ ÉLÈVE</b>", 
-                               ParagraphStyle('IdentityTitle', parent=styles['Heading2'], 
-                                              fontSize=10, alignment=1, spaceAfter=2, 
-                                              fontName='Helvetica-Bold'))
+    # ✅✅✅ CORRECTION : STRUCTURE OPTIMISÉE "IDENTITÉ DE L'ÉLÈVE" AVEC LABELS PETITS ET VALEURS GRANDES
+    identite_title = Paragraph("<b>IDENTITÉ DE L'ÉLÈVE</b>", identite_title_style)
     elements.append(identite_title)
     
     eleve = eleve_data['eleve']
     classe = eleve.classe
     
+    # ✅✅✅ CORRECTION : STRUCTURE AVEC LABELS (PETITS) ET VALEURS (GRANDES) DANS DES CELLULES SÉPARÉES
     identite_data = [
+        # Ligne 1 : 3 paires label-valeur
         [
-            Paragraph(f"<b>Matricule:</b> <font face='Helvetica-Bold'>{eleve.matricule}</font>", identite_field_style),
-            Paragraph(f"<b>Nom & Prénoms:</b> <font face='Helvetica-Bold'>{eleve.nom} {eleve.prenoms}</font>", identite_field_style),
+            Paragraph("Matricule:", identite_label_style),
+            Paragraph(f"{eleve.matricule}", identite_value_style),
+            Paragraph("Nom & Prénoms:", identite_label_style),
+            Paragraph(f"{eleve.nom} {eleve.prenoms}", identite_value_style),
+            Paragraph("Date naissance:", identite_label_style),
+            Paragraph(f"{eleve.date_naissance.strftime('%d/%m/%Y') if eleve.date_naissance else 'N/A'}", identite_value_style)
         ],
+        # Ligne 2 : 3 paires label-valeur
         [
-            Paragraph(f"<b>Date de naissance:</b> <font face='Helvetica-Bold'>{eleve.date_naissance.strftime('%d/%m/%Y') if eleve.date_naissance else 'N/A'}</font>", identite_field_style),
-            Paragraph(f"<b>Sexe:</b> <font face='Helvetica-Bold'>{eleve.sexe}</font>", identite_field_style),
-        ],
-        [
-            Paragraph(f"<b>Classe:</b> <font face='Helvetica-Bold'>{classe.nom}</font>", identite_field_style),
-            Paragraph(f"<b>Statut:</b> <font face='Helvetica-Bold'>{eleve.status}</font>", identite_field_style),
+            Paragraph("Classe:", identite_label_style),
+            Paragraph(f"{classe.nom}", identite_value_style),
+            Paragraph("Sexe:", identite_label_style),
+            Paragraph(f"{eleve.sexe}", identite_value_style),
+            Paragraph("Statut:", identite_label_style),
+            Paragraph(f"{eleve.status}", identite_value_style)
         ]
     ]
     
-    identite_table = Table(identite_data, colWidths=[doc_width/2, doc_width/2])
+    # ✅✅✅ CORRECTION : RÉPARTITION ÉQUILIBRÉE DES COLONNES POUR ÉVITER LES DÉBORDEMENTS
+    identite_table = Table(identite_data, colWidths=[
+        doc_width * 0.10,  # Label Matricule
+        doc_width * 0.18,  # Valeur Matricule
+        doc_width * 0.12,  # Label Nom & Prénoms
+        doc_width * 0.28,  # Valeur Nom & Prénoms
+        doc_width * 0.12,  # Label Date naissance
+        doc_width * 0.20   # Valeur Date naissance
+    ])
+    
     identite_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('GRID', (0, 0), (-1, -1), 0.3, colors.grey), ('PADDING', (0, 0), (-1, -1), 4),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D1D5DB')),
+        ('PADDING', (0, 0), (-1, -1), 4),
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8F9FA')),
+        ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.HexColor('#FFFFFF'), colors.HexColor('#F8F9FA')]),
+        # Bordures plus épaisses pour séparer les lignes
+        ('LINEBELOW', (0, 0), (-1, 0), 0.5, colors.HexColor('#E5E7EB')),
     ]))
     
     elements.append(identite_table)
-    elements.append(Spacer(1, 1*mm))
+    elements.append(Spacer(1, 2*mm))
     
     # Tableau des notes - COLONNES CORRIGÉES (M.CL → MOY. NOTES)
     headers = ['DISCIPLINE', 'MOY.NOTES', 'NOTE', 'M.MAT', 'COEF', 'M.COEF', 'RANG', 'OBS', 'PROF', 'SIGN']
@@ -1544,24 +1852,24 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None):
         
         moyenne_a_afficher = moyenne_categorie if moyenne_categorie and moyenne_categorie > 0 else 0
         data.append([
-            Paragraph(f"<b>Moy {matiere_type}</b>", small_text_style),
+            Paragraph(f"<b>Moyenne {matiere_type}</b>", small_text_style),
             '', '', '', '',
             Paragraph(f"<b>{moyenne_a_afficher:.2f}</b>", small_text_style),
             '', '', '', ''
         ])
     
-        # COLONNES COMPACTES
+        # ✅ CORRECTION : COLONNES RÉAJUSTÉES POUR ÉVITER LES DÉBORDEMENTS
         section_table = Table(data, colWidths=[
-            doc_width * 0.26,  # DISCIPLINE
-            doc_width * 0.05,  # MOY.NOTES (remplace M.CL)
-            doc_width * 0.05,  # NOTE
-            doc_width * 0.05,  # M.MAT
-            doc_width * 0.04,  # COEF
-            doc_width * 0.06,  # M.COEF
-            doc_width * 0.05,  # RANG
-            doc_width * 0.11,  # OBS
-            doc_width * 0.12,  # PROF
-            doc_width * 0.06   # SIGN
+            doc_width * 0.20,  # DISCIPLINE (réduit)
+            doc_width * 0.06,  # MOY.NOTES
+            doc_width * 0.06,  # NOTE
+            doc_width * 0.06,  # M.MAT
+            doc_width * 0.05,  # COEF
+            doc_width * 0.07,  # M.COEF
+            doc_width * 0.06,  # RANG
+            doc_width * 0.12,  # OBS
+            doc_width * 0.20,  # PROF (augmenté)
+            doc_width * 0.05   # SIGN
         ])
     
         section_table.setStyle(TableStyle([
@@ -1604,7 +1912,7 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None):
             if section_elements:
                 elements.extend(section_elements)
     
-    # Totaux et moyenne générale - TABLEAU ÉLARGI
+    # Totaux et moyenne générale - TABLEAU AVEC MÊMES LARGEURS QUE LES SOUS-TABLEAUX
     stats = eleve_data.get('stats_classe')
     if not stats:
         StatsClasse = namedtuple('StatsClasse', ['moy_forte', 'moy_faible', 'moy_class', 'effectif_composant'])
@@ -1619,7 +1927,7 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None):
     moyenne_generale_val = eleve_data['moyenne_generale'] or 0
     moyenne_generale_arrondie = arrondir_moyenne_metier(moyenne_generale_val)
 
-    # CORRECTION: Tableau TOTAUX avec la même largeur que les autres tableaux
+    # ✅ CORRECTION : Tableau TOTAUX avec EXACTEMENT les mêmes largeurs que les sous-tableaux
     totaux_data = [[
         Paragraph("<b>TOTAUX</b>", small_text_style), 
         '', 
@@ -1633,18 +1941,18 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None):
         Paragraph(f"<b>{format_classement(eleve_data.get('rang_general', 'N/A'))}</b>", small_text_style)
     ]]
     
-    # CORRECTION: Mêmes largeurs que les sous-tableaux de matières
+    # ✅ CORRECTION : EXACTEMENT les mêmes largeurs que les sous-tableaux de matières
     totaux_table = Table(totaux_data, colWidths=[
-        doc_width * 0.26,  # Même largeur que DISCIPLINE
-        doc_width * 0.05,  # M.CL
-        doc_width * 0.05,  # NOTE
-        doc_width * 0.05,  # M.MAT
-        doc_width * 0.04,  # COEF
-        doc_width * 0.06,  # M.COEF
-        doc_width * 0.05,  # RANG
-        doc_width * 0.11,  # OBS
-        doc_width * 0.10,  # PROF
-        doc_width * 0.07   # SIGN
+        doc_width * 0.20,  # DISCIPLINE - MÊME LARGEUR
+        doc_width * 0.06,  # MOY.NOTES - MÊME LARGEUR
+        doc_width * 0.06,  # NOTE - MÊME LARGEUR
+        doc_width * 0.06,  # M.MAT - MÊME LARGEUR
+        doc_width * 0.05,  # COEF - MÊME LARGEUR
+        doc_width * 0.07,  # M.COEF - MÊME LARGEUR
+        doc_width * 0.06,  # RANG - MÊME LARGEUR
+        doc_width * 0.12,  # OBS - MÊME LARGEUR
+        doc_width * 0.20,  # PROF - MÊME LARGEUR
+        doc_width * 0.05   # SIGN - MÊME LARGEUR
     ])
     totaux_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F8F9FA')),
@@ -1664,16 +1972,15 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None):
 
     elements.append(Spacer(1, 1*mm))
     elements.append(totaux_table)
-    elements.append(Spacer(1, 1*mm))
     
     # Récapitulatif - STRUCTURE OPTIMISÉE
     moyennes_trimestres = get_moyennes_avec_fallback(eleve_data['eleve'].id, trimestre, annee_scolaire)
 
-# CORRECTION: Forcer la cohérence - utiliser la même valeur pour le trimestre courant
+    # CORRECTION: Forcer la cohérence - utiliser la même valeur pour le trimestre courant
     if trimestre in moyennes_trimestres:
        moyennes_trimestres[trimestre]['moyenne'] = moyenne_generale_val
 
- # 1. STATISTIQUES CLASSE - Structure compacte avec arrondi métier
+    # 1. STATISTIQUES CLASSE - Structure compacte avec arrondi métier
     moy_forte_arrondie = arrondir_moyenne_metier(moy_forte)
     moy_faible_arrondie = arrondir_moyenne_metier(moy_faible)
     moy_class_arrondie = arrondir_moyenne_metier(moy_class)
@@ -1683,7 +1990,7 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None):
          f"Moy.classe: {moy_class_arrondie:.1f}"
      ]
 
-   # 2. MOYENNES - Structure en tableau interne avec arrondi métier
+    # 2. MOYENNES - Structure en tableau interne avec arrondi métier
     moyennes_lines = []
     for trim in [1, 2, 3]:
           if trim <= trimestre and moyennes_trimestres[trim]['moyenne'] > 0:
@@ -1709,7 +2016,7 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None):
     # Observation des moyennes
     moyenne_generale = eleve_data.get('moyenne_generale', 0)
     observation_auto = get_observation_for_trimestre(moyenne_generale)
-    # observation_text = f"OBSERVATION AUTOMATIQUE:\n{observation_auto}"
+
     # 3. Tableau principal avec structure optimisée
     stats_decision_data = [
         # En-tête
@@ -1767,7 +2074,6 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None):
     # Pied de page ultra-compact
     elements.append(Spacer(1, 1*mm))
 
-
     elements.append(create_signatures_section(doc_width, eleve_data, include_titulaire=True))
     elements.append(Spacer(1, 2*mm))
 
@@ -1778,8 +2084,8 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None):
 
     return elements
 
-def create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc=None):
-    """Version compacte du bulletin - VERSION CORRIGÉE (M.CL → MOY.NOTES)"""
+def create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc=None, ecole_id=None):
+    """Version compacte du bulletin - AVEC STRUCTURE D'ENTÊTE CORRIGÉE"""
     if doc is None:
         from reportlab.lib.pagesizes import A4
         temp_doc = SimpleDocTemplate(None, pagesize=A4)
@@ -1790,44 +2096,117 @@ def create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc=N
     elements = []
     styles = getSampleStyleSheet()
     
-    # Styles compactes
-    title_style = ParagraphStyle('TitleStyle', parent=styles['Heading1'], fontSize=12, alignment=1,
-                                textColor=colors.HexColor('#2C3E50'), spaceAfter=3, fontName='Helvetica-Bold')
-    small_text_style = ParagraphStyle('SmallText', parent=styles['Normal'], fontSize=6, leading=7, spaceAfter=0.5)
-
-    # En-tête compacte
-    ecole = Ecole.query.first()
-    logo_path = r"C:\projets\python\gestion_scolaire\app\static\images\logo.png"
+    # Styles
+    title_style = ParagraphStyle(
+        'TitleStyle', 
+        parent=styles['Heading1'], 
+        fontSize=12, 
+        alignment=1,
+        textColor=colors.HexColor('#2C3E50'), 
+        spaceAfter=2, 
+        fontName='Helvetica-Bold'
+    )
     
-    if os.path.exists(logo_path):
-        try:
-            logo = Image(logo_path, width=15*mm, height=15*mm)
-            logo.hAlign = 'CENTER'
-        except:
-            logo = Paragraph("<b>[LOGO]</b>", styles['Normal'])
+    subtitle_style = ParagraphStyle(
+        'SubtitleStyle', 
+        parent=styles['Heading2'], 
+        fontSize=8, 
+        alignment=1,
+        textColor=colors.HexColor('#34495E'), 
+        spaceAfter=0.5, 
+        fontName='Helvetica-Bold'
+    )
+    
+    small_text_style = ParagraphStyle(
+        'SmallText', 
+        parent=styles['Normal'], 
+        fontSize=6, 
+        leading=7, 
+        spaceAfter=0.5
+    )
+    
+    # ✅✅✅ CORRECTION : STYLES OPTIMISÉS POUR LA VERSION COMPACTE
+    identite_title_style = ParagraphStyle('IdentiteTitle', parent=styles['Heading2'], fontSize=9, alignment=1, 
+                                         spaceAfter=1, fontName='Helvetica-Bold', textColor=colors.HexColor('#2C3E50'))
+    
+    # Style pour les LABELS (petit, non gras) - version compacte
+    identite_label_style = ParagraphStyle('IdentiteLabel', parent=styles['Normal'], fontSize=6, alignment=0,
+                                         fontName='Helvetica', textColor=colors.HexColor('#34495E'),
+                                         leftIndent=0, spaceAfter=0, wordWrap='LTR')
+    
+    # Style pour les VALEURS (grand, gras) - version compacte
+    identite_value_style = ParagraphStyle('IdentiteValue', parent=styles['Normal'], fontSize=8, alignment=0,
+                                         fontName='Helvetica-Bold', textColor=colors.black,
+                                         leftIndent=0, spaceAfter=0, wordWrap='LTR')
+    
+    # Récupération de l'école
+    ecole = None
+    if ecole_id:
+        ecole = Ecole.query.get(ecole_id)
     else:
-        logo = Paragraph("<b>[LOGO ÉCOLE]</b>", styles['Normal'])
+        if current_user and hasattr(current_user, 'ecole_id') and current_user.ecole_id:
+            ecole = Ecole.query.get(current_user.ecole_id)
+        else:
+            ecole = Ecole.query.first()
     
+    # Variables dynamiques
+    ecole_nom = ecole.nom if ecole else "ÉCOLE SECONDAIRE"
+    ecole_localite = ecole.localite if ecole else ""
+    ecole_boite_postale = ecole.boite_postale if ecole else ""
+    ecole_telephone = ecole.telephone1 if ecole else ""
+    ecole_devise = ecole.devise if ecole else ""
+    
+    # Récupération du logo dynamique
+    logo_path = get_logo_path(ecole_id if ecole_id else (ecole.id if ecole else None))
+    logo = None
+    
+    if logo_path and os.path.exists(logo_path):
+        try:
+            from PIL import Image as PILImage
+            pil_img = PILImage.open(logo_path)
+            
+            if pil_img and pil_img.size[0] > 0 and pil_img.size[1] > 0:
+                logo = Image(logo_path, width=15*mm, height=15*mm)  # Plus petit en version compacte
+                logo.hAlign = 'CENTER'
+            else:
+                logo = create_text_logo(ecole_nom)
+                
+        except Exception as e:
+            print(f"❌ Erreur chargement logo {logo_path}: {str(e)}")
+            logo = create_text_logo(ecole_nom)
+    else:
+        logo = create_text_logo(ecole_nom)
+    
+    # ✅✅✅ STRUCTURE DE L'ENTÊTE COMPACTE
+    center_content = [
+        # Logo en haut (plus petit)
+        logo,
+        Spacer(1, 0.5*mm),  # Espace réduit après le logo
+        
+        # En bas du logo : le nom de l'école
+        Paragraph(f"<b>{ecole_nom}</b>", ParagraphStyle('CenterHeader', parent=styles['Normal'], fontSize=9, alignment=1, spaceAfter=0.5, fontName='Helvetica-Bold')),
+        
+        # En bas du nom de l'école : le téléphone
+        Paragraph(f"Tél: {ecole_telephone}", ParagraphStyle('CenterSub', parent=styles['Normal'], fontSize=7, alignment=1, spaceAfter=0.5)),
+        
+        # En bas : la devise de l'école
+        Paragraph(f"Devise: {ecole_devise}", ParagraphStyle('CenterSub', parent=styles['Normal'], fontSize=7, alignment=1))
+    ]
+    
+    # Contenu gauche compact
     left_content = [
-        Paragraph("<b>M.E.P.S</b>", ParagraphStyle('LeftHeader', parent=styles['Normal'], fontSize=8, alignment=0, spaceAfter=1, fontName='Helvetica-Bold')),
-        Paragraph("D.R.E: MARITIME", ParagraphStyle('LeftSub', parent=styles['Normal'], fontSize=7, alignment=0, spaceAfter=1)),
+        Paragraph("<b>MINISTÈRE EDUCATION</b>", ParagraphStyle('LeftHeader', parent=styles['Normal'], fontSize=8, alignment=0, spaceAfter=0.5, fontName='Helvetica-Bold')),
+        Paragraph("D.R.E: MARITIME", ParagraphStyle('LeftSub', parent=styles['Normal'], fontSize=7, alignment=0, spaceAfter=0.5)),
         Paragraph("I.E.S.G: TSEVIE", ParagraphStyle('LeftSub', parent=styles['Normal'], fontSize=7, alignment=0))
     ]
     
-    adresse_complete = f"{ecole.localite if ecole and ecole.localite else ''} - BP: {ecole.boite_postale if ecole else ''}"
-    
-    center_content = [
-        logo,
-        Paragraph(f"<b>{ecole.nom if ecole else 'ÉCOLE SECONDAIRE'}</b>", ParagraphStyle('CenterHeader', parent=styles['Normal'], fontSize=9, alignment=1, spaceAfter=1, fontName='Helvetica-Bold')),
-        Paragraph(adresse_complete, ParagraphStyle('CenterSub', parent=styles['Normal'], fontSize=7, alignment=1)),
-        Paragraph(f"{ecole.devise if ecole else ''}", ParagraphStyle('CenterSub', parent=styles['Normal'], fontSize=7, alignment=1))
-    ]
-    
+    # Contenu droit compact
     right_content = [
-        Paragraph("<b>RÉPUBLIQUE TOGOLAISE</b>", ParagraphStyle('RightHeader', parent=styles['Normal'], fontSize=8, alignment=2, spaceAfter=1, fontName='Helvetica-Bold')),
+        Paragraph("<b>RÉPUBLIQUE TOGOLAISE</b>", ParagraphStyle('RightHeader', parent=styles['Normal'], fontSize=8, alignment=2, spaceAfter=0.5, fontName='Helvetica-Bold')),
         Paragraph("Travail - Liberté - Patrie", ParagraphStyle('RightSub', parent=styles['Normal'], fontSize=7, alignment=2, fontName='Helvetica-Bold'))
     ]
     
+    # Construction du tableau d'entête compact
     header_data = [[
         Table([[cell] for cell in left_content], colWidths=[doc_width/3], style=TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'TOP'), ('LEFTPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
@@ -1846,131 +2225,319 @@ def create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc=N
     ]))
     
     elements.append(header_table)
-    elements.append(Spacer(1, 2*mm))
+    elements.append(Spacer(1, 1*mm))  # Espace réduit
     
     # Titre principal compact
     title = Paragraph(f"<b>BULLETIN TRIM.{trimestre} - {annee_scolaire}</b>", title_style)
     elements.append(title)
-    elements.append(Spacer(1, 2*mm))
+    elements.append(Spacer(1, 1*mm))
     
-    # Identité élève compacte
+    # ✅✅✅ CORRECTION : STRUCTURE ULTRA-COMPACTE "IDENTITÉ ÉLÈVE" AVEC LABELS PETITS ET VALEURS GRANDES
+    identite_title = Paragraph("<b>IDENTITÉ ÉLÈVE</b>", identite_title_style)
+    elements.append(identite_title)
+    
     eleve = eleve_data['eleve']
     classe = eleve.classe
     
+    # ✅✅✅ CORRECTION : STRUCTURE COMPACTE AVEC LABELS (PETITS) ET VALEURS (GRANDES) DANS DES CELLULES SÉPARÉES
     identite_data = [
+        # Ligne 1 : 3 paires label-valeur
         [
-            Paragraph(f"<b>Matricule:</b> {eleve.matricule}", small_text_style),
-            Paragraph(f"<b>Nom & Prénoms:</b> {eleve.nom} {eleve.prenoms}", small_text_style)
+            Paragraph("Matricule:", identite_label_style),
+            Paragraph(f"{eleve.matricule}", identite_value_style),
+            Paragraph("Nom & Prénoms:", identite_label_style),
+            Paragraph(f"{eleve.nom} {eleve.prenoms}", identite_value_style),
+            Paragraph("Date naiss.:", identite_label_style),
+            Paragraph(f"{eleve.date_naissance.strftime('%d/%m/%Y') if eleve.date_naissance else 'N/A'}", identite_value_style)
         ],
+        # Ligne 2 : 3 paires label-valeur
         [
-            Paragraph(f"<b>Classe:</b> {classe.nom}", small_text_style),
-            Paragraph(f"<b>Effectif:</b> {classe.effectif}", small_text_style)
+            Paragraph("Classe:", identite_label_style),
+            Paragraph(f"{classe.nom}", identite_value_style),
+            Paragraph("Sexe:", identite_label_style),
+            Paragraph(f"{eleve.sexe}", identite_value_style),
+            Paragraph("Statut:", identite_label_style),
+            Paragraph(f"{eleve.status}", identite_value_style)
         ]
     ]
     
-    identite_table = Table(identite_data, colWidths=[doc_width/2, doc_width/2])
+    # ✅✅✅ CORRECTION : RÉPARTITION OPTIMISÉE POUR VERSION COMPACTE
+    identite_table = Table(identite_data, colWidths=[
+        doc_width * 0.08,   # Label Matricule
+        doc_width * 0.15,   # Valeur Matricule
+        doc_width * 0.10,   # Label Nom & Prénoms
+        doc_width * 0.22,   # Valeur Nom & Prénoms
+        doc_width * 0.08,   # Label Date naissance
+        doc_width * 0.12    # Valeur Date naissance
+    ])
+    
     identite_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('GRID', (0, 0), (-1, -1), 0.2, colors.grey), ('PADDING', (0, 0), (-1, -1), 2),
-        ('FONTSIZE', (0, 0), (-1, -1), 6), ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8F9FA')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#D1D5DB')),
+        ('PADDING', (0, 0), (-1, -1), 3),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8F9FA')),
+        ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.HexColor('#FFFFFF'), colors.HexColor('#F8F9FA')]),
+        ('LINEBELOW', (0, 0), (-1, 0), 0.3, colors.HexColor('#E5E7EB')),
+        # Réduction des marges internes
+        ('LEFTPADDING', (0, 0), (-1, -1), 2),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
     ]))
     
     elements.append(identite_table)
     elements.append(Spacer(1, 1*mm))
     
-    # Tableau des notes compact
-    headers = ['DISCIPLINE', 'MOY.NOTES', 'NOTE', 'COEF', 'M.MAT', 'M.COEF', 'RANG', 'OBS', 'PROF', 'SIGN']
+    # Tableau des notes - VERSION ULTRA-COMPACTE
+    headers_compact = ['DISCIPLINE', 'MOY', 'COEF', 'M.COEF', 'RANG', 'OBS']
     
-    all_matieres = (eleve_data['matieres_litteraires'] + 
-                   eleve_data['matieres_scientifiques'] + 
-                   eleve_data['matieres_specialisees'])
+    def create_matiere_section_ultra_compact(matiere_type, matieres_list, section_title, moyenne_categorie):
+        if not matieres_list: 
+            return None
+            
+        section_elements = []
+        section_elements.append(Paragraph(f"<b>{section_title}</b>", subtitle_style))
+        section_elements.append(Spacer(1, 0.1*mm))
     
-    data = [headers]
-    total_moy_coef = 0
-    total_coeff = 0
+        data = [headers_compact]
     
-    for matiere in all_matieres:
-        libelle = matiere['libelle'] or ''
-        moyenne_notes = matiere['moyenne_notes'] or 0  # REMPLACE moy_clas
-        note_comp = matiere['note_comp'] or 0
-        coefficient = matiere['coefficient'] or 1
-        moy_mat = matiere['moy_mat'] or 0
-        moy_coef = matiere['moy_coef'] or 0
-        rang = matiere['rang'] or '-'
-        observation = get_observation_for_note(moy_mat)
-        enseignant = matiere['enseignant'] or ''
+        for matiere in matieres_list:
+            moy_mat = matiere['moy_mat'] or 0
+            coefficient = matiere['coefficient'] or 1
+            moy_coef = matiere['moy_coef'] or 0
 
-        row = [
-            Paragraph(libelle, small_text_style),
-            Paragraph(f"{moyenne_notes:.1f}", small_text_style),  # MOY.NOTES au lieu de M.CL
-            Paragraph(f"{note_comp:.1f}", small_text_style),
-            Paragraph(str(coefficient), small_text_style),
-            Paragraph(f"{moy_mat:.1f}", small_text_style),
-            Paragraph(f"{moy_coef:.1f}", small_text_style),
-            Paragraph(format_classement(rang), small_text_style),
-            Paragraph(observation, small_text_style),
-            Paragraph(enseignant, small_text_style),
-            Paragraph("", small_text_style)
-        ]
-        data.append(row)
-        total_moy_coef += moy_coef
-        total_coeff += coefficient
+            rang = matiere['rang']
+            rang_str = format_classement(rang) if rang != '-' else '-'
+            observation = get_observation_for_note(moy_mat)
+
+            # Version ultra-compacte
+            libelle = matiere['libelle']        
+            row = [
+                Paragraph(libelle, small_text_style),
+                Paragraph(f"{moy_mat:.1f}", small_text_style),
+                Paragraph(str(coefficient), small_text_style),
+                Paragraph(f"{moy_coef:.1f}", small_text_style),
+                Paragraph(rang_str, small_text_style),
+                Paragraph(observation, small_text_style)
+            ]
+            data.append(row)
+        
+        moyenne_a_afficher = moyenne_categorie if moyenne_categorie and moyenne_categorie > 0 else 0
+        data.append([
+            Paragraph(f"<b>Moy.{matiere_type}</b>", small_text_style),
+            '', '',
+            Paragraph(f"<b>{moyenne_a_afficher:.2f}</b>", small_text_style),
+            '', ''
+        ])
     
-    col_widths = [
-        doc_width * 0.20, doc_width * 0.05, doc_width * 0.05, doc_width * 0.05,
-        doc_width * 0.04, doc_width * 0.06, doc_width * 0.05, doc_width * 0.12,
-        doc_width * 0.12, doc_width * 0.05
-    ]
+        # Tableau ultra-compact avec 6 colonnes seulement
+        section_table = Table(data, colWidths=[
+            doc_width * 0.35,  # DISCIPLINE
+            doc_width * 0.10,  # MOY
+            doc_width * 0.08,  # COEF
+            doc_width * 0.12,  # M.COEF
+            doc_width * 0.10,  # RANG
+            doc_width * 0.25   # OBS
+        ])
     
-    notes_table = Table(data, colWidths=col_widths)
-    notes_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#34495E')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke), ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 5), ('FONTSIZE', (0, 1), (-1, -1), 5),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), ('GRID', (0, 0), (-1, -1), 0.1, colors.grey),
-        ('PADDING', (0, 0), (-1, -1), 1), ('ALIGN', (1, 1), (4, -1), 'CENTER'),
-        ('ALIGN', (0, 1), (0, -1), 'LEFT'),
-        ('ALIGN', (7, 1), (8, -1), 'LEFT'),
-    ]))
+        section_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#34495E')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 5),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('FONTSIZE', (0, 1), (-1, -2), 6),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.2, colors.grey),
+            ('PADDING', (0, 0), (-1, -1), 1),
+            ('ALIGN', (1, 1), (3, -2), 'CENTER'),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#F8F9FA')),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, -1), (-1, -1), 6),
+            ('ALIGN', (0, 1), (0, -2), 'LEFT'),
+        ]))
     
-    elements.append(notes_table)
-    elements.append(Spacer(1, 2*mm))
+        section_elements.append(section_table)
+        section_elements.append(Spacer(1, 0.1*mm))
+        return section_elements
     
-    # Totaux compacts
+    # Sections matières compactes
+    for matieres, categorie, titre in [
+        (eleve_data['matieres_litteraires'], 'litteraire', "LITTÉRAIRES"),
+        (eleve_data['matieres_scientifiques'], 'scientifique', "SCIENTIFIQUES"), 
+        (eleve_data['matieres_specialisees'], 'specialise', "SPÉCIALISÉS")
+    ]:
+        if matieres:
+            moyenne_categorie = eleve_data.get(f'moyenne_{categorie}', 0)
+            section_elements = create_matiere_section_ultra_compact(
+                categorie.capitalize(), 
+                matieres, 
+                titre,
+                moyenne_categorie
+            )
+            if section_elements:
+                elements.extend(section_elements)
+    
+    # Totaux et moyenne générale - TABLEAU COMPACT
+    stats = eleve_data.get('stats_classe')
+    total_coeff_val = eleve_data['total_coeff'] or 0
+    total_moy_coef_val = eleve_data['total_moy_coef'] or 0
     moyenne_generale_val = eleve_data['moyenne_generale'] or 0
     moyenne_generale_arrondie = arrondir_moyenne_metier(moyenne_generale_val)
-    total_line = Paragraph(
-        f"<b>TOTAUX: Coeff={total_coeff} | Moy×Coef={total_moy_coef:.1f} | MOY. TRIM: {moyenne_generale_arrondie:.1f}</b>",
-        ParagraphStyle('TotalLine', parent=styles['Normal'], fontSize=7, alignment=1, spaceAfter=2, 
-                      fontName='Helvetica-Bold', textColor=colors.white, backColor=colors.HexColor('#2C3E50'))
-    )
+
+    # Tableau TOTAUX compact
+    totaux_data = [[
+        Paragraph("<b>TOTAUX</b>", small_text_style), 
+        '', 
+        Paragraph(f"<b>{total_coeff_val}</b>", small_text_style),
+        Paragraph(f"<b>{total_moy_coef_val:.1f}</b>", small_text_style), 
+        Paragraph(f"<b>MOY.T{trimestre}: {moyenne_generale_arrondie:.1f}</b>", small_text_style),
+        Paragraph(f"<b>{format_classement(eleve_data.get('rang_general', 'N/A'))}</b>", small_text_style)
+    ]]
     
-    elements.append(total_line)
+    totaux_table = Table(totaux_data, colWidths=[
+        doc_width * 0.35,  # DISCIPLINE
+        doc_width * 0.10,  # MOY
+        doc_width * 0.08,  # COEF
+        doc_width * 0.12,  # M.COEF
+        doc_width * 0.20,  # MOYENNE + RANG
+        doc_width * 0.15   # RANG
+    ])
+    totaux_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F8F9FA')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#6C757D')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), 
+        ('FONTSIZE', (0, 0), (-1, 0), 6),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('GRID', (0, 0), (-1, -1), 0.3, colors.HexColor('#ADB5BD')),
+        ('PADDING', (0, 0), (-1, -1), 2),
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ('SPAN', (1, 0), (1, 0)),  # Fusion cellule vide
+    ]))
+
+    elements.append(Spacer(1, 0.5*mm))
+    elements.append(totaux_table)
     
-    # Signatures compactes
-    date_text = Paragraph(
-        f"Fait à {ecole.localite if ecole and ecole.localite else ''}, le {datetime.now().strftime('%d/%m/%Y')}",
-        ParagraphStyle('DateStyle', parent=styles['Normal'], fontSize=5, alignment=2)
-    )
-    elements.append(date_text)
+    # Récapitulatif ultra-compact
+    moyennes_trimestres = get_moyennes_avec_fallback(eleve_data['eleve'].id, trimestre, annee_scolaire)
+
+    if trimestre in moyennes_trimestres:
+       moyennes_trimestres[trimestre]['moyenne'] = moyenne_generale_val
+
+    # Statistiques classe compactes
+    moy_forte = stats.moy_forte or 0 if stats else 0
+    moy_faible = stats.moy_faible or 0 if stats else 0
+    moy_class = stats.moy_class or 0 if stats else 0
+
+    moy_forte_arrondie = arrondir_moyenne_metier(moy_forte)
+    moy_faible_arrondie = arrondir_moyenne_metier(moy_faible)
+    moy_class_arrondie = arrondir_moyenne_metier(moy_class)
+
+    stats_classe_lines = [
+         f"M.forte: {moy_forte_arrondie:.1f} M.faible: {moy_faible_arrondie:.1f}",
+         f"M.classe: {moy_class_arrondie:.1f}"
+     ]
+
+    # Moyennes trimestrielles compactes
+    moyennes_lines = []
+    for trim in [1, 2, 3]:
+          if trim <= trimestre and moyennes_trimestres[trim]['moyenne'] > 0:
+             moy = moyennes_trimestres[trim]['moyenne']
+             moy_arrondie = arrondir_moyenne_metier(moy)
+             rang = format_classement(moyennes_trimestres[trim]['rang'])
+             effectif_total = Eleve.query.filter_by(classe_id=eleve_data['eleve'].classe_id).count()
+             moyennes_lines.append(f"T{trim}: {moy_arrondie:.1f} R:{rang}")
+
+    # Moyenne annuelle
+    if trimestre == 3:
+        moyennes_valides = []
+        for trim in [1, 2, 3]:
+           if trim in moyennes_trimestres and moyennes_trimestres[trim]['moyenne'] > 0:
+               moyennes_valides.append(moyennes_trimestres[trim]['moyenne'])
+    
+        if moyennes_valides:
+           moyenne_annuelle = sum(moyennes_valides) / len(moyennes_valides)
+           moyenne_annuelle_arrondie = arrondir_moyenne_metier(moyenne_annuelle)
+           moyennes_lines.append(f"M.Ann: {moyenne_annuelle_arrondie:.1f}")
+
+    # Observation
+    moyenne_generale = eleve_data.get('moyenne_generale', 0)
+    observation_auto = get_observation_for_trimestre(moyenne_generale)
+
+    # Tableau récapitulatif ultra-compact
+    stats_decision_data = [
+        ['STATS CLASSE', 'MOYENNES', 'OBSERVATION', 'DÉCISION'],
+        
+        [
+            "\n".join(stats_classe_lines),
+            "\n".join(moyennes_lines),
+             observation_auto,
+            "[À COMPLÉTER]"
+        ]
+    ]
+    
+    stats_decision_table = Table(stats_decision_data, colWidths=[doc_width*0.22, doc_width*0.28, doc_width*0.25, doc_width*0.25])
+    stats_decision_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#34495E')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 7), 
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('FONTSIZE', (0, 1), (-1, 1), 6), 
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('GRID', (0, 0), (-1, -1), 0.2, colors.grey), 
+        ('PADDING', (0, 0), (-1, -1), 2),
+        ('ALIGN', (0, 1), (0, 1), 'LEFT'),
+        ('ALIGN', (1, 1), (1, 1), 'LEFT'),
+    ]))
+
+    elements.append(Spacer(1, 0.5*mm))
+    elements.append(stats_decision_table)
+    
+    # Section appréciations ultra-compacte
     elements.append(Spacer(1, 0.5*mm))
     
-    # Utilisation de la fonction unifiée pour les signatures
-    elements.append(create_signatures_section(doc_width, eleve_data, include_titulaire=True))
-    elements.append(Spacer(1, 1*mm))  # ESPACE AUGMENTÉ pour descendre
+    appreciations_data = [['Conduite: [ ]', 'Travail: [ ]', 'Honneur: [ ]', 'Encouragement: [ ]']]
+    appreciations_table = Table(appreciations_data, colWidths=[doc_width*0.25, doc_width*0.25, doc_width*0.25, doc_width*0.25])
+    appreciations_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F8F9FA')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 6),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, 0), 0.2, colors.grey),
+        ('PADDING', (0, 0), (-1, 0), 1),
+    ]))
     
+    elements.append(appreciations_table)
+
+    # Pied de page ultra-compact - UTILISATION DE LA FONCTION EXISTANTE
+    elements.append(Spacer(1, 0.5*mm))
+
+    # ✅ CORRECTION : Utilisation de la fonction existante create_signatures_section
+    elements.append(create_signatures_section(doc_width, eleve_data, include_titulaire=True))
+    elements.append(Spacer(1, 1*mm))
+
+    note_bas = Paragraph("<b><font size='5'>NB: Original unique - Copies autorisées</font></b>",
+                ParagraphStyle('NoteStyle', parent=styles['Normal'], fontSize=5, alignment=1, 
+                             textColor=colors.black, fontName='Helvetica-Bold'))
+    elements.append(note_bas)
+
     return elements
 
-# ========== ROUTES UNIFORMISÉES ==========
+# ==================== ROUTES AVEC SUPPORT DU LOGO DYNAMIQUE ====================
 
 @bulletins_export_bp.route("/export/bulletin", methods=["GET"])
 def export_bulletin_pdf():
-    """Export PDF du bulletin individuel d'un élève - VERSION UNIFORMISÉE"""
+    """Export PDF du bulletin individuel d'un élève - AVEC ÉCOLE DYNAMIQUE"""
     try:
         eleve_id = request.args.get("eleve_id", type=str)
         trimestre = request.args.get("trimestre", type=int, default=1)
         annee_scolaire = request.args.get("annee_scolaire", type=str)
         mode = request.args.get("mode", type=str, default="normal")
+        ecole_id = request.args.get("ecole_id", type=str)  # Récupération de l'ID de l'école
+        
+        print(f"🎯 Export bulletin - Élève: {eleve_id}, Trimestre: {trimestre}, École: {ecole_id}")
         
         if not eleve_id or not annee_scolaire:
             return jsonify({
@@ -1978,6 +2545,7 @@ def export_bulletin_pdf():
                 "code": "MISSING_PARAMETERS"
             }), 400
         
+        # ✅ CORRECTION : Passage EXPLICITE de l'ecole_id
         eleve_data = get_eleve_data(UUID(eleve_id), trimestre, annee_scolaire)
         if not eleve_data:
             return jsonify({
@@ -1985,22 +2553,14 @@ def export_bulletin_pdf():
                 "code": "STUDENT_NOT_FOUND"
             }), 404
         
-        pdf_buffer = create_unified_bulletin_pdf(eleve_data, trimestre, annee_scolaire, mode)
+        # ✅ CORRECTION : Passage de l'ecole_id à la fonction PDF
+        pdf_buffer = create_unified_bulletin_pdf(eleve_data, trimestre, annee_scolaire, mode, ecole_id)
         
         eleve = eleve_data['eleve']
         filename = f"bulletin_{eleve.nom}_{eleve.prenoms}_T{trimestre}_{annee_scolaire.replace('/', '-')}.pdf"
         
         return send_file(pdf_buffer, as_attachment=True, download_name=filename, mimetype='application/pdf')
         
-    except ValueError as e:
-        print(f"❌ Erreur format UUID: {str(e)}")
-        return jsonify({"error": "Format d'identifiant invalide", "code": "INVALID_ID_FORMAT"}), 400
-    except IntegrityError as e:
-        print(f"❌ Erreur intégrité base de données: {str(e)}")
-        return jsonify({"error": "Erreur de cohérence des données", "code": "DATA_INTEGRITY_ERROR"}), 500
-    except SQLAlchemyError as e:
-        print(f"❌ Erreur base de données: {str(e)}")
-        return jsonify({"error": "Erreur d'accès aux données", "code": "DATABASE_ERROR"}), 500
     except Exception as e:
         print(f"❌ Erreur génération bulletin: {str(e)}")
         return jsonify({
@@ -2011,20 +2571,15 @@ def export_bulletin_pdf():
 
 @bulletins_export_bp.route("/export/bulletins_classe", methods=["GET"])
 def export_bulletins_classe():
-    """Export PDF de tous les bulletins d'une classe - VERSION COMPLÈTEMENT DEBUGGÉE"""
+    """Export PDF de tous les bulletins d'une classe - AVEC LOGO DYNAMIQUE"""
     try:
-        # Récupération et validation des paramètres
         classe_id = request.args.get("classe_id", type=str)
         trimestre = request.args.get("trimestre", type=int, default=1)
         annee_scolaire = request.args.get("annee_scolaire", type=str)
         mode = request.args.get("mode", type=str, default="normal")
+        ecole_id = request.args.get("ecole_id", type=str)  # Récupération de l'ID de l'école
 
-        print(f"🔍 DEBUG COMPLET - Paramètres reçus:")
-        print(f"   classe_id: '{classe_id}' (type: {type(classe_id)})")
-        print(f"   trimestre: {trimestre}")
-        print(f"   annee_scolaire: '{annee_scolaire}'")
-        print(f"   mode: '{mode}'")
-        
+        print(f"🎯 Export bulletins classe - Classe: {classe_id}, Trimestre: {trimestre}, École: {ecole_id}")
         # Vérification CRITIQUE des paramètres
         if not classe_id or str(classe_id).strip() in ['', 'null', 'undefined', 'None', 'none', 'NaN']:
             print("❌ ERREUR: classe_id est vide ou invalide")
@@ -2163,9 +2718,9 @@ def export_bulletins_classe():
                         
                         # Génération du contenu selon le mode
                         if mode == "compact":
-                            bulletin_elements = create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc)
+                            bulletin_elements = create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc, ecole_id)
                         else:
-                            bulletin_elements = create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc)
+                             bulletin_elements = create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc, ecole_id)
                         
                         if bulletin_elements:
                             all_elements.extend(bulletin_elements)
@@ -2391,9 +2946,19 @@ def export_bulletins_toutes_classes():
 
 @bulletins_export_bp.route("/export/filters", methods=["GET"])
 def get_bulletin_filters():
-    """Renvoie les filtres disponibles pour l'export des bulletins"""
+    """Renvoie les filtres disponibles pour l'export des bulletins - CORRECTION BUG 2"""
     try:
-        classes = Classe.query.order_by(Classe.nom).all()
+        ecole_id = request.args.get("ecole_id")
+        
+        # CORRECTION: Filtrer les classes par école
+        if ecole_id:
+            classes = Classe.query.filter_by(ecole_id=ecole_id).order_by(Classe.nom).all()
+        else:
+            if current_user and hasattr(current_user, 'ecole_id') and current_user.ecole_id:
+                classes = Classe.query.filter_by(ecole_id=current_user.ecole_id).order_by(Classe.nom).all()
+            else:
+                classes = Classe.query.order_by(Classe.nom).all()
+        
         annees_scolaires = [m[0] for m in db.session.query(Moyenne.annee_scolaire).distinct() if m[0]]
         
         classes_with_eleves = []
@@ -2708,7 +3273,28 @@ def is_admin():
 @bulletins_export_bp.route("/admin/signatures/page")
 @login_required
 def admin_signatures_page():
+    """Page d'administration des signatures"""
+    # Vérification des permissions admin
     if not is_admin():
         return jsonify({"error": "Accès refusé"}), 403
-    """Page d'administration des signatures"""
-    return render_template("admin_sign.html")
+    
+    try:
+        # Récupérer l'école courante    
+        ecole_id = get_current_ecole_id()
+        
+        if not ecole_id:
+            return jsonify({"error": "Aucune école sélectionnée"}), 400
+        
+        ecole = Ecole.query.get(ecole_id)
+        
+        if not ecole:
+            return jsonify({"error": "École non trouvée"}), 404
+        
+        # Journalisation pour le debug
+        current_app.logger.info(f"Page signatures accédée pour l'école: {ecole.nom}")
+        
+        return render_template("admin_sign.html", ecole=ecole)
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur page signatures: {str(e)}", exc_info=True)
+        return jsonify({"error": "Erreur interne du serveur"}), 500

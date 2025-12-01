@@ -100,36 +100,35 @@
             </div>
         </div>
 
-        <!-- Carte 4: Liste des moyennes -->
-       <!-- Carte pour les moyennes - REMPLACER L'ANCIENNE -->
-<div class="col-md-6 col-lg-4">
-    <div class="export-card bg-info text-white p-4">
-        <div class="text-center">
-            <i class="bi bi-graph-up export-icon"></i>
-            <h4>Liste des Moyennes</h4>
-            <p class="mb-3">Exportez les moyennes et classements</p>
-            
-            <div class="export-options">
-                <h6 class="mb-3">Types d'export :</h6>
-                <div class="mb-3">
-                    <span class="badge-filter">Moyennes par élève</span>
-                    <span class="badge-filter">Classements</span>
-                    <span class="badge-filter">Par matière</span>
-                    <span class="badge-filter">Par mention</span>
-                </div>
-                
-                <div class="d-flex justify-content-center flex-wrap">
-                    <button class="export-btn btn-pdf" onclick="openMoyennesExportModal()">
-                        <i class="bi bi-file-pdf"></i> PDF
-                    </button>
-                    <button class="export-btn btn-excel" onclick="openMoyennesExportModal()">
-                        <i class="bi bi-file-spreadsheet"></i> Excel
-                    </button>
+        <!-- Carte 4: Liste des moyennes - CORRIGÉE -->
+        <div class="col-md-6 col-lg-4">
+            <div class="export-card bg-info text-white p-4">
+                <div class="text-center">
+                    <i class="bi bi-graph-up export-icon"></i>
+                    <h4>Liste des Moyennes</h4>
+                    <p class="mb-3">Exportez les moyennes et classements</p>
+                    
+                    <div class="export-options">
+                        <h6 class="mb-3">Types d'export :</h6>
+                        <div class="mb-3">
+                            <span class="badge-filter">Moyennes par élève</span>
+                            <span class="badge-filter">Classements</span>
+                            <span class="badge-filter">Par matière</span>
+                            <span class="badge-filter">Par mention</span>
+                        </div>
+                        
+                        <div class="d-flex justify-content-center flex-wrap">
+                            <button class="export-btn btn-pdf" onclick="openMoyennesExportModal()">
+                                <i class="bi bi-file-pdf"></i> PDF
+                            </button>
+                            <button class="export-btn btn-excel" onclick="openMoyennesExportModal()">
+                                <i class="bi bi-file-spreadsheet"></i> Excel
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
 
         <!-- Carte 5: Statistiques -->
         <div class="col-md-6 col-lg-4">
@@ -186,35 +185,36 @@
                 </div>
             </div>
         </div>
-    </div>
-</div>
 
-<!-- Carte pour les bulletins - NOUVELLE CARTE -->
-<div class="col-md-6 col-lg-4">
-    <div class="export-card bg-purple text-white p-4">
-        <div class="text-center">
-            <i class="bi bi-file-text-fill export-icon"></i>
-            <h4>Bulletins de Notes</h4>
-            <p class="mb-3">Exportez les bulletins individuels ou par classe</p>
-            
-            <div class="export-options">
-                <h6 class="mb-3">Types d'export :</h6>
-                <div class="mb-3">
-                    <span class="badge-filter">Bulletin individuel</span>
-                    <span class="badge-filter">Par classe</span>
-                    <span class="badge-filter">Toutes les classes</span>
-                    <span class="badge-filter">Format complet</span>
-                </div>
-                
-                <div class="d-flex justify-content-center flex-wrap gap-2">
-                    <button class="export-btn btn-pdf" onclick="openBulletinsExportModal()">
-                        <i class="bi bi-file-pdf"></i> Exporter
-                    </button>
+        <!-- Carte 7: Bulletins de notes -->
+        <div class="col-md-6 col-lg-4">
+            <div class="export-card bg-purple text-white p-4">
+                <div class="text-center">
+                    <i class="bi bi-file-text-fill export-icon"></i>
+                    <h4>Bulletins de Notes</h4>
+                    <p class="mb-3">Exportez les bulletins individuels ou par classe</p>
+                    
+                    <div class="export-options">
+                        <h6 class="mb-3">Types d'export :</h6>
+                        <div class="mb-3">
+                            <span class="badge-filter">Bulletin individuel</span>
+                            <span class="badge-filter">Par classe</span>
+                            <span class="badge-filter">Toutes les classes</span>
+                            <span class="badge-filter">Format complet</span>
+                        </div>
+                        
+                        <div class="d-flex justify-content-center flex-wrap gap-2">
+                            <button class="export-btn btn-pdf" onclick="openBulletinsExportModal()">
+                                <i class="bi bi-file-pdf"></i> Exporter
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
 <!-- Modal pour sélection de classe (pour les élèves) -->
 <div class="modal fade" id="classeSelectionModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -244,65 +244,7 @@
     </div>
 </div>
 
-<!-- Modal pour l'export personnalisé -->
-<div class="modal fade" id="customExportModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">Export Personnalisé</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="customExportForm">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Type de données</label>
-                            <select class="form-select" id="dataType">
-                                <option value="eleves">Élèves</option>
-                                <option value="enseignants">Enseignants</option>
-                                <option value="notes">Notes</option>
-                                <option value="moyennes">Moyennes</option>
-                                <option value="statistiques">Statistiques</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Format d'export</label>
-                            <select class="form-select" id="exportFormat">
-                                <option value="pdf">PDF</option>
-                                <option value="excel">Excel</option>
-                            </select>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Filtres (optionnel)</label>
-                            <input type="text" class="form-control" placeholder="Ex: classe=6ème, sexe=M">
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Colonnes à inclure</label>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" checked>
-                                <label class="form-check-label">Nom et Prénom</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" checked>
-                                <label class="form-check-label">Classe</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox">
-                                <label class="form-check-label">Contacts</label>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                <button type="button" class="btn btn-primary" onclick="generateCustomExport()">Générer l'export</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal d'exportation des notes - AJOUTÉ ICI -->
+<!-- Modal d'exportation des notes -->
 <div class="modal fade" id="notesExportModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -367,6 +309,7 @@
         </div>
     </div>
 </div>
+
 <!-- Modal d'exportation des moyennes -->
 <div class="modal fade" id="moyennesExportModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -441,7 +384,7 @@
     </div>
 </div>
 
-<!-- Modal d'exportation des bulletins - AJOUTÉ APRÈS LE MODAL DES MOYENNES -->
+<!-- Modal d'exportation des bulletins -->
 <div class="modal fade" id="bulletinsExportModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -476,35 +419,33 @@
                         </div>
                     </div>
 
-                    <!-- Dans votre modal HTML, modifiez les sélecteurs : -->
+                    <!-- Sélection de l'élève (visible seulement pour individuel) -->
+                    <div class="row g-3 mb-3" id="eleve_selection">
+                        <div class="col-md-6">
+                            <label for="export_bulletins_classe_eleve" class="form-label">Classe</label>
+                            <select class="form-select" id="export_bulletins_classe_eleve" name="classe_id" onchange="onClasseSelectChange(this, 'export_bulletins_eleve')">
+                                <option value="">Sélectionnez une classe</option>
+                                <!-- Chargé dynamiquement -->
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="export_bulletins_eleve" class="form-label">Élève</label>
+                            <select class="form-select" id="export_bulletins_eleve" name="eleve_id" disabled>
+                                <option value="">Sélectionnez d'abord une classe</option>
+                            </select>
+                        </div>
+                    </div>
 
-          <!-- Sélection de l'élève (visible seulement pour individuel) -->
-                <div class="row g-3 mb-3" id="eleve_selection">
-                  <div class="col-md-6">
-                     <label for="export_bulletins_classe_eleve" class="form-label">Classe</label>
-                     <select class="form-select" id="export_bulletins_classe_eleve" name="classe_id" onchange="onClasseSelectChange(this, 'export_bulletins_eleve')">
-                       <option value="">Sélectionnez une classe</option>
-            <!-- Chargé dynamiquement -->
-                    </select>
-                 </div>
-                 <div class="col-md-6">
-                   <label for="export_bulletins_eleve" class="form-label">Élève</label>
-                   <select class="form-select" id="export_bulletins_eleve" name="eleve_id" disabled>
-                  <option value="">Sélectionnez d'abord une classe</option>
-                 </select>
-               </div>
-             </div>
-
-<!-- Sélection de la classe (visible seulement pour export par classe) -->
-            <div class="row g-3 mb-3" id="classe_selection" style="display: none;">
-             <div class="col-12">
-            <label for="export_bulletins_classe" class="form-label">Classe</label>
-              <select class="form-select" id="export_bulletins_classe" name="classe_id">
-             <option value="">Sélectionnez une classe</option>
-            <!-- Chargé dynamiquement -->
-            </select>
-           </div>
-          </div>
+                    <!-- Sélection de la classe (visible seulement pour export par classe) -->
+                    <div class="row g-3 mb-3" id="classe_selection" style="display: none;">
+                        <div class="col-12">
+                            <label for="export_bulletins_classe" class="form-label">Classe</label>
+                            <select class="form-select" id="export_bulletins_classe" name="classe_id">
+                                <option value="">Sélectionnez une classe</option>
+                                <!-- Chargé dynamiquement -->
+                            </select>
+                        </div>
+                    </div>
 
                     <!-- Paramètres communs -->
                     <div class="row g-3">
@@ -547,5 +488,80 @@
         </div>
     </div>
 </div>
+
+<style>
+.export-card {
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    height: 100%;
+}
+
+.export-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.export-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.export-options {
+    margin-top: 1.5rem;
+}
+
+.export-btn {
+    border: none;
+    padding: 8px 16px;
+    margin: 5px;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-pdf {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-pdf:hover {
+    background: #c82333;
+    transform: scale(1.05);
+}
+
+.btn-excel {
+    background: #198754;
+    color: white;
+}
+
+.btn-excel:hover {
+    background: #157347;
+    transform: scale(1.05);
+}
+
+.btn-purple {
+    background: #6f42c1;
+    color: white;
+}
+
+.btn-purple:hover {
+    background: #5a2d91;
+    transform: scale(1.05);
+}
+
+.badge-filter {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    padding: 4px 8px;
+    margin: 2px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+}
+
+.bg-purple {
+    background: linear-gradient(135deg, #6f42c1, #8b5cf6) !important;
+}
+</style>
 
 {% endblock %}

@@ -29,4 +29,8 @@ class Note(BaseModel):
     cloture = db.Column(db.Boolean, default=False) 
     eleve = db.relationship("Eleve", backref="notes") 
     matiere = db.relationship("Matiere", backref="notes") 
+
+        # Lien avec l'école
+    ecole_id = db.Column(UUID(as_uuid=True), db.ForeignKey('geslog_schema.ecoles.id'), nullable=False)
+
     etat = db.Column(db.String(20), default="Inactif")

@@ -6,22 +6,19 @@
 <div class="container mt-4">
     <h2 class="mb-3">📚 Liste des Notes</h2>
 
-    <!-- 🔍 Barre de recherche + filtres + bouton Ajouter -->
-    <form method="get" class="d-flex align-items-center mb-3 gap-2 flex-wrap">
-        <!-- 🔍 Barre de recherche compacte -->
-        <div style="flex: 0.3 0 140px; min-width: 130px;">
-            <div class="input-group rounded-pill border overflow-hidden">
-                <input type="text" name="search" value="{{ search }}" class="form-control border-0" 
-                       placeholder="Rechercher..." style="width: 100px;">
-                <button type="submit" class="btn btn-primary btn-sm">
+    <!-- 🔍 Barre de recherche + filtres COMPACTS -->
+    <div class="filter-toolbar">
+        <form method="get" class="filter-form">
+            <!-- Barre de recherche COMPACTE -->
+            <div class="input-group rounded-pill border overflow-hidden search-bar-expanded">
+                <input type="text" name="search" value="{{ search }}" class="form-control border-0" placeholder="Rechercher...">
+                <button type="submit" class="btn btn-primary">
                     <i class="bi bi-search"></i>
                 </button>
             </div>
-        </div>
 
-        <!-- Filtre élève -->
-        <div style="flex: 0.3 0 140px; min-width: 130px;">
-            <select name="eleve_id" class="form-select form-select-sm rounded-pill" style="width: 100%;" onchange="this.form.submit()">
+            <!-- Filtre élève COMPACT -->
+            <select name="eleve_id" class="form-select rounded-pill filter-select" onchange="this.form.submit()">
                 <option value="">Élève</option>
                 {% for e in eleves %}
                 <option value="{{ e.id|string }}" {% if eleve_id == e.id|string %}selected{% endif %}>
@@ -29,11 +26,9 @@
                 </option>
                 {% endfor %}
             </select>
-        </div>
 
-        <!-- Filtre matière -->
-        <div style="flex: 0.3 0 140px; min-width: 130px;">
-            <select name="matiere_id" class="form-select form-select-sm rounded-pill" style="width: 100%;" onchange="this.form.submit()">
+            <!-- Filtre matière COMPACT -->
+            <select name="matiere_id" class="form-select rounded-pill filter-select" onchange="this.form.submit()">
                 <option value="">Matière</option>
                 {% for m in matieres %}
                 <option value="{{ m.id|string }}" {% if matiere_id == m.id|string %}selected{% endif %}>
@@ -41,69 +36,83 @@
                 </option>
                 {% endfor %}
             </select>
-        </div>
 
-        <!-- Filtre classe -->
-        <div style="flex: 0.3 0 140px; min-width: 130px;">
-            <select id="classeFilterList" name="classe_id" class="form-select form-select-sm rounded-pill" style="width: 100%;" onchange="this.form.submit()">
-                <option value="">Classe</option>
-                {% for c in classes %}
-                <option value="{{ c.id|string }}" {% if classe_id == c.id|string %}selected{% endif %}>
-                    {{ c.nom }}
-                </option>
-                {% endfor %}
-            </select>
-        </div>
+            <!-- Filtre classe SIMPLIFIÉ -->
+<select name="classe_id" class="form-select rounded-pill filter-select" onchange="this.form.submit()">
+    <option value="">Toutes les classes</option>
+    {% for c in classes %}
+    <option value="{{ c.id }}" 
+            {% if classe_id == c.id|string %}selected{% endif %}>
+        {{ c.nom }}
+    </option>
+    {% endfor %}
+</select>
 
-        <!-- Nombre par page -->
-        <div style="flex: 0.2 0 100px; min-width: 90px;">
-            <select name="per_page" class="form-select form-select-sm rounded-pill" style="width: 100%;" onchange="this.form.submit()">
+            <!-- Nombre par page COMPACT -->
+            <select name="per_page" class="form-select rounded-pill perpage-select" onchange="this.form.submit()">
                 {% for n in [5,10,20,50,100,250,500,1000] %}
                 <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}/page</option>
                 {% endfor %}
             </select>
-        </div>
 
-        <!-- Bouton Ajouter -->
-        <div>
-            <button type="button" class="btn btn-success btn-sm rounded-pill" data-bs-toggle="modal" data-bs-target="#addNoteModal">
-                <i class="bi bi-plus-circle"></i>
+            <!-- Menu déroulant d'exportation -->
+            <div class="dropdown">
+                <button class="btn btn-info btn-export-compact dropdown-toggle" type="button" 
+                        data-bs-toggle="dropdown" title="Options d'exportation">
+                    <i class="bi bi-download"></i>
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item export-pdf-item" href="{{ url_for('notes.export_notes', format='pdf') }}?search={{ search }}&eleve_id={{ eleve_id }}&matiere_id={{ matiere_id }}&classe_id={{ classe_id }}">
+                        <i class="bi bi-file-pdf text-danger me-2"></i> Export PDF
+                    </a></li>
+                    <li><a class="dropdown-item export-excel-item" href="{{ url_for('notes.export_notes', format='excel') }}?search={{ search }}&eleve_id={{ eleve_id }}&matiere_id={{ matiere_id }}&classe_id={{ classe_id }}">
+                        <i class="bi bi-file-spreadsheet text-success me-2"></i> Export Excel
+                    </a></li>
+                </ul>
+            </div>
+
+            <!-- Bouton d'ajout COMPACT - Visible pour tous les utilisateurs -->
+            <button type="button" class="btn btn-success btn-add-compact" data-bs-toggle="modal" data-bs-target="#addNoteModal" title="Ajouter une nouvelle note">
+                <i class="bi bi-plus"></i>
             </button>
-        </div>
-        
-        <!-- SUPPRIMER LE BOUTON EXPORTER ICI -->
-    </form>
+        </form>
+    </div>
 
-     <!-- 📊 Tableau des notes -->
-   <div class="table-responsive">
-     <table id="notesTable" class="table table-bordered table-hover text-center align-middle" style="min-width: 1000px;">
-        <thead class="table-dark">
-            <tr>
-                <th scope="col" data-bs-toggle="tooltip" title="Nom et prénom de l'élève">Élève</th>
-                <th scope="col" data-bs-toggle="tooltip" title="Matière concernée">Matière</th>
-                <th scope="col" data-bs-toggle="tooltip" title="Première note">Note 1</th>
-                <th scope="col" data-bs-toggle="tooltip" title="Deuxième note">Note 2</th>
-                <th scope="col" data-bs-toggle="tooltip" title="Troisième note">Note 3</th>
-                <th scope="col" data-bs-toggle="tooltip" title="Note de composition">Comp.</th>
-                <th scope="col" data-bs-toggle="tooltip" title="Coefficient de la matière">Coef.</th>
-                <th scope="col" data-bs-toggle="tooltip" title="Enseignant responsable">Enseignant</th>
-                <th scope="col" data-bs-toggle="tooltip" title="Trimestre (1, 2 ou 3)">Trim.</th>
-                <th scope="col" data-bs-toggle="tooltip" title="Année scolaire">Année</th>
-                <th scope="col" data-bs-toggle="tooltip" title="Date de saisie">Date</th>
-                <th scope="col" class="actions" data-bs-toggle="tooltip" title="Actions disponibles">Actions</th>
-                <th scope="col" class="etat" data-bs-toggle="tooltip" title="État de la note">État</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for note in notes %}
-                {% include "notes/_note_row.html" %}
-            {% else %}
-                <tr>
-                    <td colspan="13" class="text-center">Aucune note trouvée</td>
-                </tr>
-            {% endfor %}
-        </tbody>
-      </table>
+    <!-- 📊 Tableau des notes AVEC SCROLL FORCÉ -->
+    <div class="table-container">
+        <div class="table-responsive">
+            <table id="notesTable" class="table table-striped table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col" data-bs-toggle="tooltip" title="Nom et prénom de l'élève">Élève</th>
+                        <th scope="col" data-bs-toggle="tooltip" title="Matière concernée">Matière</th>
+                        <th scope="col" data-bs-toggle="tooltip" title="Première note">Note 1</th>
+                        <th scope="col" data-bs-toggle="tooltip" title="Deuxième note">Note 2</th>
+                        <th scope="col" data-bs-toggle="tooltip" title="Troisième note">Note 3</th>
+                        <th scope="col" data-bs-toggle="tooltip" title="Note de composition">Comp.</th>
+                        <th scope="col" data-bs-toggle="tooltip" title="Coefficient de la matière">Coef.</th>
+                        <th scope="col" data-bs-toggle="tooltip" title="Enseignant responsable">Enseignant</th>
+                        <th scope="col" data-bs-toggle="tooltip" title="Trimestre (1, 2 ou 3)">Trim.</th>
+                        <th scope="col" data-bs-toggle="tooltip" title="Année scolaire">Année</th>
+                        <th scope="col" data-bs-toggle="tooltip" title="Date de saisie">Date</th>
+                        <!-- ORDRE CORRIGÉ : Actions d'abord, puis État -->
+                        <th scope="col" class="actions" data-bs-toggle="tooltip" title="Actions disponibles">Actions</th>
+                        <th scope="col" class="etat" data-bs-toggle="tooltip" title="État de la note">État</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for note in notes %}
+                        {% include "notes/_note_row.html" %}
+                    {% else %}
+                        <tr>
+                            <td colspan="13" class="text-center text-muted py-4">
+                                Aucune note trouvée
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <!-- 📌 Pagination -->
@@ -111,14 +120,14 @@
         <ul class="pagination justify-content-center">
             {% if pagination.has_prev %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ pagination.prev_num }}&per_page={{ per_page }}&search={{ search }}">Précédent</a>
+                <a class="page-link" href="?page={{ pagination.prev_num }}&per_page={{ per_page }}&search={{ search }}&eleve_id={{ eleve_id }}&matiere_id={{ matiere_id }}&classe_id={{ classe_id }}">Précédent</a>
             </li>
             {% endif %}
 
             {% for p in pagination.iter_pages() %}
                 {% if p %}
                     <li class="page-item {% if p == pagination.page %}active{% endif %}">
-                        <a class="page-link" href="?page={{ p }}&per_page={{ per_page }}&search={{ search }}">{{ p }}</a>
+                        <a class="page-link" href="?page={{ p }}&per_page={{ per_page }}&search={{ search }}&eleve_id={{ eleve_id }}&matiere_id={{ matiere_id }}&classe_id={{ classe_id }}">{{ p }}</a>
                     </li>
                 {% else %}
                     <li class="page-item disabled"><span class="page-link">…</span></li>
@@ -127,7 +136,7 @@
 
             {% if pagination.has_next %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ pagination.next_num }}&per_page={{ per_page }}&search={{ search }}">Suivant</a>
+                <a class="page-link" href="?page={{ pagination.next_num }}&per_page={{ per_page }}&search={{ search }}&eleve_id={{ eleve_id }}&matiere_id={{ matiere_id }}&classe_id={{ classe_id }}">Suivant</a>
             </li>
             {% endif %}
         </ul>
@@ -158,5 +167,7 @@
     </div>
 </div>
 
-<!-- SUPPRIMER LE MODAL D'EXPORTATION DES NOTES ICI -->
+<!-- Container pour les notifications -->
+<div id="notificationContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 9999"></div>
+
 {% endblock %}

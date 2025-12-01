@@ -54,6 +54,8 @@ class Moyenne(BaseModel):
     eleve_id = db.Column(UUID(as_uuid=True), db.ForeignKey("geslog_schema.eleves.id"), nullable=False) 
     eleve = db.relationship("Eleve", backref="moyennes") 
     appreciation = db.relationship("Appreciations", backref="moyennes") 
+        # Lien avec l'école
+    ecole_id = db.Column(UUID(as_uuid=True), db.ForeignKey('geslog_schema.ecoles.id'), nullable=False)
 
 
     # 🔹 État du calcul (Actif = calculé, Clôturé = archivé, Inactif = en attente) 

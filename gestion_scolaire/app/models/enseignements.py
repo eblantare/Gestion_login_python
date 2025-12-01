@@ -18,5 +18,8 @@ class Enseignement(BaseModel):
     matiere = db.relationship("Matiere", backref="enseignements")
     enseignant = db.relationship("Enseignant", backref="enseignements")
 
+        # 🔑 NOUVEAU: Lien avec l'école
+    ecole_id = db.Column(UUID(as_uuid=True), db.ForeignKey('geslog_schema.ecoles.id'), nullable=False)
+
     def __repr__(self):
         return f"<Enseignement {self.enseignant.nom} - {self.matiere.libelle} ({self.classe.nom})>"

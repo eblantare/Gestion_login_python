@@ -12,9 +12,17 @@ class Eleve(BaseModel):
     date_naissance = db.Column(db.Date) 
     sexe = db.Column(db.String(50), nullable=False) 
     status = db.Column(db.String(50),default="nouveau") 
+    
     # Lien vers Classe 
     classe_id = db.Column(UUID(as_uuid=True), db.ForeignKey("geslog_schema.classes.id")) 
     classe = db.relationship("Classe", backref="eleves") 
+
+    # Lien avec l'école
+    ecole_id = db.Column(UUID(as_uuid=True), db.ForeignKey('geslog_schema.ecoles.id'), nullable=False)
+    # SUPPRIMEZ cette ligne car elle est créée automatiquement par le backref dans Ecole
+    # ecole = db.relationship('Ecole', backref='ecole_eleves', lazy=True)
+    
     etat = db.Column(db.String(40), default="Inactif") 
+    
     def __repr__(self): 
        return f"<Eleve {self.matricule} - {self.nom}>"

@@ -3,25 +3,33 @@
 {% block title %}Liste des enseignants{% endblock %}
 
 {% block content %}
+{% block styles %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/enseignants.css') }}">
+{% endblock %}
+
+<!-- AJOUT : Element pour détecter le rôle utilisateur -->
+<div data-user-role="{{ user_role }}" style="display: none;"></div>
 <div class="container mt-4">
     <h2 class="mb-3">LISTE DES ENSEIGNANTS</h2>
 
-    <!-- Barre de recherche, affichage par page et filtre -->
-    <form method="get" class="row mb-3 g-2 align-items-center toolbar-form">
-        <!-- Rechercher -->
-        <div class="col-md-4 col-12">
+    <!-- Barre d'outils CORRIGÉE - Une seule ligne -->
+    <div class="row mb-3 g-2 align-items-center toolbar-container">
+        <!-- Recherche -->
+        <div class="col-md-2 col-12">
             <div class="input-group rounded-pill border overflow-hidden">
-                <input type="text" name="search" value="{{ search }}" class="form-control border-0" placeholder="Rechercher un enseignant...">
-                <button class="btn btn-primary" type="submit">
+                <input type="text" name="search" value="{{ search }}" class="form-control border-0" placeholder="Rechercher..." id="searchInput">
+                <button class="btn btn-primary" type="button" id="searchBtn">
                     <i class="bi bi-search"></i>
                 </button>
             </div>
         </div>
-        <!-- Filtre unique -->
-        <div class="col-md-4 col-12">
-            <select name="filter" class="form-select rounded-pill" onchange="this.form.submit()">
+        
+        <!-- Filtre -->
+        <div class="col-md-3 col-12">
+            <select name="filter" class="form-select rounded-pill" id="filterSelect">
                 <option value="">---Filtrer par---</option>
-                <!-- sexe -->
+                <!-- Sexe -->
                 <option value="sexe:M" {% if filter_value == 'sexe:M' %}selected{% endif %}>Masculin</option>
                 <option value="sexe:F" {% if filter_value == 'sexe:F' %}selected{% endif %}>Féminin</option>
                 <!-- Titre -->
@@ -32,240 +40,255 @@
                 <option value="titre:Bibliothécaire" {% if filter_value == 'titre:Bibliothécaire' %}selected{% endif %}>Bibliothécaire</option>
                 <option value="titre:Économe" {% if filter_value == 'titre:Économe' %}selected{% endif %}>Économe</option>
                 
-                <!-- Date fonction (par année) -->
-               {% for annee in annees %}
-                  <option value="date_fonction:{{ annee }}" {% if filter_value == 'date_fonction:' ~ annee %}selected{% endif %}>
-                  Année {{ annee }}
-                 </option>
-               {% endfor %}
-                <!-- Etat -->
-                 <option value="etat:Inactif" {% if filter_value == 'etat:Inactif' %}selected{% endif %}>Inactif</option>
-                 <option value="etat:Actif" {% if filter_value == 'etat:Actif' %}selected{% endif %}>Actif</option>
-                 <option value="etat:Muté" {% if filter_value == 'etat:Muté' %}selected{% endif %}>Muté</option>
-                 <option value="etat:Retraité" {% if filter_value == 'etat:Retraité' %}selected{% endif %}>Retraité</option>
+                <!-- Date fonction -->
+                {% for annee in annees %}
+                <option value="date_fonction:{{ annee }}" {% if filter_value == 'date_fonction:' ~ annee %}selected{% endif %}>
+                    Année {{ annee }}
+                </option>
+                {% endfor %}
+                
+                <!-- État -->
+                <option value="etat:Inactif" {% if filter_value == 'etat:Inactif' %}selected{% endif %}>Inactif</option>
+                <option value="etat:Actif" {% if filter_value == 'etat:Actif' %}selected{% endif %}>Actif</option>
+                <option value="etat:Muté" {% if filter_value == 'etat:Muté' %}selected{% endif %}>Muté</option>
+                <option value="etat:Retraité" {% if filter_value == 'etat:Retraité' %}selected{% endif %}>Retraité</option>
 
-                <!-- Matières dynamique -->
-                 {% for matiere in matieres %}
-                    <option value="matiere:{{ matiere.id }}" {% if filter_value == 'matiere:' ~ matiere.id %}selected{% endif %}>
+                <!-- Matières -->
+                {% for matiere in matieres %}
+                <option value="matiere:{{ matiere.id }}" {% if filter_value == 'matiere:' ~ matiere.id %}selected{% endif %}>
                     {{ matiere.libelle }}
-                    </option>
-                 {% endfor %}
+                </option>
+                {% endfor %}
             </select>
         </div>
+        
         <!-- Affichage par page -->
-        <div class="col-md-2 col-6 text-center flex-grow-1">
-            <select name="per_page" class="form-select d-inline-block w-auto rounded-pill" onchange="this.form.submit()">
-                {% for n in [5,10,25,50,100,200,300,500] %}
+        <div class="col-md-2 col-6">
+            <select name="per_page" class="form-select rounded-pill" id="perPageSelect">
+                {% for n in [5,10,25,50,100] %}
                 <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }} par page</option>
                 {% endfor %}
             </select>
         </div>
 
-        <div class="col-md-2 text-end flex-grow-1">
-            {% if user_role in ['admin', 'administrateur'] %}
-                <button type="button" class="btn btn-success rounded-pill" data-bs-toggle="modal" data-bs-target="#addEnsModal">
-                    <i class="bi bi-plus-circle me-1"></i>Ajouter
+        <!-- Boutons d'action groupés -->
+        <div class="col-md-5 col-12 d-flex justify-content-end gap-2">
+            <!-- Boutons Export -->
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-download me-1"></i>Exporter
                 </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="{{ url_for('enseignants.export_enseignants_pdf') }}?{{ request.query_string.decode() }}">
+                        <i class="bi bi-file-pdf text-danger me-2"></i>PDF
+                    </a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('enseignants.export_enseignants_excel') }}?{{ request.query_string.decode() }}">
+                        <i class="bi bi-file-excel text-success me-2"></i>Excel
+                    </a></li>
+                </ul>
+            </div>
+            
+            <!-- CORRECTION : Bouton Ajouter avec condition pour admin système -->
+            {% if user_role in ['admin', 'administrateur'] %}
+                {% if is_system_admin %}
+                    <!-- Admin système : bouton visible seulement si une école est sélectionnée -->
+                    {% if current_ecole_id %}
+                    <button type="button" class="btn btn-success rounded-pill" data-bs-toggle="modal" data-bs-target="#addEnsModal">
+                        <i class="bi bi-plus-circle me-1"></i>
+                    </button>
+                    {% endif %}
+                {% else %}
+                    <!-- Autres admins : bouton toujours visible -->
+                    <button type="button" class="btn btn-success rounded-pill" data-bs-toggle="modal" data-bs-target="#addEnsModal">
+                        <i class="bi bi-plus-circle me-1"></i>
+                    </button>
+                {% endif %}
             {% endif %}
         </div>
-    </form>
+    </div>
 
-    <!-- Tableau des enseignants avec scroll horizontal -->
-    <div class="table-responsive" style="overflow-x: auto; max-width: 100%;">
-        <table class="table table-bordered table-striped text-center align-middle" id="table-enseignants" style="min-width: 1200px;">
-            <thead class="table-dark">
+    <!-- Tableau avec vérification des colonnes -->
+    <div class="table-responsive">
+        <table id="enseignantsTable" class="table table-striped table-hover">
+            <thead>
                 <tr>
-                    <th width="8%">Nom</th>
-                    <th width="10%">Prénoms</th>
-                    <th width="7%">Fonction</th>
-                    <th width="5%">Sexe</th>
-                    <th width="10%">Titre</th>
-                    <th width="12%">Email</th>
-                    <th width="8%">Téléphone</th>
-                    <th width="12%">Matières</th>
-                    <th width="5%">Photo</th>
-                    <th width="13%">État</th>
-                    <th width="10%">Actions</th>
+                    <th>Photo</th>
+                    <th>Nom-Prénoms</th>
+                    <th>Sexe</th>
+                    <th>Titre</th>
+                    <th>Matières</th>
+                    <th>Arrivé</th>
+                    <th>État</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for enseignant in enseignants %}
-                <tr data-id="enseignant-{{ enseignant.id }}" data-photo="{{ enseignant.utilisateur.photo_filename }}">
-                    <td class="col-nom">
-                        <span class="text-truncate d-inline-block" style="max-width: 80px;" title="{{ enseignant.utilisateur.nom }}">
-                            {{ enseignant.utilisateur.nom }}
-                        </span>
-                    </td>
-                    <td class="col-prenoms">
-                        <span class="text-truncate d-inline-block" style="max-width: 100px;" title="{{ enseignant.utilisateur.prenoms }}">
-                            {{ enseignant.utilisateur.prenoms }}
-                        </span>
-                    </td>
-                    <td class="col-date_fonction">
-                        <small>{{ enseignant.date_fonction.strftime("%d/%m/%Y") if enseignant.date_fonction else "—" }}</small>
-                    </td>
-                    <td class="col-sexe">
-                        <span class="badge {% if enseignant.utilisateur.sexe == 'M' %}bg-primary{% else %}bg-pink{% endif %}">
-                            {{ enseignant.utilisateur.sexe }}
-                        </span>
-                    </td>
-                    <td class="col-titre">
-                        <span class="text-truncate d-inline-block" style="max-width: 100px;" title="{{ enseignant.titre }}">
-                            {{ enseignant.titre|replace('Directeur', 'Dir.')|replace('Directrice', 'Dir.')|replace('Enseignant', 'Ens.')|replace('Enseignante', 'Ens.')|replace('Surveillant', 'Surv.')|replace('Surveillante', 'Surv.')|replace('Bibliothécaire', 'Biblio.')|replace('adjoint', 'adj.')|replace('adjointe', 'adj.') }}
-                        </span>
-                    </td>
-                    <td class="col-email">
-                        <span class="text-truncate d-inline-block" style="max-width: 120px;" title="{{ enseignant.utilisateur.email }}">
-                            {% if enseignant.utilisateur.email|length > 15 %}
-                                {{ enseignant.utilisateur.email[:12] }}...
-                            {% else %}
-                                {{ enseignant.utilisateur.email }}
-                            {% endif %}
-                        </span>
-                    </td>
-                    <td class="col-telephone">
-                        <small>{{ enseignant.utilisateur.telephone or "—" }}</small>
-                    </td>
-                    <td class="col-matiere">
-                        <span class="text-truncate d-inline-block" style="max-width: 120px;" title="{{ enseignant.matieres|map(attribute='libelle')|join(', ') }}">
-                            {% set matieres_list = enseignant.matieres|map(attribute='libelle')|join(', ') %}
-                            {% if matieres_list|length > 20 %}
-                                {{ matieres_list[:18] }}...
-                            {% else %}
-                                {{ matieres_list or "—" }}
-                            {% endif %}
-                        </span>
-                    </td>
-                    
-                    <td class="col-photo_filename">
+                <tr data-id="enseignant-{{ enseignant.id }}">
+                    <td>
                         {% if enseignant.utilisateur.photo_filename %}
-                            <img src="{{ url_for('static', filename='upload/' ~ enseignant.utilisateur.photo_filename) }}" 
-                            class="img-thumbnail rounded-circle" width="32" height="32" alt="Photo" style="object-fit: cover;">
+                        <img src="{{ url_for('static', filename='upload/' + enseignant.utilisateur.photo_filename) }}" 
+                             class="rounded-circle" width="40" height="40" alt="Photo"
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                        <div class="no-photo" style="display:none;">👤</div>
                         {% else %}
-                            <div class="bg-secondary rounded-circle d-inline-flex align-items-center justify-content-center" 
-                                 style="width: 32px; height: 32px;">
-                                <i class="bi bi-person text-white" style="font-size: 0.8rem;"></i>
-                            </div>
+                        <div class="no-photo">👤</div>
                         {% endif %}
                     </td>
-                    
-                    <td class="etat text-center">
-                        <div class="d-flex flex-column align-items-center gap-1 justify-content-center" style="min-height: 50px;">
-                            <span class="badge
-                                    {% if enseignant.etat == 'Actif' %}bg-success
-                                    {% elif enseignant.etat == 'Muté' %}bg-primary
-                                    {% elif enseignant.etat == 'Retraité' %}bg-dark
-                                    {% else %}bg-secondary
-                                    {% endif %}" style="font-size: 0.7rem; min-width: 60px;">
-                                {{ enseignant.etat }}
-                            </span>
-
-                            {% if user_role in ['admin', 'administrateur'] and enseignant.etat != "Retraité" %}
-                                {% set etat = enseignant.etat|lower %}
-                                <select class="form-select form-select-sm select-action" data-id="{{enseignant.id}}" 
-                                        style="width: 85px; font-size: 0.65rem; height: 24px; line-height: 1;">
-                                    <option value="">Action</option>
-                                    {% if etat == 'inactif' %}
-                                    <option value="activer">Activer</option>
-                                    {% elif etat == 'actif' %}
-                                    <option value="muter">Muter</option>
-                                    {% elif etat == 'muté' %}
-                                    <option value="retraiter">Retraiter</option>
-                                    {% endif %}
-                                </select>
-                            {% endif %}
-                        </div>
+                    <td class="col-nom-prenoms" title="{{ enseignant.utilisateur.nom }} {{ enseignant.utilisateur.prenoms }}">
+                        {{ enseignant.utilisateur.nom }} {{ enseignant.utilisateur.prenoms }}
                     </td>
-
-                    <td class="actions-cell">
-                        <div class="d-flex flex-column align-items-center gap-1 justify-content-center" style="min-height: 50px;">
-                            <!-- Boutons d'actions principaux -->
-                            <div class="d-flex gap-1 justify-content-center">
-                                <!-- Toujours visible -->
-                                <button class="btn btn-info btn-sm btn-detail" data-id="{{enseignant.id}}" title="Détails" 
-                                        style="padding: 0.2rem 0.3rem; width: 28px; height: 28px;">
-                                    <i class="bi bi-eye" style="font-size: 0.75rem;"></i>
-                                </button>
-
-                                <!-- Boutons réservés aux admins -->
-                                {% if user_role in ['admin', 'administrateur'] and enseignant.etat | lower == 'inactif' %}
-                                    <button type="button" class="btn btn-warning btn-sm btn-edit" data-id="{{enseignant.id}}"
-                                     title="Modifier" data-photo="{{ enseignant.utilisateur.photo_filename }}"
-                                     style="padding: 0.2rem 0.3rem; width: 28px; height: 28px;">
-                                        <i class="bi bi-pencil" style="font-size: 0.75rem;"></i>
+                    <td class="col-sexe">{{ enseignant.utilisateur.sexe }}</td>
+                    <td class="col-titre">{{ enseignant.titre }}</td>
+                    <td class="col-matieres">
+                        {% if enseignant.matieres %}
+                            {% for matiere in enseignant.matieres %}
+                                <span class="badge bg-secondary">{{ matiere.libelle }}</span>
+                            {% endfor %}
+                        {% else %}
+                            <span class="text-muted">Aucune</span>
+                        {% endif %}
+                    </td>
+                    <td class="col-date_fonction">
+                        {{ enseignant.date_fonction.strftime('%d/%m/%Y') if enseignant.date_fonction else 'N/A' }}
+                    </td>
+                    <td class="col-etat">
+                        <span class="badge 
+                            {% if enseignant.etat == 'Actif' %}bg-success
+                            {% elif enseignant.etat == 'Inactif' %}bg-secondary
+                            {% elif enseignant.etat == 'Muté' %}bg-warning
+                            {% elif enseignant.etat == 'Retraité' %}bg-info
+                            {% else %}bg-secondary{% endif %}">
+                            {{ enseignant.etat }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary btn-view" 
+                                    data-id="{{ enseignant.id }}"
+                                    data-bs-toggle="tooltip" title="Voir">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            {% if user_role in ['admin', 'administrateur'] %}
+                                {% if is_system_admin %}
+                                    <!-- Admin système : actions visibles seulement si école sélectionnée -->
+                                    {% if current_ecole_id %}
+                                    <button class="btn btn-outline-warning btn-edit" 
+                                            data-id="{{ enseignant.id }}"
+                                            data-bs-toggle="tooltip" title="Modifier">
+                                        <i class="bi bi-pencil"></i>
                                     </button>
-                                    <button class="btn btn-danger btn-sm btn-delete" data-id="{{enseignant.id}}" title="Supprimer"
-                                     style="padding: 0.2rem 0.3rem; width: 28px; height: 28px;">
-                                        <i class="bi bi-trash" style="font-size: 0.75rem;"></i>
+                                    <button class="btn btn-outline-danger btn-delete" 
+                                            data-id="{{ enseignant.id }}"
+                                            data-bs-toggle="tooltip" title="Supprimer">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                    {% endif %}
+                                {% else %}
+                                    <!-- Autres admins : actions toujours visibles -->
+                                    <button class="btn btn-outline-warning btn-edit" 
+                                            data-id="{{ enseignant.id }}"
+                                            data-bs-toggle="tooltip" title="Modifier">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-delete" 
+                                            data-id="{{ enseignant.id }}"
+                                            data-bs-toggle="tooltip" title="Supprimer">
+                                        <i class="bi bi-trash"></i>
                                     </button>
                                 {% endif %}
-                            </div>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="11" class="text-center py-4">
-                        <div class="text-muted">
-                            <i class="bi bi-person-video display-4"></i>
-                            <p class="mt-2">Aucun enseignant trouvé</p>
-                        </div>
-                    </td>
+                    <td colspan="8" class="text-center text-muted">Aucun enseignant trouvé</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
-    <!-- Pagination -->
-    <nav>
+    <!-- Pagination CORRIGÉE avec paramètre école -->
+    {% if pagination.pages > 1 %}
+    <nav aria-label="Navigation des pages">
         <ul class="pagination justify-content-center">
             {% if pagination.has_prev %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ pagination.prev_num }}&per_page={{per_page}}&search={{search}}">Précédent</a>
+                <a class="page-link" href="{{ url_for('enseignants.liste_enseignants', page=pagination.prev_num, per_page=per_page, search=search, filter=filter_value, ecole=request.args.get('ecole', '')) }}">Précédent</a>
             </li>
             {% endif %}
+            
             {% for p in pagination.iter_pages() %}
                 {% if p %}
                 <li class="page-item {% if p == pagination.page %}active{% endif %}">
-                    <a class="page-link" href="?page={{ p }}&per_page={{ per_page }}&search={{ search }}">{{ p }}</a>
+                    <a class="page-link" href="{{ url_for('enseignants.liste_enseignants', page=p, per_page=per_page, search=search, filter=filter_value, ecole=request.args.get('ecole', '')) }}">{{ p }}</a>
                 </li>
                 {% else %}
                 <li class="page-item disabled"><span class="page-link">…</span></li>
                 {% endif %}
             {% endfor %}
+            
             {% if pagination.has_next %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ pagination.next_num }}&per_page={{ per_page }}&search={{ search }}">Suivant</a>
+                <a class="page-link" href="{{ url_for('enseignants.liste_enseignants', page=pagination.next_num, per_page=per_page, search=search, filter=filter_value, ecole=request.args.get('ecole', '')) }}">Suivant</a>
             </li>
             {% endif %}
         </ul>
     </nav>
+    {% endif %}
 </div>
 
-<!-- Ici, tu peux inclure tes modales -->
+<!-- Inclusion des modales -->
 {% include 'enseignants/add_ens.html' %}
 {% include 'enseignants/delete_ens.html' %}
 {% include 'enseignants/detail_ens.html' %}
 {% include 'enseignants/update_ens.html' %}
 
-<!-- Modal Confirmation Action -->
-<div class="modal fade" id="confirmEnsActionModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content rounded-3 shadow">
-      <div class="modal-header bg-warning">
-        <h5 class="modal-title">Confirmation d'action</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <p id="confirmEnsMessage" class="fw-bold text-center"></p>
-      </div>
-      <div class="modal-footer justify-content-center">
-        <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Non</button>
-        <button type="button" class="btn btn-primary rounded-pill" id="confirmYesEnsBtn">Oui</button>
-      </div>
+<!-- Modal Importation (nouveau) -->
+<div class="modal fade" id="importEnsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-3 shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Importer des enseignants</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Fonctionnalité d'import en cours de développement...</p>
+                <div class="alert alert-info">
+                    <small><i class="bi bi-info-circle"></i> Cette fonctionnalité permettra d'importer des enseignants depuis un fichier Excel.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
 
+<!-- Modal Confirmation Action -->
+<div class="modal fade" id="confirmEnsActionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-3 shadow">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">Confirmation d'action</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmEnsMessage" class="fw-bold text-center"></p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Non</button>
+                <button type="button" class="btn btn-primary rounded-pill" id="confirmYesEnsBtn">Oui</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/enseignants.js') }}"></script>
 {% endblock %}

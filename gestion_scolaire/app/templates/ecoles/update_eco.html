@@ -11,6 +11,20 @@
           
           <div class="row g-3">
             <!-- Ligne 1 : 2 champs -->
+
+            <div class="col-12">
+              <label for="editEco_logo" class="form-label">Logo de l'école</label>
+              <input type="file" name="logo" id="editEco_logo" class="form-control" 
+                     accept=".png,.jpg,.jpeg,.gif,.svg">
+              <div class="form-text">
+                Formats acceptés: PNG, JPG, JPEG, GIF, SVG. Taille max: 2MB
+              </div>
+              <!-- Aperçu du logo actuel -->
+              <div id="editEco_logo_preview" class="mt-2" style="display: none;">
+                <img src="" alt="Logo actuel" class="img-thumbnail" style="max-height: 100px;">
+                <div class="form-text">Logo actuel</div>
+              </div>
+            </div>
             <div class="col-md-6">
               <label for="editEco_code" class="form-label">Code</label>
               <input id="editEco_code" name="code" class="form-control" placeholder="Code de l'école" required>

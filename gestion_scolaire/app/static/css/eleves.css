@@ -1,7 +1,7 @@
-
 /* Styles optimisés pour l'harmonisation des colonnes */
 #table-eleves {
     font-size: 0.85rem;
+    width: 100%;
 }
 
 #table-eleves th {
@@ -64,7 +64,125 @@
     white-space: nowrap;
 }
 
+/* Styles pour la toolbar - AJUSTEMENTS PRINCIPAUX */
+.toolbar-container {
+    width: 100%;
+    max-width: 100%;
+}
+
+.toolbar-form {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.toolbar-form .search-container {
+    flex: 0 0 28%;
+    min-width: 220px;
+}
+
+.toolbar-form .filter-container {
+    flex: 0 0 28%;
+    min-width: 200px;
+}
+
+.toolbar-form .perpage-container {
+    flex: 0 0 24%;
+    min-width: 170px;
+}
+
+.toolbar-form .button-container {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+    min-width: auto;
+}
+
+.toolbar-form .input-group,
+.toolbar-form .form-select {
+    border-radius: 50px !important;
+    height: 38px;
+    width: 100%;
+}
+
+.toolbar-form .form-select {
+    min-width: auto;
+}
+
+.toolbar-form .input-group .form-control {
+    border-right: 0;
+    font-size: 0.85rem;
+}
+
+.toolbar-form .input-group .btn {
+    border-radius: 0 50px 50px 0 !important;
+    height: 36px;
+    padding: 0 12px;
+}
+
+.toolbar-form .btn-success {
+    height: 38px;
+    line-height: 1;
+    white-space: nowrap;
+    padding: 0 15px;
+    font-size: 0.85rem;
+    border-radius: 50px !important;
+}
+
+/* Alignement du bouton avec le tableau */
+.table-wrapper {
+    position: relative;
+}
+
+.table-responsive {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
 /* Responsive pour petits écrans */
+@media (max-width: 1200px) {
+    .toolbar-form .search-container {
+        flex: 0 0 26%;
+        min-width: 200px;
+    }
+    
+    .toolbar-form .filter-container {
+        flex: 0 0 26%;
+        min-width: 180px;
+    }
+    
+    .toolbar-form .perpage-container {
+        flex: 0 0 22%;
+        min-width: 150px;
+    }
+}
+
+@media (max-width: 992px) {
+    .toolbar-form {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    
+    .toolbar-form .search-container,
+    .toolbar-form .filter-container {
+        flex: 1 1 calc(40% - 10px);
+        min-width: 160px;
+    }
+    
+    .toolbar-form .perpage-container {
+        flex: 1 1 calc(20% - 10px);
+        min-width: 140px;
+    }
+    
+    .toolbar-form .button-container {
+        flex: 0 0 100%;
+        justify-content: center;
+        margin-top: 5px;
+    }
+}
+
 @media (max-width: 768px) {
     .table-responsive {
         font-size: 0.8rem;
@@ -88,35 +206,108 @@
         min-width: 60px;
         font-size: 0.65rem;
     }
+    
+    .toolbar-form {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .toolbar-form .search-container,
+    .toolbar-form .filter-container,
+    .toolbar-form .perpage-container {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+    
+    .toolbar-form .button-container {
+        flex: 0 0 auto;
+        width: 100%;
+        justify-content: center;
+        margin-top: 0;
+    }
 }
 
-/* Styles pour la toolbar */
-.toolbar-form .input-group,
-.toolbar-form .form-select {
-    border-radius: 50px !important;
-    height: 42px;
-}
-
-.toolbar-form .form-select {
-    min-width: 150px;
-}
-
-.toolbar-form .input-group .form-control {
-    border-right: 0;
-}
-
-.toolbar-form .input-group .btn {
-    border-radius: 0 50px 50px 0 !important;
-    height: 32px;
-}
-
-.toolbar-form .btn-success {
-    height: 42px;
-    line-height: 1;
+@media (max-width: 576px) {
+    .toolbar-form .input-group,
+    .toolbar-form .form-select {
+        height: 36px;
+    }
+    
+    .toolbar-form .btn-success {
+        height: 36px;
+    }
+    
+    .toolbar-form .input-group .btn {
+        height: 34px;
+    }
 }
 
 /* Pagination compacte */
 .pagination .page-link {
     font-size: 0.85rem;
     padding: 0.4rem 0.75rem;
+}
+
+.modal-backdrop {
+    z-index: 1040;
+}
+
+.modal {
+    z-index: 1050;
+}
+
+/* Assurer que le body revient à la normale après fermeture des modales */
+body.modal-open {
+    overflow: auto;
+    padding-right: 0 !important;
+}
+
+/* Nettoyage des backdrops multiples */
+.modal-backdrop.show:not(:first-child) {
+    display: none;
+}
+
+.toolbar-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.toolbar-form {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.search-container {
+    flex: 1;
+    min-width: 200px;
+}
+
+.filter-container {
+    min-width: 200px;
+}
+
+.perpage-container {
+    min-width: 150px;
+}
+
+.button-container {
+    margin-left: auto;
+}
+
+@media (max-width: 768px) {
+    .toolbar-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .button-container {
+        margin-left: 0;
+        align-self: flex-end;
+    }
 }

@@ -4,8 +4,17 @@ import uuid, traceback, logging
 
 logger = logging.getLogger(__name__)
 
-def init_appreciations():
+def init_appreciations(ecole_id=None):
     """Initialise toutes les appréciations si elles n'existent pas"""
+    if not ecole_id:
+        from ..models import Ecole
+        ecole = Ecole.query.first()
+        if ecole:
+            ecole_id = ecole.id
+        else:
+            print("[ERREUR] Aucune école trouvée pour initialiser les appréciations")
+            return 0
+    
     appreciations_data = [
         ('Très Bien', 16, 20),
         ('Bien', 14, 15.9),
@@ -17,10 +26,11 @@ def init_appreciations():
     
     created_count = 0
     for libelle, seuil_min, seuil_max in appreciations_data:
-        if not Appreciations.query.filter_by(libelle=libelle).first():
+        if not Appreciations.query.filter_by(libelle=libelle, ecole_id=ecole_id).first():
             appreciation = Appreciations(
                 id=str(uuid.uuid4()),
                 libelle=libelle,
+                ecole_id=ecole_id,
                 seuil_min=seuil_min,
                 seuil_max=seuil_max,
                 description=f"Appréciation: {libelle}",
@@ -28,35 +38,50 @@ def init_appreciations():
             )
             db.session.add(appreciation)
             created_count += 1
-            print(f"[INIT] Création de l'appréciation: {libelle} ({seuil_min}-{seuil_max})")
+            print(f"[INIT] Création de l'appréciation: {libelle} ({seuil_min}-{seuil_max}) pour l'école {ecole_id}")
     
     if created_count > 0:
         db.session.commit()
-        print(f"[INIT] {created_count} appréciation(s) créée(s)")
+        print(f"[INIT] {created_count} appréciation(s) créée(s) pour l'école {ecole_id}")
     
     return created_count
 
-def get_appreciation(moyenne):
+def get_appreciation(moyenne, ecole_id=None):
     """Retourne l'appréciation correspondante à la moyenne"""
     if moyenne is None:
         moyenne = 0
         
     # Initialiser les appréciations si nécessaire
-    init_appreciations()
+    init_appreciations(ecole_id)
     
-    # Trouver l'appréciation correspondante
-    if moyenne >= 16:
-        return Appreciations.query.filter_by(libelle='Très Bien').first()
-    elif moyenne >= 14:
-        return Appreciations.query.filter_by(libelle='Bien').first()
-    elif moyenne >= 12:
-        return Appreciations.query.filter_by(libelle='Assez Bien').first()
-    elif moyenne >= 10:
-        return Appreciations.query.filter_by(libelle='Passable').first()
-    elif moyenne >= 5:
-        return Appreciations.query.filter_by(libelle='Insuffisant').first()
+    # Trouver l'appréciation correspondante pour l'école spécifique
+    if ecole_id:
+        if moyenne >= 16:
+            return Appreciations.query.filter_by(libelle='Très Bien', ecole_id=ecole_id).first()
+        elif moyenne >= 14:
+            return Appreciations.query.filter_by(libelle='Bien', ecole_id=ecole_id).first()
+        elif moyenne >= 12:
+            return Appreciations.query.filter_by(libelle='Assez Bien', ecole_id=ecole_id).first()
+        elif moyenne >= 10:
+            return Appreciations.query.filter_by(libelle='Passable', ecole_id=ecole_id).first()
+        elif moyenne >= 5:
+            return Appreciations.query.filter_by(libelle='Insuffisant', ecole_id=ecole_id).first()
+        else:
+            return Appreciations.query.filter_by(libelle='Très Insuffisant', ecole_id=ecole_id).first()
     else:
-        return Appreciations.query.filter_by(libelle='Très Insuffisant').first()
+        # Fallback si pas d'ecole_id
+        if moyenne >= 16:
+            return Appreciations.query.filter_by(libelle='Très Bien').first()
+        elif moyenne >= 14:
+            return Appreciations.query.filter_by(libelle='Bien').first()
+        elif moyenne >= 12:
+            return Appreciations.query.filter_by(libelle='Assez Bien').first()
+        elif moyenne >= 10:
+            return Appreciations.query.filter_by(libelle='Passable').first()
+        elif moyenne >= 5:
+            return Appreciations.query.filter_by(libelle='Insuffisant').first()
+        else:
+            return Appreciations.query.filter_by(libelle='Très Insuffisant').first()
 
 def format_classement(rank):
     if rank is None:
@@ -78,12 +103,39 @@ def calcul_classement(sorted_list):
         current_rank += 1
     return classement_dict
 
-def calculer_moyennes(classe_id, annee_scolaire, trimestre):
+def calculer_moyennes(classe_id, annee_scolaire, trimestre, ecole_id=None):
+    """
+    Calcule les moyennes pour une classe
+    Args:
+        classe_id: ID de la classe
+        annee_scolaire: Année scolaire (format: 2024-2025)
+        trimestre: Numéro du trimestre (1, 2, 3)
+        ecole_id: ID de l'école (optionnel, pour sécurité)
+    """
     resume = {"success": [], "errors": [], "created": 0, "updated": 0, "total": 0}
     try:
-        # Initialiser les appréciations au début du batch
-        init_appreciations()
-        
+        # VÉRIFICATION DE SÉCURITÉ : S'assurer que la classe appartient à l'école
+        if ecole_id:
+            classe = Classe.query.filter_by(id=classe_id, ecole_id=ecole_id).first()
+            if not classe:
+                resume["errors"].append(f"Classe non trouvée ou accès non autorisé")
+                return resume
+            # Récupérer l'ecole_id depuis la classe si non fourni
+            ecole_id = classe.ecole_id
+        else:
+            # Si ecole_id n'est pas fourni, vérifier quand même que la classe existe
+            classe = Classe.query.filter_by(id=classe_id).first()
+            if not classe:
+                resume["errors"].append(f"Classe non trouvée")
+                return resume
+            # Récupérer l'ecole_id depuis la classe
+            ecole_id = classe.ecole_id
+
+        print(f"[DEBUG] Calcul des moyennes pour classe {classe_id}, école {ecole_id}")
+
+        # Initialiser les appréciations AVEC ecole_id
+        init_appreciations(ecole_id)
+
         eleves = Eleve.query.filter_by(classe_id=classe_id).all()
         if not eleves:
             resume["errors"].append(f"Aucun élève trouvé pour la classe {classe_id}")
@@ -124,20 +176,21 @@ def calculer_moyennes(classe_id, annee_scolaire, trimestre):
         moy_faible = min(valeurs_non_nulles, default=0)
         moy_class = round((moy_forte + moy_faible)/2, 2) if valeurs_non_nulles else 0
         effectif_composants = len(valeurs_non_nulles)
-
+        
         for eleve in eleves:
             moy_trim = notes_par_eleve.get(eleve.id, 0)
-            appreciation = get_appreciation(moy_trim)
+            appreciation = get_appreciation(moy_trim, ecole_id)  # PASSER ecole_id
             
             # Vérification finale de sécurité
             if not appreciation:
                 print(f"[ERREUR] Aucune appréciation trouvée pour moyenne {moy_trim}, utilisation de 'Passable'")
-                appreciation = Appreciations.query.filter_by(libelle='Passable').first()
+                appreciation = Appreciations.query.filter_by(libelle='Passable', ecole_id=ecole_id).first()
                 if not appreciation:
-                    # Créer Passable en urgence
+                    # Créer Passable en urgence avec ecole_id
                     appreciation = Appreciations(
                         id=str(uuid.uuid4()),
                         libelle='Passable',
+                        ecole_id=ecole_id,  # IMPORTANT
                         seuil_min=10,
                         seuil_max=11.9,
                         description="Appréciation: Passable",
@@ -145,7 +198,7 @@ def calculer_moyennes(classe_id, annee_scolaire, trimestre):
                     )
                     db.session.add(appreciation)
                     db.session.commit()
-            
+
             # CORRECTION : Calculer moy_mat (colonne NOT NULL)
             moy_mat = moy_trim
             
@@ -153,19 +206,24 @@ def calculer_moyennes(classe_id, annee_scolaire, trimestre):
                                                  annee_scolaire=annee_scolaire,
                                                  trimestre=trimestre).first()
             if not moyenne_obj:
-                moyenne_obj = Moyenne(id=uuid.uuid4(),
-                                      code=f"M-{uuid.uuid4().hex[:6]}",
-                                      annee_scolaire=annee_scolaire,
-                                      trimestre=trimestre,
-                                      eleve_id=eleve.id,
-                                      enseignement_id=default_enseignement_id,
-                                      moy_mat=moy_mat,
-                                      etat="Inactif")
+                moyenne_obj = Moyenne(
+                    id=str(uuid.uuid4()),
+                    code=f"M-{uuid.uuid4().hex[:6]}",
+                    annee_scolaire=annee_scolaire,
+                    trimestre=trimestre,
+                    eleve_id=eleve.id,
+                    enseignement_id=default_enseignement_id,
+                    ecole_id=ecole_id,  # CORRECTION CRITIQUE : Ajouter ecole_id
+                    moy_mat=moy_mat,
+                    etat="Inactif"
+                )
                 db.session.add(moyenne_obj)
                 resume["created"] += 1
             else:
                 resume["updated"] += 1
 
+            # CORRECTION : S'assurer que ecole_id est toujours défini
+            moyenne_obj.ecole_id = ecole_id
             moyenne_obj.moy_trim = moy_trim
             moyenne_obj.moy_mat = moy_mat
             moyenne_obj.moy_class = moy_class
@@ -175,6 +233,7 @@ def calculer_moyennes(classe_id, annee_scolaire, trimestre):
             moyenne_obj.classement = classement_dict.get(eleve.id, None)
             moyenne_obj.classement_str = format_classement(classement_dict.get(eleve.id))
             moyenne_obj.appreciation_id = appreciation.id if appreciation else None
+            
             db.session.add(moyenne_obj)
             resume["success"].append(
                 f"{eleve.nom} {eleve.prenoms} - Trim {trimestre}: moy {moy_trim}, rang {classement_dict.get(eleve.id, '—')}"
@@ -209,7 +268,7 @@ def calculer_moyennes(classe_id, annee_scolaire, trimestre):
                     db.session.add(m3)
 
         db.session.commit()
-        print(f"[DEBUG] Batch terminé: {len(eleves)} élèves traités")
+        print(f"[DEBUG] Batch terminé: {len(eleves)} élèves traités pour l'école {ecole_id}")
         logger.info(f"Batch terminé pour la classe {classe_id}")
 
     except Exception as e:

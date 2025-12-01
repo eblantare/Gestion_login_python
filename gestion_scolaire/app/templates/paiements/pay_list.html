@@ -4,65 +4,342 @@
 {% block styles %}
 {{ super() }}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/paiements.css') }}">
+<style>
+    /* Styles optimisés pour la table */
+    .table-container {
+        max-height: 70vh;
+        overflow-y: auto;
+        overflow-x: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+    }
+    
+    .table-paiements {
+        margin-bottom: 0;
+        font-size: 0.875rem;
+        width: 100%;
+        min-width: 1200px; /* Largeur minimale pour éviter le compactage */
+    }
+    
+    .table-paiements thead th {
+        position: sticky;
+        top: 0;
+        background-color: #2c3e50;
+        color: white;
+        z-index: 10;
+        font-weight: 600;
+        font-size: 0.8rem;
+        padding: 0.75rem 0.5rem;
+        border-bottom: 2px solid #dee2e6;
+    }
+    
+    .table-paiements tbody td {
+        padding: 0.6rem 0.5rem;
+        vertical-align: middle;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        white-space: normal;
+        line-height: 1.2;
+    }
+    
+    /* COLONNES OPTIMISÉES - NOUVELLES TAILLES */
+    .col-code { width: 80px; min-width: 80px; max-width: 80px; }
+    .col-libelle { width: 140px; min-width: 140px; max-width: 140px; } /* RÉDUIT */
+    .col-eleve { width: 300px; min-width: 300px; max-width: 300px; } /* AUGMENTÉ */
+    .col-classe { width: 100px; min-width: 100px; max-width: 100px; }
+    .col-date { width: 100px; min-width: 100px; max-width: 100px; }
+    .col-montant { width: 120px; min-width: 120px; max-width: 120px; }
+    .col-reste { width: 90px; min-width: 90px; max-width: 90px; } /* RÉDUIT */
+    .col-etat { width: 270px; min-width: 270px; max-width: 270px; } /* AUGMENTÉ */
+    .col-actions { width: 200px; min-width: 200px; max-width: 200px; }
+    
+    /* Gestion du contenu long avec ellipsis */
+    .cell-content {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display: block;
+    }
+    
+    .cell-content-multiline {
+        max-width: 100%;
+        word-wrap: break-word;
+        white-space: normal;
+        line-height: 1.2;
+        display: block;
+    }
+    
+    /* Badges améliorés */
+    .badge-etat {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+        white-space: nowrap;
+        display: inline-block;
+        max-width: 100%;
+    }
+    
+    /* Montants */
+    .montant-cell {
+        font-family: 'Courier New', monospace;
+        font-weight: 600;
+        text-align: right;
+        white-space: nowrap;
+    }
+    
+    /* Actions group compact */
+    .btn-group-compact {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 2px;
+        justify-content: center;
+    }
+    
+    .btn-group-compact .btn {
+        padding: 0.2rem 0.3rem;
+        font-size: 0.7rem;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    
+    /* Sélecteur d'état optimisé */
+    .select-action {
+        width: 110px !important;
+        font-size: 0.7rem !important;
+        padding: 0.2rem 0.3rem !important;
+        display: inline-block !important;
+    }
+    
+    /* Barre de recherche améliorée */
+    .search-bar-paiements {
+        width: 280px;
+    }
+    
+    /* Pagination Flask TOUJOURS VISIBLE */
+    .pagination-flask {
+        display: flex;
+        justify-content: center;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .pagination-flask .pagination {
+        margin-bottom: 0;
+    }
+    
+    .pagination-flask .page-link {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    /* Container actions amélioré */
+    .actions-container {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 2px;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    /* CORRECTION : Élève sur une ligne SANS DÉBORDEMENT */
+    .eleve-nom-prenom {
+        font-size: 0.8rem;
+        line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
+        width: 100%;
+    }
+
+    .eleve-nom-prenom strong {
+        color: #2c3e50;
+        font-weight: 600;
+    }
+
+    /* CORRECTION : État et select sur la même ligne */
+    .etat-container-horizontal {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        white-space: nowrap;
+        flex-wrap: nowrap;
+        min-height: 35px;
+    }
+
+    /* Ajustement du select pour s'intégrer mieux */
+    .etat-container-horizontal .select-action {
+        width: 100px !important;
+        font-size: 0.65rem !important;
+        padding: 0.15rem 0.25rem !important;
+        flex-shrink: 0;
+    }
+
+    /* Ajustement du badge */
+    .etat-container-horizontal .badge-etat {
+        flex-shrink: 0;
+        min-width: 60px;
+    }
+
+    /* Pour les états sans select (Validé), centrer le badge */
+    .etat-container-horizontal:only-child {
+        justify-content: center;
+    }
+    
+    /* CORRECTION : Scroll horizontal forcé */
+    .table-container {
+        overflow-x: auto !important;
+        overflow-y: auto;
+    }
+    
+    /* Responsive avec scroll horizontal */
+    @media (max-width: 1400px) {
+        .table-paiements {
+            min-width: 1100px;
+        }
+    }
+    
+    @media (max-width: 1200px) {
+        .table-paiements {
+            min-width: 1000px;
+        }
+        .search-bar-paiements {
+            width: 250px;
+        }
+    }
+    
+    @media (max-width: 992px) {
+        .table-paiements {
+            min-width: 900px;
+            font-size: 0.8rem;
+        }
+    }
+    
+    /* Sur mobile, on garde le scroll horizontal */
+    @media (max-width: 768px) {
+        .table-paiements {
+            min-width: 800px;
+        }
+        
+        .table-container {
+            max-height: 60vh;
+        }
+    }
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
+<!-- CORRECTION : Ajout du rôle utilisateur dans les données -->
+<div class="container-fluid mt-4" data-user-role="{{ user_role }}">
   <h2 class="mb-3">LISTE DES PAIEMENTS</h2>
 
-  <!-- Barre recherche + filtre + bouton ajout -->
-  <div class="row mb-3">
-    <div class="col-md-9">
-      <form method="get" id="filterForm" class="d-flex align-items-center flex-wrap gap-2">
-        <!-- Recherche -->
-        <div class="input-group" style="width: 200px;">
-          <input type="text" name="search" value="{{ search }}" class="form-control" placeholder="Rechercher...">
-          <button class="btn btn-primary" type="submit">
-            <i class="bi bi-search"></i>
-          </button>
+  <!-- 🔍 Barre de recherche + filtres + bouton ajout + pagination SUR UNE LIGNE -->
+  <div class="row mb-3 align-items-center">
+    <div class="col-12">
+      <form method="get" class="d-flex align-items-center gap-2 flex-nowrap w-100 justify-content-between" id="filterForm">
+        <!-- Groupe gauche : Recherche + Filtre classe -->
+        <div class="d-flex align-items-center gap-2 flex-nowrap">
+             <!-- Dans la barre de recherche, remplacez le bouton : -->
+       <div class="input-group rounded-pill border overflow-hidden search-bar-paiements">
+         <input type="text" name="search" value="{{ search }}" class="form-control border-0" placeholder="Rechercher un élève, code, libellé...">
+         <button class="btn btn-primary search-btn" type="submit">  <!-- type="submit" au lieu de type="button" -->
+         <i class="bi bi-search"></i>
+         </button>
+      </div>
+
+          <!-- Filtre classe -->
+          <select name="classe_id" class="form-select rounded-pill filter-select" style="width: 200px;">
+            <option value="">Toutes les classes</option>
+            {% for c in classes %}
+              <option value="{{ c.id }}" {% if classe_id|string == c.id|string %}selected{% endif %}>{{ c.nom }}</option>
+            {% endfor %}
+          </select>
         </div>
 
-        <!-- Filtrage par classe -->
-        <select name="classe_id" class="form-select" style="width: 180px;" onchange="this.form.submit()">
-          <option value="">---Filtrer par classe---</option>
-          {% for c in classes %}
-            <option value="{{ c.id }}" {% if classe_id|string == c.id|string %}selected{% endif %}>{{ c.nom }}</option>
-          {% endfor %}
-        </select>
+        <!-- Groupe droit : Filtre page + Bouton + Pagination -->
+        <div class="d-flex align-items-center gap-2 flex-nowrap">
+          <!-- Sélecteur nombre par page -->
+          <select name="per_page" class="form-select rounded-pill per-page-select" style="width: 120px;">
+            {% for n in [5,10,20,50,100] %}
+              <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}/page</option>
+            {% endfor %}
+          </select>
 
-        <!-- Sélecteur nombre par page -->
-        <select name="per_page" class="form-select" style="width: 130px;" onchange="this.form.submit()">
-          {% for n in [5,10,20,50] %}
-            <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }} par page</option>
-          {% endfor %}
-        </select>
+              <!-- 🔽 BOUTON D'EXPORT DE LA LISTE (NOUVEAU) -->
+           {% if user_role in ['admin', 'administrateur'] %}
+             <button type="button" 
+                class="btn btn-outline-info btn-export-list" 
+                id="btnExportList"
+                title="Exporter la liste des paiements de la classe sélectionnée"
+                {% if not classe_id %}disabled{% endif %}>
+                <i class="bi bi-download me-1"></i>Exporter
+            </button>
+           {% endif %}
+
+          <!-- Bouton d'ajout -->
+          {% if user_role in ['admin', 'administrateur'] %}
+            <button type="button" class="btn btn-success btn-add-circle" data-bs-toggle="modal" data-bs-target="#paiementModal" title="Ajouter un paiement">
+              <i class="bi bi-plus-lg"></i>
+            </button>
+          {% endif %}
+
+          <!-- Pagination compacte -->
+          {% if paiements and pagination.pages > 0 %}
+            <div class="pagination-compact">
+              <nav aria-label="Navigation compacte">
+                <ul class="pagination pagination-sm mb-0">
+                  {% if pagination.has_prev %}
+                    <li class="page-item">
+                      <a class="page-link" href="?page={{ pagination.prev_num }}&search={{ search }}&classe_id={{ classe_id }}&per_page={{ per_page }}" title="Page précédente">
+                        <i class="bi bi-chevron-left"></i>
+                      </a>
+                    </li>
+                  {% else %}
+                    <li class="page-item disabled">
+                      <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                    </li>
+                  {% endif %}
+                  
+                  <li class="page-item active">
+                    <span class="page-link">{{ pagination.page }}/{{ pagination.pages }}</span>
+                  </li>
+                  
+                  {% if pagination.has_next %}
+                    <li class="page-item">
+                      <a class="page-link" href="?page={{ pagination.next_num }}&search={{ search }}&classe_id={{ classe_id }}&per_page={{ per_page }}" title="Page suivante">
+                        <i class="bi bi-chevron-right"></i>
+                      </a>
+                    </li>
+                  {% else %}
+                    <li class="page-item disabled">
+                      <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                    </li>
+                  {% endif %}
+                </ul>
+              </nav>
+            </div>
+          {% endif %}
+        </div>
       </form>
-    </div>
-
-    <div class="col-md-3 text-end">
-      {% if user_role in ['admin', 'administrateur'] %}
-        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#paiementModal">
-          <i class="bi bi-plus-circle me-1"></i>Nouveau
-        </button>
-      {% endif %}
     </div>
   </div>
 
-  <!-- Tableau paiements -->
-  <div class="table-responsive">
-    <table class="table table-bordered table-striped table-hover align-middle">
+  <!-- Tableau paiements avec scroll VERTICAL et HORIZONTAL -->
+  <div class="table-container">
+    <table class="table table-paiements table-striped table-hover align-middle">
       <thead class="table-dark">
         <tr>
-          <th class="col-code">Code</th>
-          <th class="col-libelle">Libellé</th>
-          <th class="col-eleve">Élève</th>
-          <th class="col-classe">Classe</th>
-          <th class="col-date text-center">Date</th>
-          <th class="col-montant text-end">Net</th>
-          <th class="col-montant text-end">Payé</th>
-          <th class="col-montant text-end">Reste</th>
-          <th class="col-etat text-center">État</th>
-          <th class="col-actions text-center">Actions</th>
+          <th class="col-code">CODE</th>
+          <th class="col-libelle">LIBELLÉ</th>
+          <th class="col-eleve">ÉLÈVE</th>
+          <th class="col-classe text-center">CLASSE</th>
+          <th class="col-date text-center">DATE</th>
+          <th class="col-montant text-end">MONTANT NET</th>
+          <th class="col-montant text-end">MONTANT PAYÉ</th>
+          <th class="col-reste text-end">RESTE</th>
+          <th class="col-etat text-center">STATUT</th>
+          <th class="col-actions text-center">ACTIONS</th>
         </tr>
       </thead>
       <tbody>
@@ -70,72 +347,91 @@
           {% for p in paiements %}
             <tr>
               <!-- Code -->
-              <td class="col-code text-truncate-fixed" title="{{ p.code }}">
-                <small><strong>{{ p.code }}</strong></small>
+              <td class="col-code" title="{{ p.code }}">
+                <span class="badge bg-primary badge-etat cell-content">{{ p.code }}</span>
               </td>
               
               <!-- Libellé -->
-              <td class="col-libelle text-truncate-fixed" title="{{ p.libelle }}">
-                {{ p.libelle }}
+              <td class="col-libelle" title="{{ p.libelle }}">
+                <small class="cell-content-multiline">{{ p.libelle }}</small>
               </td>
               
-              <!-- Élève -->
-              <td class="col-eleve text-truncate-fixed" title="{{ p.eleve.nom }} {{ p.eleve.prenoms }}">
-                <small>{{ p.eleve.nom }} {{ p.eleve.prenoms }}</small>
+              <!-- CORRECTION : Nom et prénom sur une seule ligne -->
+              <td class="col-eleve" title="{{ p.eleve.nom }} {{ p.eleve.prenoms }}">
+                <div class="eleve-nom-prenom cell-content">
+                  <strong>{{ p.eleve.nom }}</strong> {{ p.eleve.prenoms }}
+                </div>
               </td>
               
               <!-- Classe -->
-              <td class="col-classe text-truncate-fixed" title="{{ p.classe.nom }}">
-                <span class="badge bg-secondary">{{ p.classe.nom }}</span>
+              <td class="col-classe text-center">
+                <span class="badge bg-secondary badge-etat cell-content">{{ p.classe.nom }}</span>
               </td>
               
               <!-- Date -->
               <td class="col-date text-center">
-                <small>{{ p.date_payement.strftime('%d/%m/%Y') if p.date_payement else 'N/A' }}</small>
+                <small class="text-muted cell-content">{{ p.date_payement.strftime('%d/%m/%Y') if p.date_payement else 'N/A' }}</small>
               </td>
               
               <!-- Montants -->
               <td class="col-montant montant-cell">
-                <small>{{ "%.2f"|format(p.montant_net) }} €</small>
+                <strong class="cell-content">{{ "{:,.0f}".format(p.montant_net) }} F</strong>
               </td>
               <td class="col-montant montant-cell">
-                <small>{{ "%.2f"|format(p.montant_pay) }} €</small>
-              </td>
-              <td class="col-montant montant-cell">
-                <small class="{% if p.montant_rest > 0 %}text-warning{% else %}text-success{% endif %}">
-                  <strong>{{ "%.2f"|format(p.montant_rest) }} €</strong>
-                </small>
+                <strong class="text-success cell-content">{{ "{:,.0f}".format(p.montant_pay) }} F</strong>
               </td>
               
-              <!-- État -->
-              <td class="col-etat text-center">
-                <span class="badge 
-                  {% if p.etat == 'Actif' %}bg-success
-                  {% elif p.etat == 'Validé' %}bg-dark
-                  {% else %}bg-secondary
-                  {% endif %}">
-                  {{ p.etat }}
-                </span>
-                
-                {% if user_role in ['admin', 'administrateur'] and p.etat != "Validé" %}
-                  <select class="form-select form-select-sm d-inline-block w-auto ms-1 select-action" data-id="{{ p.id }}">
-                    <option value="">Action</option>
-                    {% if p.etat | lower == 'inactif' %}
-                      <option value="Activer">Activer</option>
-                    {% elif p.etat | lower == 'actif' %}
-                      <option value="Valider">Valider</option>
-                    {% endif %}
-                  </select>
+              <!-- Reste -->
+              <td class="col-reste montant-cell">
+                {% if p.montant_rest > 0 %}
+                  <strong class="text-warning cell-content">{{ "{:,.0f}".format(p.montant_rest) }} F</strong>
+                {% else %}
+                  <strong class="text-success cell-content">0 F</strong>
                 {% endif %}
               </td>
               
-              <!-- Actions -->
+              <!-- CORRECTION : État et select sur la même ligne -->
+              <td class="col-etat text-center">
+                <div class="etat-container-horizontal">
+                  {% if p.etat == 'Actif' %}
+                    <span class="badge bg-success badge-etat">ACTIF</span>
+                  {% elif p.etat == 'Validé' %}
+                    <span class="badge bg-dark badge-etat">VALIDÉ</span>
+                  {% else %}
+                    <span class="badge bg-secondary badge-etat">INACTIF</span>
+                  {% endif %}
+                  
+                  {% if user_role in ['admin', 'administrateur'] and p.etat != "Validé" %}
+                    <select class="form-select select-action" data-id="{{ p.id }}">
+                      <option value="">Action</option>
+                      {% if p.etat | lower == 'inactif' %}
+                        <option value="Activer">Activer</option>
+                      {% elif p.etat | lower == 'actif' %}
+                        <option value="Valider">Valider</option>
+                      {% endif %}
+                    </select>
+                  {% endif %}
+                </div>
+              </td>
+              
+              <!-- CORRECTION : Actions avec vérification correcte des rôles -->
               <td class="col-actions text-center">
-                <div class="btn-group btn-group-sm" role="group">
-                  <button class="btn btn-outline-info btn-sm btnPay-detail" data-id="{{ p.id }}" title="Détail">
+                <div class="actions-container">
+                  <button class="btn btn-outline-info btn-sm btnPay-detail" data-id="{{ p.id }}" title="Détails">
                     <i class="bi bi-eye-fill"></i>
                   </button>
                   
+                  <!-- Boutons d'export -->
+                  <a href="{{ url_for('paiements.export_recu_pdf', paiement_id=p.id) }}" 
+                     class="btn btn-outline-primary btn-sm" title="Reçu PDF">
+                    <i class="bi bi-file-earmark-pdf"></i>
+                  </a>
+                  <a href="{{ url_for('paiements.export_recu_excel', paiement_id=p.id) }}" 
+                     class="btn btn-outline-success btn-sm" title="Reçu Excel">
+                    <i class="bi bi-file-earmark-excel"></i>
+                  </a>
+                  
+                  <!-- CORRECTION : Boutons edit/delete toujours visibles pour les admins sur les paiements inactifs -->
                   {% if user_role in ['admin', 'administrateur'] and p.etat | lower == 'inactif' %}
                     <button class="btn btn-outline-warning btn-sm btnPay-edit" data-id="{{ p.id }}" title="Modifier">
                       <i class="bi bi-pencil-fill"></i>
@@ -150,10 +446,11 @@
           {% endfor %}
         {% else %}
           <tr>
-            <td colspan="10" class="text-center py-4">
+            <td colspan="10" class="text-center py-5">
               <div class="text-muted">
-                <i class="bi bi-receipt display-4 d-block mb-2"></i>
-                Aucun paiement trouvé
+                <i class="bi bi-receipt display-4 d-block mb-3"></i>
+                <h5>Aucun paiement trouvé</h5>
+                <p class="mb-0">Utilisez les filtres pour affiner votre recherche</p>
               </div>
             </td>
           </tr>
@@ -162,59 +459,60 @@
     </table>
   </div>
 
-  <!-- Pagination -->
+  <!-- PAGINATION FLASK TOUJOURS VISIBLE MÊME POUR 1 PAGE -->
   {% if paiements %}
-    <nav aria-label="Navigation des pages">
-      <ul class="pagination justify-content-center pagination-sm">
-        {% if pagination.has_prev %}
-          <li class="page-item">
-            <a class="page-link" href="?page={{ pagination.prev_num }}&search={{ search }}&classe_id={{ classe_id }}&per_page={{ per_page }}">
-              <i class="bi bi-chevron-left"></i>
-            </a>
-          </li>
-        {% else %}
-          <li class="page-item disabled">
-            <span class="page-link"><i class="bi bi-chevron-left"></i></span>
-          </li>
-        {% endif %}
-        
-        {% for p in pagination.iter_pages() %}
-          {% if p %}
-            {% if p == pagination.page %}
-              <li class="page-item active">
-                <span class="page-link">{{ p }}</span>
-              </li>
-            {% else %}
-              <li class="page-item">
-                <a class="page-link" href="?page={{ p }}&search={{ search }}&classe_id={{ classe_id }}&per_page={{ per_page }}">
-                  {{ p }}
-                </a>
-              </li>
-            {% endif %}
+    <div class="pagination-flask">
+      <nav aria-label="Navigation des pages">
+        <ul class="pagination">
+          {% if pagination.has_prev %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ pagination.prev_num }}&search={{ search }}&classe_id={{ classe_id }}&per_page={{ per_page }}">
+                <i class="bi bi-chevron-left"></i>
+              </a>
+            </li>
           {% else %}
             <li class="page-item disabled">
-              <span class="page-link">…</span>
+              <span class="page-link"><i class="bi bi-chevron-left"></i></span>
             </li>
           {% endif %}
-        {% endfor %}
-        
-        {% if pagination.has_next %}
-          <li class="page-item">
-            <a class="page-link" href="?page={{ pagination.next_num }}&search={{ search }}&classe_id={{ classe_id }}&per_page={{ per_page }}">
-              <i class="bi bi-chevron-right"></i>
-            </a>
-          </li>
-        {% else %}
-          <li class="page-item disabled">
-            <span class="page-link"><i class="bi bi-chevron-right"></i></span>
-          </li>
-        {% endif %}
-      </ul>
-    </nav>
+          
+          {% for page_num in pagination.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+            {% if page_num %}
+              {% if page_num == pagination.page %}
+                <li class="page-item active">
+                  <span class="page-link">{{ page_num }}</span>
+                </li>
+              {% else %}
+                <li class="page-item">
+                  <a class="page-link" href="?page={{ page_num }}&search={{ search }}&classe_id={{ classe_id }}&per_page={{ per_page }}">{{ page_num }}</a>
+                </li>
+              {% endif %}
+            {% else %}
+              <li class="page-item disabled">
+                <span class="page-link">...</span>
+              </li>
+            {% endif %}
+          {% endfor %}
+          
+          {% if pagination.has_next %}
+            <li class="page-item">
+              <a class="page-link" href="?page={{ pagination.next_num }}&search={{ search }}&classe_id={{ classe_id }}&per_page={{ per_page }}">
+                <i class="bi bi-chevron-right"></i>
+              </a>
+            </li>
+          {% else %}
+            <li class="page-item disabled">
+              <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+            </li>
+          {% endif %}
+        </ul>
+      </nav>
+    </div>
   {% endif %}
+
 </div>
 
-<!-- Inclusion modal -->
+<!-- Inclusion des modals -->
 {% include 'paiements/add_pay.html' %}
 {% include 'paiements/detail_pay.html' %}
 {% include 'paiements/delete_pay.html' %}
@@ -242,4 +540,9 @@
 <!-- Container pour notifications -->
 <div id="notificationContainer" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999"></div>
 
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/paiements.js') }}"></script>
 {% endblock %}

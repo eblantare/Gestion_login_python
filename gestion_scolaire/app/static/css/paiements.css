@@ -2,57 +2,72 @@
    STYLES POUR LA PAGE DE LISTE DES PAIEMENTS
    ============================================= */
 
+/* RÉINITIALISATION DES STYLES DE COLONNES */
+.table-paiements .col-code {
+  width: 80px !important;
+  min-width: 80px !important;
+  max-width: 80px !important;
+}
+
+.table-paiements .col-libelle {
+  width: 140px !important;
+  min-width: 140px !important;
+  max-width: 140px !important;
+}
+
+.table-paiements .col-eleve {
+  width: 300px !important;
+  min-width: 300px !important;
+  max-width: 300px !important;
+}
+
+.table-paiements .col-classe {
+  width: 100px !important;
+  min-width: 100px !important;
+  max-width: 100px !important;
+}
+
+.table-paiements .col-date {
+  width: 100px !important;
+  min-width: 100px !important;
+  max-width: 100px !important;
+}
+
+.table-paiements .col-montant {
+  width: 120px !important;
+  min-width: 120px !important;
+  max-width: 120px !important;
+}
+
+.table-paiements .col-reste {
+  width: 90px !important;
+  min-width: 90px !important;
+  max-width: 90px !important;
+}
+
+.table-paiements .col-etat {
+  width: 270px !important;
+  min-width: 270px !important;
+  max-width: 270px !important;
+}
+
+.table-paiements .col-actions {
+  width: 200px !important;
+  min-width: 200px !important;
+  max-width: 200px !important;
+}
+
 /* Styles pour les colonnes du tableau */
 .table-responsive {
   font-size: 0.8rem;
 }
 
-.col-code {
-  width: 80px;
-  min-width: 80px;
-}
-
-.col-libelle {
-  width: 140px;
-  min-width: 140px;
-}
-
-.col-eleve {
-  width: 120px;
-  min-width: 120px;
-}
-
-.col-classe {
-  width: 80px;
-  min-width: 80px;
-}
-
-.col-date {
-  width: 90px;
-  min-width: 90px;
-}
-
-.col-montant {
-  width: 90px;
-  min-width: 90px;
-}
-
-.col-etat {
-  width: 120px;
-  min-width: 120px;
-}
-
-.col-actions {
-  width: 90px;
-  min-width: 90px;
-}
-
 /* Assurer que le texte ne dépasse pas */
-.text-truncate-fixed {
+.text-truncate-with-dots {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 0;
+  display: block;
 }
 
 /* Alignement des montants */
@@ -63,7 +78,7 @@
 }
 
 /* =============================================
-   STYLES EXISTANTS + NOUVEAUX STYLES
+   STYLES EXISTANTS
    ============================================= */
 
 /* Filtrage */
@@ -100,19 +115,19 @@
 
 /* Largeurs spécifiques par colonne */
 .table td.col-code {
-  max-width: 80px;
+  max-width: 80px !important;
 }
 
 .table td.col-libelle {
-  max-width: 140px;
+  max-width: 140px !important;
 }
 
 .table td.col-eleve {
-  max-width: 120px;
+  max-width: 300px !important;
 }
 
 .table td.col-classe {
-  max-width: 80px;
+  max-width: 100px !important;
 }
 
 /* Alignement des montants à droite */
@@ -135,17 +150,17 @@
 }
 
 /* Largeurs spécifiques pour les colonnes */
-.table th.col-code { max-width: 80px; }
-.table th.col-libelle { max-width: 140px; }
-.table th.col-eleve { max-width: 120px; }
-.table th.col-classe { max-width: 80px; }
+.table th.col-code { max-width: 80px !important; }
+.table th.col-libelle { max-width: 140px !important; }
+.table th.col-eleve { max-width: 300px !important; }
+.table th.col-classe { max-width: 100px !important; }
 
 /* Alignement des montants à droite */
 .table th.text-end { text-align: right; }
 
 /* Colonne État optimisée */
 table th.col-etat {
-  min-width: 120px;
+  min-width: 270px !important;
   white-space: normal;
   text-align: center;
 }
@@ -153,23 +168,48 @@ table th.col-etat {
 /* Badge d'état plus compact */
 .col-etat .badge {
   display: inline-block;
-  max-width: 50px;
+  max-width: 80px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: center;
   font-size: 0.7rem;
-  padding: 0.25rem 0.4rem;
+  padding: 0.25rem 0.5rem;
 }
 
 /* Select d'action plus compact */
 .col-etat .select-action {
   display: inline-block;
-  width: 70px;
-  font-size: 0.65rem;
-  padding: 0.1rem 0.2rem;
-  margin-left: 0.2rem;
-  vertical-align: middle;
+  width: 110px !important;
+  font-size: 0.7rem !important;
+  padding: 0.2rem 0.3rem !important;
+  margin-top: 2px;
+}
+
+/* Container état amélioré */
+.etat-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 50px;
+  justify-content: center;
+}
+
+
+
+/* Colonne Élève améliorée */
+.col-eleve .eleve-nom {
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: #2c3e50;
+  line-height: 1.2;
+}
+
+.col-eleve .eleve-prenom {
+  font-size: 0.75rem;
+  color: #6c757d;
+  line-height: 1.2;
 }
 
 /* Cellule état pour éviter les débordements */
@@ -180,7 +220,7 @@ table th.col-etat {
 
 /* Cellules plus compactes */
 .table td {
-  padding: 0.3rem 0.3rem;
+  padding: 0.4rem 0.3rem;
   vertical-align: middle;
 }
 
@@ -195,8 +235,40 @@ table th.col-etat {
   opacity: 0.5;
 }
 
-/* Pagination améliorée */
-.pagination-sm .page-link {
+/* Pagination Flask améliorée */
+.pagination-flask {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.pagination-flask .pagination {
+  margin-bottom: 0;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.pagination-flask .page-link {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  border: 1px solid #dee2e6;
+  margin: 0 2px;
+}
+
+.pagination-flask .page-item.active .page-link {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+.pagination-flask .page-item.disabled .page-link {
+  color: #6c757d;
+  pointer-events: none;
+  background-color: #f8f9fa;
+}
+
+/* Pagination compacte améliorée */
+.pagination-compact .page-link {
   border-radius: 0.25rem;
   margin: 0 0.1rem;
   padding: 0.25rem 0.5rem;
@@ -208,37 +280,530 @@ table th.col-etat {
   z-index: 9999;
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .table-responsive {
-    font-size: 0.75rem;
-  }
-  
-  .col-code,
-  .col-libelle,
-  .col-eleve,
-  .col-classe,
-  .col-date,
-  .col-montant,
-  .col-etat,
-  .col-actions {
-    min-width: auto;
-  }
-  
-  #filterForm {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  #filterForm .input-group,
-  #filterForm select {
-    width: 100% !important;
-    margin-bottom: 0.5rem;
-  }
+/* =============================================
+   NOUVEAUX STYLES POUR LA BARRE DE FILTRES
+   ============================================= */
 
-  /* Cacher certaines colonnes en mobile */
-  .col-code,
-  .col-classe {
-    display: none;
-  }
+/* ===== BARRE COMPLÈTE SUR UNE LIGNE - SANS SCROLL ===== */
+.row.mb-3.align-items-center {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 12px 20px;
+    margin-bottom: 1rem !important;
+    border: 1px solid #e9ecef;
+}
+
+.row.mb-3.align-items-center .col-12 {
+    padding: 0;
+}
+
+.row.mb-3.align-items-center form {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: nowrap;
+    width: 100%;
+}
+
+/* ===== BARRE DE RECHERCHE RÉDUITE AVEC ESPACEMENT ===== */
+.search-bar-paiements {
+    width: 200px;
+    flex-shrink: 0;
+    margin-right: 8px;
+}
+
+.search-bar-paiements .form-control {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    border: none;
+}
+
+.search-bar-paiements .search-btn {
+    padding: 8px 14px;
+    background: #0d6efd;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.search-bar-paiements .search-btn:hover {
+    background: #0b5ed7;
+}
+
+.search-bar-paiements .search-btn i {
+    font-size: 0.85rem;
+    color: white;
+}
+
+/* ===== FILTRES RÉDUITS AVEC ESPACEMENT ===== */
+.filter-select {
+    width: 160px;
+    flex-shrink: 0;
+    font-size: 0.85rem;
+    padding: 8px 14px;
+}
+
+.per-page-select {
+    width: 110px;
+    flex-shrink: 0;
+    font-size: 0.85rem;
+    padding: 8px 14px;
+    margin-right: 8px; /* Espacement entre filtre page et bouton */
+}
+
+/* ===== BOUTON AJOUT CERCLE ===== */
+.btn-add-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50% !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    background: #198754;
+    color: white;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(25, 135, 84, 0.3);
+    flex-shrink: 0;
+    cursor: pointer;
+    position: relative;
+    z-index: 10;
+    margin-right: 8px; /* Espacement entre bouton et pagination */
+}
+
+.btn-add-circle:hover {
+    background: #157347;
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(25, 135, 84, 0.4);
+    color: white;
+}
+
+.btn-add-circle:active {
+    transform: scale(1.05);
+    background: #146c43;
+}
+
+.btn-add-circle:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.5);
+}
+
+.btn-add-circle i {
+    font-size: 1.2rem;
+    font-weight: bold;
+    line-height: 1;
+}
+
+/* ===== PAGINATION COMPACTE ===== */
+.pagination-compact {
+    flex-shrink: 0;
+}
+
+.pagination-compact .pagination {
+    margin-bottom: 0;
+    gap: 2px;
+}
+
+.pagination-compact .page-link {
+    border-radius: 6px !important;
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    min-width: 32px;
+    text-align: center;
+    border: 1px solid #dee2e6;
+}
+
+.pagination-compact .page-item.active .page-link {
+    background: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.pagination-compact .page-link:hover {
+    background: #e9ecef;
+    border-color: #dee2e6;
+}
+
+/* ===== GROUPES GAUCHE/DROITE AVEC MEILLEUR ESPACEMENT ===== */
+.row.mb-3.align-items-center .d-flex[class*="gap-2"] {
+    gap: 12px;
+}
+
+/* Style spécifique pour le groupe gauche */
+.row.mb-3.align-items-center form > .d-flex:first-child {
+    gap: 12px; /* Espacement entre recherche et filtre classe */
+}
+
+/* Style spécifique pour le groupe droit */
+.row.mb-3.align-items-center form > .d-flex:last-child {
+    gap: 8px; /* Espacement réduit entre filtre page, bouton et pagination */
+}
+
+/* ===== RESPONSIVE DESIGN AMÉLIORÉ ===== */
+@media (max-width: 1400px) {
+    .table-paiements .col-eleve { width: 280px !important; min-width: 280px !important; max-width: 280px !important; }
+    .table-paiements .col-etat { width: 250px !important; min-width: 250px !important; max-width: 250px !important; }
+    .table-paiements .col-actions { width: 190px !important; min-width: 190px !important; max-width: 190px !important; }
+}
+
+@media (max-width: 1200px) {
+    .search-bar-paiements {
+        width: 180px;
+    }
+    
+    .filter-select {
+        width: 150px;
+    }
+    
+    .per-page-select {
+        width: 100px;
+    }
+    
+    .row.mb-3.align-items-center form {
+        gap: 12px;
+    }
+    
+    .table-paiements .col-eleve { width: 260px !important; min-width: 260px !important; max-width: 260px !important; }
+    .table-paiements .col-etat { width: 230px !important; min-width: 230px !important; max-width: 230px !important; }
+    .table-paiements .col-libelle { width: 130px !important; min-width: 130px !important; max-width: 130px !important; }
+    .table-paiements .col-actions { width: 180px !important; min-width: 180px !important; max-width: 180px !important; }
+}
+
+@media (max-width: 992px) {
+    .search-bar-paiements {
+        width: 170px;
+    }
+    
+    .filter-select {
+        width: 140px;
+    }
+    
+    .per-page-select {
+        width: 95px;
+    }
+    
+    .row.mb-3.align-items-center {
+        padding: 10px 15px;
+    }
+    
+    .row.mb-3.align-items-center form {
+        gap: 10px;
+    }
+    
+    .btn-add-circle {
+        width: 38px;
+        height: 38px;
+        margin-right: 6px;
+    }
+    
+    .btn-add-circle i {
+        font-size: 1.1rem;
+    }
+    
+    .per-page-select {
+        margin-right: 6px;
+    }
+    
+    .table-paiements .col-code { width: 75px !important; min-width: 75px !important; max-width: 75px !important; }
+    .table-paiements .col-libelle { width: 120px !important; min-width: 120px !important; max-width: 120px !important; }
+    .table-paiements .col-eleve { width: 240px !important; min-width: 240px !important; max-width: 240px !important; }
+    .table-paiements .col-etat { width: 210px !important; min-width: 210px !important; max-width: 210px !important; }
+    .table-paiements .col-actions { width: 170px !important; min-width: 170px !important; max-width: 170px !important; }
+}
+
+/* SUR PETITS ÉCRANS, ON PASSE EN COLONNE */
+@media (max-width: 768px) {
+    .row.mb-3.align-items-center {
+        background: transparent;
+        border: none;
+        padding: 0;
+        margin-bottom: 0.5rem !important;
+    }
+    
+    .row.mb-3.align-items-center form {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+    
+    .row.mb-3.align-items-center form > .d-flex {
+        width: 100%;
+        justify-content: space-between;
+        gap: 8px;
+    }
+    
+    .search-bar-paiements,
+    .filter-select,
+    .per-page-select {
+        width: 100% !important;
+        margin-right: 0;
+        margin-bottom: 8px;
+    }
+    
+    .btn-add-circle {
+        width: 100%;
+        height: 42px;
+        border-radius: 8px !important;
+        margin-bottom: 8px;
+        margin-right: 0;
+    }
+    
+    .pagination-compact {
+        width: 100%;
+        justify-content: center;
+        margin-top: 8px;
+    }
+
+    /* Réorganisation pour mobile : filtre page en haut */
+    .row.mb-3.align-items-center form > .d-flex:last-child {
+        order: -1; /* Met le groupe droit en premier sur mobile */
+        margin-bottom: 10px;
+    }
+
+    /* Cacher certaines colonnes en mobile */
+    .col-code,
+    .col-classe,
+    .col-reste {
+        display: none;
+    }
+    
+    .table-paiements .col-libelle { width: 130px !important; min-width: 130px !important; max-width: 130px !important; }
+    .table-paiements .col-eleve { width: 200px !important; min-width: 200px !important; max-width: 200px !important; }
+    .table-paiements .col-etat { width: 180px !important; min-width: 180px !important; max-width: 180px !important; }
+    .table-paiements .col-actions { width: 160px !important; min-width: 160px !important; max-width: 160px !important; }
+}
+
+@media (max-width: 576px) {
+    .search-bar-paiements .form-control {
+        padding: 7px 12px;
+        font-size: 0.8rem;
+    }
+    
+    .search-bar-paiements .search-btn {
+        padding: 7px 12px;
+    }
+    
+    .filter-select,
+    .per-page-select {
+        font-size: 0.8rem;
+        padding: 7px 12px;
+    }
+    
+    .pagination-compact .page-link {
+        padding: 5px 8px;
+        font-size: 0.7rem;
+        min-width: 30px;
+    }
+    
+    .row.mb-3.align-items-center form > .d-flex {
+        flex-direction: column;
+        gap: 6px;
+    }
+}
+
+/* ===== AMÉLIORATIONS VISUELLES ===== */
+.search-bar-paiements .form-control::placeholder {
+    color: #6c757d;
+    font-size: 0.8rem;
+}
+
+.search-bar-paiements .form-control:focus {
+    box-shadow: none;
+    border-color: transparent;
+}
+
+.filter-select:focus,
+.per-page-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Animation subtile pour le bouton */
+.btn-add-circle {
+    animation: fadeInUp 0.5s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ===== SCROLL HORIZONTAL FORCÉ POUR LE TABLEAU ===== */
+.table-container {
+    overflow-x: auto !important;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    max-height: 70vh;
+}
+
+.table-paiements {
+    min-width: 1200px !important; /* Force le scroll horizontal */
+    margin-bottom: 0;
+    font-size: 0.875rem;
+    width: 100%;
+}
+
+/* Assurer que toutes les cellules ont un contenu bien géré */
+.table-paiements tbody td {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal !important; /* Permet le retour à la ligne */
+    line-height: 1.2;
+}
+
+/* Colonne libellé avec gestion du contenu long */
+.col-libelle small {
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.2;
+    display: block;
+}
+
+/* CORRECTION : Assurer que les boutons edit/delete sont toujours visibles pour les admins */
+.btnPay-edit,
+.btnPay-delete {
+  display: inline-flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+
+
+
+
+
+
+/* Assurer la visibilité des selects */
+.select-action {
+  display: inline-block !important;
+}
+.etat-container-horizontal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  min-height: 40px;
+}
+
+.etat-container-horizontal .badge {
+  min-width: 70px;
+  flex-shrink: 0;
+}
+
+.etat-container-horizontal .form-select {
+  width: auto;
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+.actions-container {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  flex-wrap: nowrap;
+}
+
+.actions-container .btn {
+  flex-shrink: 0;
+}
+
+/* =============================================
+   CORRECTIONS POUR LE DÉBORDEMENT DU CODE
+   ============================================= */
+
+/* Container de tableau avec gestion du débordement */
+.table-container {
+    max-height: 70vh;
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+}
+
+/* Tableau avec largeur fixe et gestion du contenu */
+.table-paiements {
+    margin-bottom: 0;
+    font-size: 0.875rem;
+    width: 100%;
+    min-width: 1200px;
+    table-layout: fixed; /* Important pour le contrôle des largeurs */
+}
+
+/* Styles spécifiques pour la colonne code */
+.table-paiements .col-code {
+    width: 100px !important; /* Légèrement augmenté */
+    min-width: 100px !important;
+    max-width: 100px !important;
+    overflow: hidden;
+}
+
+/* Gestion du contenu dans les cellules code */
+.table-paiements td.col-code {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0.4rem 0.3rem;
+}
+
+.table-paiements td.col-code small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: 'Courier New', monospace; /* Meilleure lisibilité */
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+/* Amélioration de la gestion du texte dans toutes les cellules */
+.table-paiements td {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    line-height: 1.2;
+    vertical-align: middle;
+}
+
+/* Styles pour les montants */
+.montant-cell {
+    text-align: right;
+    font-family: 'Courier New', monospace;
+    font-weight: 500;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1400px) {
+    .table-paiements .col-code { 
+        width: 90px !important; 
+        min-width: 90px !important; 
+        max-width: 90px !important; 
+    }
+}
+
+@media (max-width: 1200px) {
+    .table-paiements .col-code { 
+        width: 85px !important; 
+        min-width: 85px !important; 
+        max-width: 85px !important; 
+    }
+}
+
+@media (max-width: 768px) {
+    .table-paiements .col-code { 
+        width: 80px !important; 
+        min-width: 80px !important; 
+        max-width: 80px !important; 
+    }
 }

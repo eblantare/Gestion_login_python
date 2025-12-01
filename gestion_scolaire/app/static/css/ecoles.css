@@ -1,0 +1,192 @@
+/* ===== RÉINITIALISATION COMPLÈTE DE LA COLONNE ACTIONS ===== */
+.col-actions {
+    width: 140px !important;
+    min-width: 140px !important;
+    max-width: 140px !important;
+    position: relative;
+    z-index: 10;
+}
+
+.actions-cell {
+    width: 140px !important;
+    min-width: 140px !important;
+    max-width: 140px !important;
+    padding: 8px 4px !important;
+    position: relative;
+    z-index: 20;
+    background: inherit;
+}
+
+/* FORCER le groupe de boutons à rester sur une ligne */
+.btn-group-actions {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
+    min-width: 120px !important;
+    position: relative !important;
+    z-index: 30 !important;
+}
+
+/* FORCER les boutons à une taille fixe */
+.btn-action {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    max-width: 32px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 6px !important;
+    border: 1px solid #dee2e6 !important;
+    font-size: 0.875rem !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+    z-index: 40 !important;
+}
+
+/* Couleurs FORCÉES */
+.btn-detail {
+    background: #e7f3ff !important;
+    color: #0d6efd !important;
+    border-color: #b6d4fe !important;
+}
+
+.btn-edit {
+    background: #fff3cd !important;
+    color: #ffc107 !important;
+    border-color: #ffdf9e !important;
+}
+
+.btn-delete {
+    background: #f8d7da !important;
+    color: #dc3545 !important;
+    border-color: #f1aeb5 !important;
+}
+
+.btn-detail:hover {
+    background: #0d6efd !important;
+    color: white !important;
+    border-color: #0d6efd !important;
+}
+
+.btn-edit:hover {
+    background: #ffc107 !important;
+    color: white !important;
+    border-color: #ffc107 !important;
+}
+
+.btn-delete:hover {
+    background: #dc3545 !important;
+    color: white !important;
+    border-color: #dc3545 !important;
+}
+
+/* EMPÊCHER TOUT DÉBORDEMENT */
+
+
+#table-ecoles td.col-actions,
+#table-ecoles th.col-actions {
+    overflow: visible !important;
+    white-space: nowrap !important;
+}
+
+/* FORCER la largeur du tableau */
+.table-responsive-ecoles {
+    min-width: 1400px;
+}
+
+/* Pour les très petits écrans */
+@media (max-width: 768px) {
+    .col-actions {
+        width: 120px !important;
+        min-width: 120px !important;
+        max-width: 120px !important;
+    }
+    
+    .btn-action {
+        width: 28px !important;
+        height: 28px !important;
+        min-width: 28px !important;
+        max-width: 28px !important;
+    }
+    
+    .btn-group-actions {
+        gap: 4px !important;
+    }
+}
+
+/* ===== RÉDUCTION DE LA HAUTEUR DES LIGNES ===== */
+
+
+
+
+/* Réduire la taille des logos */
+.col-logo img {
+    max-height: 35px !important;
+    max-width: 35px !important;
+}
+
+.col-logo .bi-building {
+    font-size: 1.2rem !important; /* Réduire l'icône par défaut */
+}
+
+/* Réduire la taille des icônes dans les cellules */
+.col-site .bi-link-45deg,
+.col-email .bi-envelope,
+.col-telephone1 .bi-telephone,
+.col-telephone2 .bi-telephone {
+    font-size: 0.8rem !important;
+}
+
+/* Ajuster la hauteur des boutons d'action */
+.btn-action {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 0.8rem !important;
+}
+
+/* Réduire l'espacement dans la colonne actions */
+.actions-cell {
+    padding: 4px 2px !important;
+}
+
+.btn-group-actions {
+    gap: 4px !important;
+}
+
+/* Optimiser le texte tronqué */
+.text-truncate {
+    line-height: 1.2 !important;
+    max-height: 20px !important;
+}
+
+/* Réduire la largeur minimale du tableau */
+.table-responsive-ecoles {
+    min-width: 1200px; /* Réduire de 1400px à 1200px */
+}
+
+/* Ajustements pour mobile */
+@media (max-width: 768px) {
+    #table-ecoles {
+        font-size: 0.75rem !important;
+    }
+    
+    #table-ecoles thead th {
+        padding: 6px 4px !important;
+        height: 35px !important;
+    }
+    
+    #table-ecoles tbody td {
+        padding: 4px 3px !important;
+        height: 40px !important;
+    }
+    
+    #table-ecoles tbody tr {
+        height: 40px !important;
+    }
+}

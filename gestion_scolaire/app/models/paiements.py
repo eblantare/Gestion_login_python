@@ -14,6 +14,10 @@ class Paiement(BaseModel):
     montant_net = db.Column(db.Float,nullable=False) 
     montant_pay= db.Column(db.Float,nullable=False) 
     montant_rest= db.Column(db.Float,nullable=False) 
+
+        # Lien avec l'école
+    ecole_id = db.Column(UUID(as_uuid=True), db.ForeignKey('geslog_schema.ecoles.id'), nullable=False)
+
     # relations 
     eleve = db.relationship("Eleve", backref="paiements") 
     classe = db.relationship("Classe", backref="paiements") 

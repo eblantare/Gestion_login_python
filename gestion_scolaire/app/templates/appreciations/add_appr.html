@@ -1,4 +1,3 @@
-<!-- Modal Ajout -->
 <div class="modal fade" id="addAppModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content rounded-3 shadow">
@@ -6,32 +5,67 @@
         <h5 class="modal-title">Ajouter une appréciation</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <form id="addAppreciationForm" method="POST" action="{{ url_for('appreciations.add_appreciations') }}">
-        <div class="modal-body">
+      <div class="modal-body">
+        <form id="addAppForm" class="needs-validation" novalidate>
+          
+          <!-- Sélection de l'échelle -->
           <div class="mb-3">
-            <label for="seuil_min" class="form-label">Seuil Min</label>
-            <input type="number" step="0.01" class="form-control rounded-pill" name="seuil_min" required>
+            <label for="add_echelle_max" class="form-label">Échelle maximale <span class="text-danger">*</span></label>
+            <select class="form-select" id="add_echelle_max" name="echelle_max" required>
+              <option value="">-- Sélectionnez l'échelle --</option>
+              <option value="10">Sur 10</option>
+              <option value="20" selected>Sur 20</option>
+              <option value="40">Sur 40</option>
+              <option value="60">Sur 60</option>
+              <option value="100">Sur 100</option>
+              <option value="custom">Personnalisée...</option>
+            </select>
+            <div class="invalid-feedback">Veuillez sélectionner l'échelle.</div>
+          </div>
+
+          <!-- Champ personnalisé (masqué par défaut) -->
+          <div class="mb-3" id="custom_echelle_container" style="display: none;">
+            <label for="add_echelle_custom" class="form-label">Échelle personnalisée <span class="text-danger">*</span></label>
+            <input type="number" class="form-control" id="add_echelle_custom" name="echelle_custom" min="1" step="1" placeholder="Ex: 50, 80, 200...">
+          </div>
+
+          <div class="mb-3">
+            <label for="add_libelle" class="form-label">Libellé <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="add_libelle" name="libelle" required>
+            <div class="invalid-feedback">Veuillez saisir le libellé.</div>
+          </div>
+              <!-- Dans add_appr.html -->
+            <!-- Dans add_appr.html -->
+         <div class="row g-2">
+        <div class="col-md-6 mb-3">
+       <label for="add_seuil_min" class="form-label">Seuil minimal <span class="text-danger">*</span></label>
+      <input type="number" class="form-control" id="add_seuil_min" name="seuil_min" 
+           min="0" max="20" step="0.1" placeholder="0.0" required>
+      <div class="form-text">Doit être inférieur au seuil max</div>
+      <div class="invalid-feedback">Veuillez saisir un seuil minimal valide.</div>
+      </div>
+      <div class="col-md-6 mb-3">
+      <label for="add_seuil_max" class="form-label">Seuil maximal <span class="text-danger">*</span></label>
+      <input type="number" class="form-control" id="add_seuil_max" name="seuil_max" 
+           min="0" max="20" step="0.1" placeholder="20.0" required>
+      <div class="form-text">Doit être supérieur au seuil min</div>
+      <div class="invalid-feedback">Veuillez saisir un seuil maximal valide.</div>
+     </div>
+    </div>
+
+          <div class="mb-3">
+            <label for="add_description" class="form-label">Description</label>
+            <textarea class="form-control" id="add_description" name="description" rows="3"></textarea>
+          </div>
+
+          <div class="modal-footer">
+                 <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Annuler</button>
+                <button type="submit" class="btn btn-success rounded-pill px-5">
+                  <i class="bi bi-check-lg me-1"></i>Enregistrer
+               </button>
          </div>
-        <div class="mb-3">
-           <label for="seuil_max" class="form-label">Seuil Max</label>
-         <input type="number" step="0.01" class="form-control rounded-pill" name="seuil_max" required>
-        </div>
-          <div class="mb-3">
-            <label for="libelle" class="form-label">Libellé</label>
-            <input type="text" class="form-control rounded-pill" name="libelle" id="libelle" required>
-            <div class="invalid-feedback">Le libellé est obligatoire.</div>
-          </div>
-          <div class="mb-3">
-            <label for="description" class="form-label">Description</label>
-            <textarea class="form-control rounded-pill" name="description" id="description" rows="3" required></textarea>
-            <div class="invalid-feedback">La description est obligatoire.</div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
-          <button type="submit" class="btn btn-primary rounded-pill">Ajouter</button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   </div>
 </div>

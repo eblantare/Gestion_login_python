@@ -50,26 +50,13 @@
     background-color: #0d6efd !important;
 }
 
-/* Style pour la description */
-.col-description .text-truncate {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: #6c757d;
-}
+
 
 /* Cellule état */
 .etat {
     min-width: 120px;
     white-space: nowrap;
 }
-
-.etat .badge {
-    font-size: 0.75rem;
-    padding: 0.3rem 0.5rem;
-    min-width: 70px;
-}
-
 /* Select d'action compact */
 .select-action-app.form-select {
     border: 1px solid #dee2e6 !important;
@@ -146,13 +133,9 @@
         padding: 0.6rem 0.3rem;
     }
     
-    .col-libelle .text-truncate {
-        max-width: 150px !important;
-    }
+
     
-    .col-description .text-truncate {
-        max-width: 200px !important;
-    }
+
     
     .select-action-app.form-select {
         min-width: 80px;
@@ -160,56 +143,7 @@
     }
 }
 
-/* Responsive pour mobiles */
-@media (max-width: 768px) {
-    .table-responsive {
-        font-size: 0.8rem;
-    }
-    
-    #table-appreciations th,
-    #table-appreciations td {
-        padding: 0.5rem 0.2rem;
-    }
-    
-    /* Ajustement des largeurs sur mobile */
-    #table-appreciations th:nth-child(1),
-    #table-appreciations td:nth-child(1) { width: 22% !important; } /* Libellé */
-    #table-appreciations th:nth-child(2),
-    #table-appreciations td:nth-child(2) { width: 14% !important; } /* Seuil Min */
-    #table-appreciations th:nth-child(3),
-    #table-appreciations td:nth-child(3) { width: 14% !important; } /* Seuil Max */
-    #table-appreciations th:nth-child(4),
-    #table-appreciations td:nth-child(4) { width: 25% !important; } /* Description */
-    #table-appreciations th:nth-child(5),
-    #table-appreciations td:nth-child(5) { width: 15% !important; } /* État */
-    #table-appreciations th:nth-child(6),
-    #table-appreciations td:nth-child(6) { width: 10% !important; } /* Actions */
-    
-    .col-libelle .text-truncate {
-        max-width: 120px !important;
-    }
-    
-    .col-description .text-truncate {
-        max-width: 180px !important;
-    }
-    
-    .actions-cell .btn-sm {
-        padding: 0.2rem 0.4rem;
-        margin: 0.05rem;
-        font-size: 0.75rem;
-    }
-    
-    .select-action-app.form-select {
-        min-width: 70px;
-        font-size: 0.65rem;
-        margin-left: 0.2rem;
-    }
-    
-    .etat .badge {
-        min-width: 60px;
-        font-size: 0.7rem;
-    }
-}
+
 
 /* ======================= */
 /* ÉTATS ET INTERACTIONS */
@@ -230,4 +164,305 @@
 /* Tooltip pour les textes tronqués */
 .text-truncate {
     cursor: help;
+}
+/* ======================= */
+/* ALIGNEMENT BARRE D'OUTILS */
+/* ======================= */
+
+/* Container du formulaire de recherche */
+.toolbar-form .col-md-4 {
+    display: flex;
+    align-items: center;
+    height: 100%;
+}
+
+/* Ajustement de la hauteur des éléments */
+.toolbar-form .input-group,
+.toolbar-form .form-select,
+.toolbar-form .btn {
+    height: 38px; /* Hauteur uniforme */
+}
+
+/* Alignement vertical parfait */
+.toolbar-form .align-items-center {
+    align-items: stretch !important; /* Force l'alignement sur toute la hauteur */
+}
+
+/* Responsive pour barre d'outils */
+
+/* Ajustement spécifique pour le select de pagination */
+.toolbar-form select[name="per_page"] {
+    min-width: 140px;
+}
+
+/* Ajustement pour le bouton Ajouter */
+.toolbar-form .btn-success {
+    min-width: 120px;
+    white-space: nowrap;
+}
+
+/* ======================= */
+/* ALIGNEMENT BARRE D'OUTILS AMÉLIORÉ */
+/* ======================= */
+
+/* Container principal */
+.d-flex.justify-content-between {
+    gap: 1rem;
+}
+
+/* Recherche à gauche */
+.flex-grow-1 {
+    flex: 1;
+}
+
+/* Groupe à droite */
+.d-flex.align-items-center.gap-2 {
+    gap: 1rem !important;
+}
+
+/* Responsive */
+
+    .flex-grow-1 {
+        min-width: 100% !important;
+        max-width: 100% !important;
+        margin-bottom: 0.5rem;
+    }
+    
+    .d-flex.align-items-center.gap-2 {
+        justify-content: space-between;
+        width: 100%;
+    }
+
+
+/* Style pour le select de pagination */
+select[name="per_page"] {
+    min-width: 140px;
+}
+
+/* Style pour le bouton Ajouter */
+.btn-success {
+    white-space: nowrap;
+}
+
+/* ======================= */
+/* CORRECTIONS SPÉCIFIQUES */
+/* ======================= */
+/* ======================= */
+/* CORRECTIONS SPÉCIFIQUES - COLONNE ÉTAT */
+/* ======================= */
+
+/* Colonne État - Une seule ligne */
+.etat {
+    min-width: 140px;
+    max-width: 160px;
+}
+
+.etat .d-flex.flex-nowrap {
+    gap: 0.5rem !important;
+    flex-wrap: nowrap !important;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Badge dans la colonne état */
+.etat .badge {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.6rem;
+    min-width: 65px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Select d'action dans la colonne état */
+.etat .select-action-app {
+    border: 1px solid #dee2e6 !important;
+    font-size: 0.7rem;
+    padding: 0.25rem 0.4rem;
+    height: 26px;
+    min-width: 100px;
+    max-width: 110px;
+    border-radius: 0.25rem !important;
+    flex-shrink: 0;
+}
+
+/* Ajustement des largeurs de colonnes pour éviter le débordement */
+#table-appreciations {
+    width: 100% !important;
+    table-layout: fixed;
+}
+
+/* Répartition précise des largeurs */
+#table-appreciations th:nth-child(1) { width: 18%; } /* Libellé */
+#table-appreciations th:nth-child(2) { width: 10%; } /* Échelle */
+#table-appreciations th:nth-child(3) { width: 12%; } /* Seuil Min */
+#table-appreciations th:nth-child(4) { width: 12%; } /* Seuil Max */
+#table-appreciations th:nth-child(5) { width: 28%; } /* Description */
+#table-appreciations th:nth-child(6) { width: 15%; } /* État */
+#table-appreciations th:nth-child(7) { width: 10%; } /* Actions */
+
+/* Ajustement des contenus tronqués */
+.col-libelle .text-truncate {
+    max-width: 180px !important;
+}
+
+.col-description .text-truncate {
+    max-width: 300px !important;
+}
+
+/* Ajustement des largeurs de colonnes */
+#table-appreciations {
+    width: 100% !important;
+}
+
+/* Assurer que le total fait 100% */
+#table-appreciations th:nth-child(1) { width: 20%; } /* Libellé */
+#table-appreciations th:nth-child(2) { width: 10%; } /* Échelle */
+#table-appreciations th:nth-child(3) { width: 12%; } /* Seuil Min */
+#table-appreciations th:nth-child(4) { width: 12%; } /* Seuil Max */
+#table-appreciations th:nth-child(5) { width: 26%; } /* Description */
+#table-appreciations th:nth-child(6) { width: 15%; } /* État */
+#table-appreciations th:nth-child(7) { width: 10%; } /* Actions */
+
+/* ======================= */
+/* BOUTONS MODAL - TAILLES ÉGALES */
+/* ======================= */
+
+/* Boutons du modal d'ajout */
+
+/* Alignement des boutons */
+#addAppModal .modal-footer {
+    justify-content: center;
+    gap: 1rem;
+}
+
+/* ======================= */
+/* RESPONSIVE AMÉLIORÉ */
+/* ======================= */
+
+/* Pour les écrans très larges */
+@media (min-width: 1400px) {
+    #table-appreciations {
+        font-size: 0.95rem;
+    }
+    
+    .col-libelle .text-truncate {
+        max-width: 250px !important;
+    }
+    
+
+}
+
+/* Pour les écrans moyens */
+@media (max-width: 1200px) {
+    .col-libelle .text-truncate {
+        max-width: 180px !important;
+    }
+    
+
+}
+
+/* Pour les petits écrans */
+@media (max-width: 768px) {
+    #table-appreciations th:nth-child(1),
+    #table-appreciations td:nth-child(1) { width: 22% !important; }
+    #table-appreciations th:nth-child(2),
+    #table-appreciations td:nth-child(2) { width: 12% !important; }
+    #table-appreciations th:nth-child(3),
+    #table-appreciations td:nth-child(3) { width: 13% !important; }
+    #table-appreciations th:nth-child(4),
+    #table-appreciations td:nth-child(4) { width: 13% !important; }
+    #table-appreciations th:nth-child(5),
+    #table-appreciations td:nth-child(5) { width: 20% !important; }
+    #table-appreciations th:nth-child(6),
+    #table-appreciations td:nth-child(6) { width: 15% !important; }
+    #table-appreciations th:nth-child(7),
+    #table-appreciations td:nth-child(7) { width: 10% !important; }
+    
+
+    
+    #addAppModal .modal-footer .btn {
+        min-width: 100px;
+        padding: 0.4rem 1rem;
+    }
+}
+
+/* Pour les très petits écrans */
+@media (max-width: 576px) {
+    .table-responsive {
+        font-size: 0.75rem;
+    }
+    
+
+    
+    .etat .select-action-app {
+        min-width: 70px;
+        max-width: 90px;
+        font-size: 0.65rem;
+        padding: 0.2rem 0.3rem;
+    }
+}
+
+/* ======================= */
+/* BARRE D'OUTILS CORRIGÉE */
+/* ======================= */
+
+/* Container principal de la barre d'outils */
+.d-flex.justify-content-between.align-items-center {
+    gap: 1rem;
+}
+
+/* Groupe de droite (filtres + bouton) */
+.d-flex.align-items-center.gap-2 {
+    gap: 1rem !important;
+    flex-wrap: nowrap;
+}
+
+/* Bouton Ajouter avec texte */
+.btn-success {
+    white-space: nowrap;
+    min-width: 120px;
+}
+
+/* Responsive pour barre d'outils */
+@media (max-width: 768px) {
+    .d-flex.justify-content-between.align-items-center {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+    
+    .flex-grow-1 {
+        min-width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    .d-flex.align-items-center.gap-2 {
+        justify-content: space-between;
+        width: 100%;
+        flex-wrap: wrap;
+    }
+    
+    .btn-success {
+        min-width: 100px;
+    }
+}
+
+/* Pour les très petits écrans */
+@media (max-width: 576px) {
+    .d-flex.align-items-center.gap-2 {
+        flex-direction: column;
+        gap: 0.5rem !important;
+    }
+    
+    .d-flex.align-items-center.gap-2 form {
+        width: 100%;
+    }
+    
+    .d-flex.align-items-center.gap-2 .form-select {
+        width: 100% !important;
+    }
+    
+    .btn-success {
+        width: 100%;
+    }
 }

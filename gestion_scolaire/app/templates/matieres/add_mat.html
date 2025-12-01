@@ -1,19 +1,36 @@
-<div class="modal fade" id="addMatModal">
-  <div class="modal-dialog">
+<div class="modal fade" id="addMatModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
     <form id="addMatForm" class="modal-content needs-validation" novalidate>
-      <div class="modal-header"><h5>Ajouter une matière</h5></div>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold">Ajouter une matière</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
       <div class="modal-body">
-        <input name="code" id="codeMat" class="form-control mb-2" placeholder="Code (généré automatiquement)" readonly>
-        <input name="libelle" id="libelleMat" class="form-control mb-2" placeholder="Libelle" required>
-        <select name="type" id="typeMat" class="form-select mb-2" required>
+        <div class="mb-3">
+          <label for="codeMat" class="form-label fw-semibold">Code</label>
+          <input type="text" name="code" id="codeMat" class="form-control" placeholder="Code (généré automatiquement)" readonly>
+        </div>
+        <div class="mb-3">
+          <label for="libelleMat" class="form-label fw-semibold">Libellé <span class="text-danger">*</span></label>
+          <input type="text" name="libelle" id="libelleMat" class="form-control" placeholder="Saisir le libellé de la matière" required>
+          <div class="invalid-feedback">Veuillez saisir un libellé pour la matière.</div>
+        </div>
+        <div class="mb-3">
+          <label for="typeMat" class="form-label fw-semibold">Type <span class="text-danger">*</span></label>
+          <select name="type" id="typeMat" class="form-select" required>
+            <option value="">Sélectionner un type</option>
             <option value="Matière scientifique">Matière scientifique</option>
             <option value="Matière littéraire">Matière littéraire</option>
-            <option value="Autres" selected>Autres</option>
-        </select>
+            <option value="Autres">Autres</option>
+          </select>
+          <div class="invalid-feedback">Veuillez sélectionner un type.</div>
+        </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
-        <button class="btn btn-success rounded-pill" type="submit">Enregistrer</button>
+        <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Annuler</button>
+        <button type="submit" class="btn btn-success rounded-pill px-4 fw-semibold" style="min-width: 120px; height: 45px;">
+          <i class="bi bi-check-lg me-2"></i>Enregistrer
+        </button>
       </div>
     </form>
   </div>

@@ -11,6 +11,9 @@ class Matiere(BaseModel):
      id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False) 
      code = db.Column(db.String(50), unique=True, nullable=False) 
      libelle = db.Column(db.String(200), nullable=False) 
+         # Lien avec l'école
+     ecole_id = db.Column(UUID(as_uuid=True), db.ForeignKey('geslog_schema.ecoles.id'), nullable=False)
+
      etat = db.Column(db.String(20), default="Inactif") 
      type = db.Column(db.String(50), nullable=False, default="Autres") 
      parent_id = db.Column(UUID(as_uuid=True), db.ForeignKey("geslog_schema.matieres.id"), nullable=True) 

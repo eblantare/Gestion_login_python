@@ -2,69 +2,160 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 
+    'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:;"> -->
     <title>{% block title %}Gestion scolaire{% endblock %}</title>
 
-    <!-- Bootstrap CSS (local + fallback CDN) -->
+    <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
 
     <!-- DataTables CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dataTables.bootstrap5.min.css') }}">
 
-    <!-- FontAwesome -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/all.min.css') }}">
+    <!-- IMPORTANT: Bootstrap Icons ET Font Awesome -->
+    <link href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='vendor/fontawesome/css/all.min.css') }}" rel="stylesheet">
     
-    <!-- Icônes bootstrap -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-icons.css') }}">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <!-- Select2 CSS local -->
+    <link href="{{ url_for('static', filename='css/select2.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/select2-bootstrap-5-theme.min.css') }}" rel="stylesheet">
     
-    <!-- Styles CSS -->
+    <!-- Styles CSS de base seulement -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ebase.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/eleves.css') }}">
+    
+    {% block styles %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ecoles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/classes.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/appreciations.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/enseignants.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/paiements.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/notes.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/eleves.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/matieres.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/moyennes.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/notes.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/enseignants.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/services.css') }}">
-    
-    {% block styles %}{% endblock %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/paiements.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/moyennes.css') }}">
+    {% endblock %}
 </head>
 <body>
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">Gestion scolaire</a>
+            <a class="navbar-brand" href="{{ url_for('main.index') }}">
+                <i class="bi bi-house-fill me-2"></i>Gestion scolaire
+            </a>
 
-            <!-- Espace à droite -->
             <div class="ms-auto d-flex align-items-center">
+                <!-- Sélecteur d'école - VERSION FINALE -->
+                {% if ecoles %}
+                <div class="ecole-selector-container me-3">
+                    <div class="ecole-selector">
+                        <div class="input-group input-group-sm" style="width: 300px;">
+                            <span class="input-group-text {% if is_system_admin %}bg-primary text-white{% else %}bg-secondary text-white{% endif %}">
+                                <i class="bi bi-building"></i>
+                            </span>
+                            <select class="form-select form-select-sm select2-ecole" id="ecoleSelect" 
+                                data-placeholder="{% if is_system_admin %}Sélectionnez une école{% else %}Votre école{% endif %}"
+                                data-url="{{ url_for('main.select_ecole') }}"
+                                data-user-role="{{ current_user.role }}"
+                                data-user-ecole-id="{{ current_user.ecole_id }}"
+                                {% if not is_system_admin %}disabled{% endif %}>
+                                
+                                {% if is_system_admin %}
+                                    <!-- Admin système : toutes les écoles -->
+                                    <option value="">Toutes les écoles</option>
+                                    {% for ecole in ecoles %}
+                                        <option value="{{ ecole.id }}" 
+                                            {% if selected_ecole_id == ecole.id|string %}selected="selected"{% endif %}>
+                                            {{ ecole.nom }}
+                                        </option>
+                                    {% endfor %}
+                                {% else %}
+                                    <!-- Autres utilisateurs : seulement leur école -->
+                                    {% for ecole in ecoles %}
+                                        <option value="{{ ecole.id }}" selected="selected">
+                                            {{ ecole.nom }}
+                                        </option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+
+                        <!-- Affichage simple du statut -->
+                        {% if is_system_admin %}
+                            {% if selected_ecole %}
+                                <small class="text-success mt-1 d-block">
+                                    <i class="bi bi-check-circle"></i>
+                                    École sélectionnée: <strong>{{ selected_ecole.nom }}</strong>
+                                </small>
+                            {% else %}
+                                <small class="text-warning mt-1 d-block">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    Mode toutes les écoles
+                                </small>
+                            {% endif %}
+                        {% else %}
+                            {% if ecoles and ecoles[0] %}
+                                <small class="text-muted mt-1 d-block">
+                                    <i class="bi bi-building"></i>
+                                    Votre école: <strong>{{ ecoles[0].nom }}</strong>
+                                </small>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
                 <!-- Lien retour -->
-                <a href="{{ url_for('main.index') }}" class="btn btn-gradient btn-sm me-3 d-flex align-items-center"
-                   data-bs-toggle="tooltip" data-bs-placement="bottom" title="Revenir à DOSSIERS SCOLAIRE">
+                <a href="{{ url_for('main.index') }}" 
+                   class="btn btn-outline-light btn-sm me-3 d-flex align-items-center"
+                   data-bs-toggle="tooltip" 
+                   data-bs-placement="bottom" 
+                   title="Revenir au tableau de bord">
                     <i class="bi bi-speedometer2 me-1"></i>
-                    <span>e_dashboard</span>
+                    <span>Dashboard</span>
                 </a>
                 
-                <!-- Dans la navbar, à côté du lien e_dashboard -->
-                 {% if user_role in ['admin', 'administrateur'] %}
-                     <a href="{{ url_for('bulletins_export.admin_signatures_page') }}" class="btn btn-outline-light btn-sm me-2 d-flex align-items-center"
-                     data-bs-toggle="tooltip" data-bs-placement="bottom" title="Administration des signatures">
-                     <i class="bi bi-pen-fill me-1"></i>
-                     <span>Signatures</span>
-                     </a>
-                 {% endif %}
+                <!-- Signatures -->
+                {% if user_role in ['admin', 'administrateur'] %}
+                <a href="{{ url_for('ecoles.admin_signatures') }}" 
+                   class="btn btn-outline-light btn-sm me-2 d-flex align-items-center"
+                   data-bs-toggle="tooltip" 
+                   data-bs-placement="bottom" 
+                   title="Administration des signatures">
+                    <i class="bi bi-pen-fill me-1"></i>
+                    <span>Signatures</span>
+                </a>
+                {% endif %}
+
                 <!-- Nom d'utilisateur -->
                 {% if current_user.is_authenticated %}
-                    <span class="text-white">
-                        <strong>{{ current_user.username }}</strong>
-                    </span>
+                <div class="dropdown">
+                    <button class="btn btn-outline-light btn-sm dropdown-toggle d-flex align-items-center" 
+                            type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-circle me-1"></i>
+                        <span>{{ current_user.username }}</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="#">
+                            <i class="bi bi-person me-2"></i>Profil
+                        </a></li>
+                        <li><a class="dropdown-item" href="#">
+                            <i class="bi bi-gear me-2"></i>Paramètres
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">
+                                <i class="bi bi-box-arrow-right me-2"></i>Déconnexion
+                            </a>
+                        </li>
+                    </ul>
+                </div>
                 {% else %}
-                     <a href="{{ url_for('auth.login') }}" class="btn btn-outline-light btn-sm">
-                        <i class="bi bi-box-arrow-in-right me-1"></i>
-                        Connexion
-                    </a>
+                <a href="{{ url_for('auth.login') }}" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-box-arrow-in-right me-1"></i>
+                    Connexion
+                </a>
                 {% endif %}
             </div>
         </div>
@@ -75,42 +166,75 @@
         {% block content %}{% endblock %}
     </div>
 
+    <!-- jQuery DOIT ÊTRE AVANT Select2 -->
+    <script src="{{ url_for('static', filename='js/jquery-3.7.0.min.js') }}"></script>
+
     <!-- Bootstrap JS -->
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
-
-    <!-- jQuery -->
-    <script src="{{ url_for('static', filename='js/jquery-3.7.0.min.js') }}"></script>
 
     <!-- DataTables -->
     <script src="{{ url_for('static', filename='js/jquery.dataTables.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dataTables.bootstrap5.min.js') }}"></script>
 
-    <!-- Initialisation des tooltips -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
-        });
-    </script>
+    <!-- Select2 JS locaux -->
+    <script src="{{ url_for('static', filename='js/select2.min.js') }}"></script>
 
-    <!-- Ton script JS -->
-    {% block scripts %}
-    <script src="{{ url_for('static', filename='js/eleves.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/appreciations.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/classes.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/matieres.js') }}"></script>
+    <!-- Script ebase.js (TOUJOURS chargé) -->
+    <script src="{{ url_for('static', filename='js/ebase.js') }}"></script>
+
+    <!-- Chargement conditionnel des scripts spécifiques -->
+    {% if request.endpoint and 'enseignants' in request.endpoint %}
     <script src="{{ url_for('static', filename='js/enseignants.js') }}"></script>
+    {% endif %}
+
+    {% if request.endpoint and 'appreciations' in request.endpoint %}
+    <script src="{{ url_for('static', filename='js/appreciations.js') }}"></script>
+    {% endif %}
+
+    {% if request.endpoint and 'eleves' in request.endpoint %}
+    <script src="{{ url_for('static', filename='js/eleves.js') }}"></script>
+    {% endif %}
+
+     {% if request.endpoint and 'matieres' in request.endpoint %}
+    <script src="{{ url_for('static', filename='js/matieres.js') }}"></script>
+    {% endif %}
+
+     {% if request.endpoint and 'paiements' in request.endpoint %}
     <script src="{{ url_for('static', filename='js/paiements.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/notes.js') }}" defer></script>
-    <script src="{{ url_for('static', filename='js/moyennes.js') }}"></script>
+    {% endif %}
+
+     {% if request.endpoint and 'ecoles' in request.endpoint %}
     <script src="{{ url_for('static', filename='js/ecoles.js') }}"></script>
+    {% endif %}
+
+     {% if request.endpoint and 'notes' in request.endpoint %}
+    <script src="{{ url_for('static', filename='js/notes.js') }}"></script>
+    {% endif %}
+
+     {% if request.endpoint and 'moyennes' in request.endpoint %}
+    <script src="{{ url_for('static', filename='js/moyennes.js') }}"></script>
+    {% endif %}
+
+     {% if request.endpoint and 'classes' in request.endpoint %}
+    <script src="{{ url_for('static', filename='js/classes.js') }}"></script>
+    {% endif %}
+
+     {% if request.endpoint and 'services' in request.endpoint %}
     <script src="{{ url_for('static', filename='js/services.js') }}"></script>
+    {% endif %}
+
+     {% if request.endpoint and 'admin_signatures' in request.endpoint %}
+    <script src="{{ url_for('static', filename='js/admin_signatures.js') }}"></script>
+    {% endif %}
+    <!-- Bloc scripts pour les autres pages (compatibilité) -->
+    {% block scripts %}
+    <!-- Les autres scripts seront chargés de manière conditionnelle ci-dessus -->
     {% endblock %}
 
-    <!-- Conteneur des notifications -->
-    <div aria-live="polite" aria-atomic="true" class="position-fixed top-0 end-0 p-3" id="notificationContainer">
+    <!-- Notifications -->
+    <div aria-live="polite" aria-atomic="true" 
+         class="position-fixed top-0 end-0 p-3" style="z-index: 9999;">
+        <div id="notificationContainer"></div>
     </div>
 </body>
 </html>

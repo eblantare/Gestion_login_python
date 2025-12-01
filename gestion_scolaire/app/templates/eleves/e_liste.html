@@ -6,60 +6,100 @@
 <div class="container mt-4">
     <h2 class="mb-3">LISTE DES ÉLÈVES</h2>
 
-    <!-- Barre de recherche, affichage par page et filtre -->
-    <form method="get" class="row mb-3 g-2 align-items-center toolbar-form">
-        <!-- Rechercher -->
-        <div class="col-md-4 col-12">
-            <div class="input-group rounded-pill border overflow-hidden">
-                <input type="text" name="search" value="{{ search }}" class="form-control border-0" placeholder="Rechercher">
-                <button class="btn btn-primary" type="submit">
-                    <i class="bi bi-search"></i>
-                </button>
+    <!-- Barre de recherche, affichage par page et filtre - BOUTON ALIGNÉ À DROITE -->
+    <div class="toolbar-container">
+        <form method="get" class="toolbar-form mb-3">
+            <!-- Rechercher -->
+            <div class="search-container">
+                <div class="input-group rounded-pill border overflow-hidden">
+                    <input type="text" name="search" value="{{ search }}" class="form-control border-0" placeholder="Rechercher">
+                    <button class="btn btn-primary" type="submit">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
             </div>
-        </div>
-        <!-- Filtre unique -->
-        <div class="col-md-4 col-12">
-            <select name="filter" class="form-select rounded-pill" onchange="this.form.submit()">
-                <option value="">---Filtrer par---</option>
-                <!-- sexe -->
-                <option value="sexe:M" {% if filter_value == 'sexe:M' %}selected{% endif %}>Masculin</option>
-                <option value="sexe:F" {% if filter_value == 'sexe:F' %}selected{% endif %}>Féminin</option>
-                 <!-- status -->
-                <option value="status:Nouveau" {% if filter_value == 'status:Nouveau' %}selected{% endif %}>Nouveau</option>
-                <option value="status:Ancien" {% if filter_value == 'status:Ancien' %}selected{% endif %}>Ancien</option>
-                <!-- Etat -->
-                 <option value="etat:Inactif" {% if filter_value == 'etat:Inactif' %}selected{% endif %}>Inactif</option>
-                 <option value="etat:Actif" {% if filter_value == 'etat:Actif' %}selected{% endif %}>Actif</option>
-                 <option value="etat:Suspendu" {% if filter_value == 'etat:Suspendu' %}selected{% endif %}>Suspendu</option>
-                 <option value="etat:Validé" {% if filter_value == 'etat:Validé' %}selected{% endif %}>Validé</option>
-                 <option value="etat:Sorti" {% if filter_value == 'etat:Sorti' %}selected{% endif %}>Sorti</option>
-               <!-- Classes dynamiques -->
-                  {% for c in classes %}
+            
+            <!-- Filtre unique SIMPLIFIÉ -->
+            <div class="filter-container">
+                <select name="filter" class="form-select rounded-pill" onchange="this.form.submit()">
+                    <option value="">---Filtrer par---</option>
+                    
+                    <!-- Sexe -->
+                    <optgroup label="Sexe">
+                        <option value="sexe:M" {% if filter_value == 'sexe:M' %}selected{% endif %}>Masculin</option>
+                        <option value="sexe:F" {% if filter_value == 'sexe:F' %}selected{% endif %}>Féminin</option>
+                    </optgroup>
+                    
+                    <!-- Statut -->
+                    <optgroup label="Statut">
+                        <option value="status:Nouveau" {% if filter_value == 'status:Nouveau' %}selected{% endif %}>Nouveau</option>
+                        <option value="status:Ancien" {% if filter_value == 'status:Ancien' %}selected{% endif %}>Ancien</option>
+                    </optgroup>
+                    
+                    <!-- État -->
+                    <optgroup label="État">
+                        <option value="etat:Inactif" {% if filter_value == 'etat:Inactif' %}selected{% endif %}>Inactif</option>
+                        <option value="etat:Actif" {% if filter_value == 'etat:Actif' %}selected{% endif %}>Actif</option>
+                        <option value="etat:Suspendu" {% if filter_value == 'etat:Suspendu' %}selected{% endif %}>Suspendu</option>
+                        <option value="etat:Validé" {% if filter_value == 'etat:Validé' %}selected{% endif %}>Validé</option>
+                        <option value="etat:Sorti" {% if filter_value == 'etat:Sorti' %}selected{% endif %}>Sorti</option>
+                    </optgroup>
+                    
+                    <!-- Classes dynamiques -->
+                     <!-- Modifier la section des options de classe dans le filtre -->
+                   <optgroup label="Classes">
+                   {% for c in classes %}
                       <option value="classe:{{ c.nom }}" 
-                     {% if filter_value == ('classe:' ~ c.nom) %}selected{% endif %}>
-                     Classe {{ c.nom }}
+                       data-id="{{ c.id }}"
+                       {% if filter_value == ('classe:' ~ c.nom) %}selected{% endif %}>
+                       Classe {{ c.nom }}
                      </option>
                   {% endfor %}
+                </optgroup>
+                </select>
+            </div>
+            
+            <!-- Affichage par page -->
+            <div class="perpage-container">
+                <select name="per_page" class="form-select rounded-pill" onchange="this.form.submit()">
+                    {% for n in [5,10,25,50,100,200,300,500] %}
+                    <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }} par page</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
 
-            </select>
-        </div>
-        <!-- Affichage par page -->
-        <div class="col-md-2 col-6 text-center flex-grow-1">
-            <select name="per_page" class="form-select d-inline-block w-auto rounded-pill" onchange="this.form.submit()">
-                {% for n in [5,10,25,50,100,200,300,500] %}
-                <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }} par page</option>
-                {% endfor %}
-            </select>
-        </div>
+                <!-- Dans la section des boutons d'export -->
+         <div class="export-container">
+          <div class="btn-group">
+            <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" id="exportDropdownBtn">
+               <i class="fas fa-download me-2"></i>Exporter
+            </button>
+            <ul class="dropdown-menu">
+               <li>
+                  <a class="dropdown-item export-link" href="#" data-format="pdf">
+                    <i class="fas fa-file-pdf text-danger me-2"></i>PDF
+                  </a>
+                </li>
+               <li>
+                   <a class="dropdown-item export-link" href="#" data-format="excel">
+                    <i class="fas fa-file-excel text-success me-2"></i>Excel
+                  </a>
+               </li>
+             </ul>
+           </div>
+          </div>
 
-        <div class="col-md-4 text-end flex-grow-1 ms-2">
-            {% if user_role in ['admin', 'administrateur'] %}
-                <button type="button" class="btn btn-success rounded-pill" data-bs-toggle="modal" data-bs-target="#addElModal">
-                    <i class="bi bi-plus-circle"></i>
-                </button>
-            {% endif %}
-        </div>
-    </form>
+            <!-- Bouton d'ajout aligné à droite -->
+            <div class="button-container">
+                {% if user_role in ['admin', 'administrateur', 'system_admin'] or is_system_admin %}
+                    <button type="button" class="btn btn-success rounded-pill" data-bs-toggle="modal" data-bs-target="#addElModal">
+                        <i class="bi bi-plus-circle"></i>
+                    </button>
+                {% endif %}
+            </div>
+        </form>
+    </div>
 
     <!-- Tableau des élèves -->
     <div class="table-responsive">
@@ -121,7 +161,7 @@
                                 {% endif %}">{{eleve.etat}}
                         </span>
 
-                        {% if user_role in ['admin', 'administrateur'] and eleve.etat != "Sorti" %}
+                        {% if (user_role in ['admin', 'administrateur', 'system_admin'] or is_system_admin) and eleve.etat != "Sorti" %}
                             <select class="form-select form-select-sm d-inline-block w-auto ms-1 select-action" data-id="{{eleve.id}}">
                               <option value="">Action</option>
                               {% if eleve.etat | lower == 'inactif' %}
@@ -144,7 +184,7 @@
                         </button>
 
                         <!-- Boutons réservés aux admins -->
-                        {% if user_role in ['admin', 'administrateur'] and eleve.etat | lower == 'inactif' %}
+                        {% if (user_role in ['admin', 'administrateur', 'system_admin'] or is_system_admin) and eleve.etat | lower == 'inactif' %}
                             <button type="button" class="btn btn-warning btn-sm btn-edit" data-id="{{eleve.id}}" title="Modifier">
                                 <i class="bi bi-pencil"></i>
                             </button>
@@ -219,4 +259,19 @@
   </div>
 </div>
 
+<!-- Container pour les notifications -->
+<div id="notificationContainer"></div>
+
+{% endblock %}
+
+{% block scripts %}
+ <script>
+    // Passer le rôle utilisateur et le statut admin système au JavaScript
+    document.body.dataset.userRole = "{{ user_role }}";
+    document.body.dataset.isSystemAdmin = "{{ is_system_admin | lower }}";
+    
+    // DEBUG: Vérifier que le JS est chargé
+    console.log('✅ eleves.js chargé - prêt pour les exports');
+</script>
+<script src="{{ url_for('static', filename='js/eleves.js') }}?v=1.2"></script>
 {% endblock %}

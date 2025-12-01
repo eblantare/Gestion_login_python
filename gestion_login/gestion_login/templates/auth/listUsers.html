@@ -1,10 +1,17 @@
-
 {% extends "base.html" %}
 
 {% block title %}Liste des utilisateurs{% endblock %}
       {% block content %}
       <div class="container bg-white text-dark p-4 rounded shadow">
         <h1 class="mb-4">LISTE DES UTILISATEURS</h1>
+
+        <!-- CORRECTION : Afficher le contexte pour debug -->
+        <div class="alert alert-info mb-3">
+          <strong>Contexte:</strong> 
+          Admin Système: {{ current_user.is_system_admin }}, 
+          Rôle: {{ current_user.role }},
+          École: {{ current_user.ecole.nom if current_user.ecole else 'Non assigné' }}
+        </div>
 
         <!-- Formulaire de recherche/filtre -->
          <form method="get" action="{{ url_for('auth.listUsers') }}" id="filterForm"
@@ -25,6 +32,18 @@
                 <option value="user" {{ sel_user }}>Utilisateur</option>
             </select>
             </div>
+
+            {% if is_system_admin %}
+               <div class="col-auto">
+               <select name="ecole" class="form-select" onchange="this.form.submit()">
+               <option value="">--Toutes les écoles--</option>
+              {% for ecole in ecoles %}
+                 {% set sel_ecole = 'selected="selected"' if ecole_filter == ecole.id|string else '' %}
+               <option value="{{ ecole.id }}" {{ sel_ecole }}>{{ ecole.nom }}</option>
+              {% endfor %}
+              </select>
+            </div>
+            {% endif %}
             <!-- Sélectionner le nombre de ligne -->
             <div class="col-auto ms-auto d-flex align-items-center">
                 <label class="me-2 fw-bold">Ligne</label>
@@ -43,6 +62,9 @@
             <thead class="table-primary">
                 <tr>
                     <!-- <th scope="col">ID</th> -->
+                    {% if is_system_admin %}
+                         <th scope="col">École</th>
+                    {% endif %}
                     <th scope="col">Nom</th>
                     <th scope="col">Prénoms</th>
                     <th scope="col">Sexe</th>
@@ -60,7 +82,19 @@
                 {% for user in users %}
                      <tr>
 
-                        <!-- <td>{{user.id}}</td> -->
+                    {% if is_system_admin %}
+                       <td>
+                        {% if user.ecole_id %}
+                           {% if user.ecole %}
+                               {{ user.ecole.nom }}
+                           {% else %}
+                              {{ user.ecole_nom }}  {# Utilisation de la propriété de secours #}
+                          {% endif %}
+                        {% else %}
+                          <span class="text-muted">Non assigné</span>
+                        {% endif %}
+                      </td>
+                    {% endif %}
                         <td>{{user.nom}}</td>
                         <td>{{user.prenoms}}</td>
                         <td>{{user.sexe}}</td>
@@ -79,7 +113,7 @@
                             {% if user.is_locked %}
                                 <span class="badge bg-danger">Bloqué</span>
                             {% else %}
-                                <span class="badge bg-danger">Actif</span>
+                                <span class="badge bg-success">Actif</span>
                             {% endif %}
                         </td>
                        <td class="table-actions">
@@ -89,7 +123,7 @@
                         <button class="btn btn-link text-info" data-bs-toggle="modal" data-bs-target="#detailModal-{{ user.id }}" >
                            <i class="bi bi-eye"></i>
                        </button>
-                       {% if current_user.role | lower in ['admin', 'administrateur']  %}
+                       {% if current_user.role | lower in ['admin', 'administrateur'] or current_user.is_system_admin %}
                      <!-- Modifier -->
                         <button class="btn btn-link text-warning" data-bs-toggle="modal" data-bs-target="#editModal-{{ user.id }}">
                         <i class="bi bi-pencil-square"></i>

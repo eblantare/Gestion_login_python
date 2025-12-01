@@ -1,71 +1,118 @@
-{% extends "base.html" %}
-{% block title %}Dossiers école{% endblock %}
+{% extends "ebase.html" %}
+
+{% block title %}Tableau de bord - Gestion scolaire{% endblock %}
 
 {% block body_class %}edashboard{% endblock %}
 
 {% block styles %}
-<link href="{{ url_for('auth.static', filename='css/e_dashboard.css') }}" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/e_dashboard.css') }}" rel="stylesheet">
 {% endblock %}
 
 {% block content %}
-<div class="container py-5">
-    <h2 class="text-center text-white mb-5">DOSSIERS ÉCOLE</h2>
+<!-- DEBUG: Afficher les informations utilisateur -->
+<div class="container-fluid" style="display: none;">
+    <div class="alert alert-info">
+        <strong>DEBUG User Info:</strong><br>
+        User ID: {{ current_user.id }}<br>
+        Username: "{{ current_user.username }}"<br>
+        Role: "{{ current_user.role }}"<br>
+        Is Authenticated: {{ current_user.is_authenticated }}<br>
+        Is System Admin: {{ 'OUI' if current_user.is_authenticated and current_user.username == 'admin' else 'NON' }}
+    </div>
+</div>
 
+<!-- Header avec sélecteur d'école -->
+<div class="container-fluid mb-4">
+    <div class="row align-items-center">
+        <div class="col">
+            <h1 class="h3 text-white mb-0">
+                <i class="bi bi-speedometer2 me-2"></i>Tableau de bord
+            </h1>
+            <p class="text-white-50 mb-0">Gestion complète des données scolaires</p>
+        </div>
+    </div>
+</div>
+
+<div class="container py-4">
     <div class="row g-4 justify-content-center">
         {% set menus = [
-            {'title':'Elèves','icon':'bi-people-fill','desc':'Consultez tous les élèves','url':url_for('eleves.liste_eleves'),'color':'bg-primary','sub':[]},
-            {'title':'Notes','icon':'bi-journal-text','desc':'Gestion des notes','url':url_for('notes.liste_notes'),'color':'bg-success','sub':[]},
-            {'title':'Matières','icon':'bi-book-fill','desc':'Consultez les matières','url':url_for('matieres.list_mat'),'color':'bg-warning text-dark','sub':[]},
-            {'title':'Classes','icon':'bi-building','desc':'Consultez les classes','url':url_for('classes.liste_classes'),'color':'bg-info','sub':[]},
-            {'title':'Appréciations','icon':'bi-chat-square-text','desc':'Consultez les appréciations','url':url_for('appreciations.liste_appr'),'color':'bg-purple','sub':[]},
-            {'title':'Paiements','icon':'bi-currency-dollar','desc':'Suivi des paiements','url':url_for('paiements.liste_paiements'),'color':'bg-danger','sub':[]},
-            {'title':'Enseignants','icon':'bi-person-badge-fill','desc':'Consultez les enseignants','url':url_for('enseignants.liste_enseignants'),'color':'bg-orange','sub':[]},
-            {'title':'Moyennes','icon':'bi-graph-up','desc':'Gestion des moyennes','url':url_for('moyennes.liste_moyennes'),'color':'bg-teal','sub':[]},
-            {'title':'Services','icon':'bi-download','desc':'Exportations PDF/Excel','url':url_for('services.exportations'),'color':'bg-indigo','sub':[]},
-            {'title':'Ecoles','icon':'bi-gear-fill','desc':'Infos Ecoles','url':url_for('ecoles.liste_ecoles'),'color':'bg-light text-dark','sub':[], 'admin_only': true}
+            {'title':'Élèves','icon':'bi-people-fill','desc':'Gestion des élèves',
+             'url':url_for('eleves.liste_eleves'),'color':'bg-primary','sub':[]},
+            {'title':'Notes','icon':'bi-journal-text','desc':'Saisie et consultation',
+             'url':url_for('notes.liste_notes'),'color':'bg-success','sub':[]},
+            {'title':'Matières','icon':'bi-book-fill','desc':'Gestion des matières',
+             'url':url_for('matieres.list_mat'),'color':'bg-warning text-dark','sub':[]},
+            {'title':'Classes','icon':'bi-building','desc':'Organisation des classes',
+             'url':url_for('classes.liste_classes'),'color':'bg-info','sub':[]},
+            {'title':'Appréciations','icon':'bi-chat-square-text','desc':'Évaluations',
+             'url':url_for('appreciations.liste_appr'),'color':'bg-purple','sub':[]},
+            {'title':'Paiements','icon':'bi-currency-dollar','desc':'Suivi financier',
+             'url':url_for('paiements.liste_paiements'),'color':'bg-danger','sub':[]},
+            {'title':'Enseignants','icon':'bi-person-badge-fill','desc':'Gestion du personnel',
+             'url':url_for('enseignants.liste_enseignants'),'color':'bg-orange','sub':[]},
+            {'title':'Moyennes','icon':'bi-graph-up','desc':'Calculs et statistiques',
+             'url':url_for('moyennes.liste_moyennes'),'color':'bg-teal','sub':[]},
+            {'title':'Services','icon':'bi-download','desc':'Exportations et rapports',
+             'url':url_for('services.exportations'),'color':'bg-indigo','sub':[]}
         ] %}
 
+        {# Tous les menus normaux pour tous les utilisateurs #}
         {% for menu in menus %}
-            {# Afficher la carte École seulement pour les administrateurs #}
-            {% if not menu.get('admin_only') or (menu.get('admin_only') and current_user.role|lower in ['admin', 'administrateur']) %}
-            <div class="col-sm-6 col-md-4 col-lg-3">
-                <div class="menu-card {{ menu.color }} {% if menu.get('admin_only') %}admin-only{% endif %} p-4 text-center text-white" 
-                     style="height: 220px; display: flex; flex-direction: column; justify-content: center;"
-                     data-url="{{ menu.url }}">
-                    <i class="bi {{ menu.icon }}" style="font-size:2.5rem; margin-bottom:0.5rem;"></i>
-                    <h5 class="fw-bold">{{ menu.title }}</h5>
-                    <p class="small mb-0">{{ menu.desc }}</p>
-                    
-                    {# Badge admin pour la carte École #}
-                    {% if menu.get('admin_only') %}
-                    <span class="badge bg-warning text-dark mt-2">
-                        <i class="bi bi-shield-check"></i> Admin
-                    </span>
-                    {% endif %}
-
-                    {% if menu.sub %}
-                    <div class="menu-submenu">
-                        {% for sub in menu.sub %}
-                        <a href="{{ sub.url }}">{{ sub.title }}</a>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
+        <div class="col-sm-6 col-md-4 col-lg-3">
+            <div class="menu-card {{ menu.color }}" 
+                 data-url="{{ menu.url }}">
+                <i class="bi {{ menu.icon }}"></i>
+                <h5 class="fw-bold mb-2">{{ menu.title }}</h5>
+                <p class="small mb-3 opacity-75">{{ menu.desc }}</p>
+                
+                <div class="mt-auto">
+                    <span class="badge bg-dark bg-opacity-25">Cliquer pour accéder</span>
                 </div>
             </div>
-            {% endif %}
+        </div>
         {% endfor %}
+
+        {# Menu Écoles UNIQUEMENT pour system_admin (username = 'admin') #}
+        {% if current_user.is_authenticated and current_user.username == 'admin' %}
+        <div class="col-sm-6 col-md-4 col-lg-3">
+            <div class="menu-card bg-light text-dark system-admin-only" 
+                 data-url="{{ url_for('ecoles.liste_ecoles') }}">
+                <i class="bi bi-gear-fill"></i>
+                <h5 class="fw-bold mb-2">Écoles</h5>
+                <p class="small mb-3 opacity-75">Configuration système</p>
+                
+                <span class="badge bg-warning text-dark position-absolute top-0 start-50 translate-middle mt-2">
+                    <i class="bi bi-shield-check me-1"></i>System Admin
+                </span>
+
+                <div class="mt-auto">
+                    <span class="badge bg-dark bg-opacity-25">Cliquer pour accéder</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 
-    {# Message pour les non-administrateurs #}
-    {% if current_user.role|lower not in ['admin', 'administrateur'] %}
-    <div class="text-center mt-4">
-        <p class="text-white-50 small">
-            <i class="bi bi-info-circle"></i> 
-            Certaines fonctionnalités sont réservées aux administrateurs
-        </p>
-    </div>
+    {# Message d'information selon le type d'utilisateur #}
+    {% if current_user.is_authenticated %}
+        {% if current_user.username == 'admin' %}
+        <div class="text-center mt-5">
+            <div class="alert alert-warning bg-dark border-warning text-white">
+                <i class="bi bi-shield-check me-2"></i>
+                Mode Administrateur Système - Accès complet à toutes les fonctionnalités
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center mt-5">
+            <div class="alert alert-info bg-dark border-0 text-white">
+                <i class="bi bi-info-circle me-2"></i>
+                Interface de gestion scolaire - Accès aux fonctionnalités selon votre rôle
+            </div>
+        </div>
+        {% endif %}
     {% endif %}
 </div>
 
-<script src="{{ url_for('auth.static', filename='js/e_dashboard.js') }}"></script>
+<!-- JS local dans gestion_scolaire -->
+<script src="{{ url_for('static', filename='js/e_dashboard.js') }}"></script>
 {% endblock %}

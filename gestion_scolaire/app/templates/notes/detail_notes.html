@@ -1,13 +1,16 @@
-<div class="modal fade" id="noteDetailModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="detailNoteModal" tabindex="-1" aria-labelledby="detailNoteModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-md modal-dialog-centered">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Détails de la note</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title text-white">Détails de la note</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
       </div>
       <div class="modal-body" id="noteDetailContent">
         <!-- Le JS remplira dynamiquement ce contenu -->
         <p>Chargement...</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
       </div>
     </div>
   </div>

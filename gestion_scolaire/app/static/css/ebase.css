@@ -1,43 +1,496 @@
+/* ebase.css - Version MODERNE et ÉLÉGANTE */
+
+/* Reset et base moderne */
+* {
+    box-sizing: border-box;
+}
 
 body {
-  background-image: url("../images/sco.png");
-  background-size: cover;        /* occupe tout l’écran */
-  background-repeat: no-repeat;  /* pas de répétition */
-  background-attachment: fixed;  /* effet fixe */
-  background-position: center;   /* centré */
+    background-image: url("../images/sco.png");
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    background-position: center;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    color: #333;
 }
 
-/* Overlay optionnel pour lisibilité */
+/* Overlay amélioré */
 body::before {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.3); /* assombrit un peu */
-  z-index: -1;
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6));
+    z-index: -1;
 }
 
+/* Navbar moderne */
+.navbar {
+    backdrop-filter: blur(10px);
+    background: rgba(33, 37, 41, 0.95) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+}
+
+.navbar-brand {
+    font-weight: 700;
+    font-size: 1.3rem;
+}
+
+/* BOUTONS CYLINDRIQUES ÉLÉGANTS */
+.btn {
+    border-radius: 50px !important;
+    font-weight: 600;
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    border: none;
+    padding: 0.7rem 1.8rem;
+    position: relative;
+    overflow: hidden;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+}
+
+/* Effet de brillance pour tous les boutons */
+.btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.4),
+        transparent
+    );
+    transition: left 0.6s ease;
+}
+
+.btn:hover::before {
+    left: 100%;
+}
+
+/* Boutons outline-light cylindriques */
+.btn-outline-light {
+    border: 2px solid rgba(255, 255, 255, 0.4) !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(15px);
+    color: white !important;
+    box-shadow: 
+        0 4px 15px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.btn-outline-light:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 
+        0 8px 25px rgba(0, 0, 0, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Boutons primary cylindriques */
+.btn-primary {
+    background: linear-gradient(135deg, #667eea, #764ba2) !important;
+    border: 2px solid rgba(102, 126, 234, 0.3) !important;
+    box-shadow: 
+        0 6px 20px rgba(102, 126, 234, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #764ba2, #667eea) !important;
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 
+        0 10px 30px rgba(102, 126, 234, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+/* Boutons success cylindriques */
+.btn-success {
+    background: linear-gradient(135deg, #48bb78, #38a169) !important;
+    border: 2px solid rgba(72, 187, 120, 0.3) !important;
+    box-shadow: 
+        0 6px 20px rgba(72, 187, 120, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.btn-success:hover {
+    background: linear-gradient(135deg, #38a169, #48bb78) !important;
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 
+        0 10px 30px rgba(72, 187, 120, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+/* Boutons danger cylindriques */
+.btn-danger {
+    background: linear-gradient(135deg, #fc8181, #f56565) !important;
+    border: 2px solid rgba(252, 129, 129, 0.3) !important;
+    box-shadow: 
+        0 6px 20px rgba(252, 129, 129, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.btn-danger:hover {
+    background: linear-gradient(135deg, #f56565, #fc8181) !important;
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 
+        0 10px 30px rgba(252, 129, 129, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+/* Boutons warning cylindriques */
+.btn-warning {
+    background: linear-gradient(135deg, #f6e05e, #ecc94b) !important;
+    border: 2px solid rgba(246, 224, 94, 0.3) !important;
+    color: #2d3748 !important;
+    box-shadow: 
+        0 6px 20px rgba(246, 224, 94, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.btn-warning:hover {
+    background: linear-gradient(135deg, #ecc94b, #f6e05e) !important;
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 
+        0 10px 30px rgba(246, 224, 94, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+/* Boutons dans la navbar */
+.navbar .btn {
+    padding: 0.5rem 1.2rem;
+    margin: 0 0.2rem;
+    font-size: 0.8rem;
+}
+
+/* Dropdown élégant */
+.dropdown-menu {
+    border-radius: 20px !important;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(20px);
+    background: rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.dropdown-item {
+    border-radius: 12px;
+    margin: 0.2rem 0.5rem;
+    padding: 0.7rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.dropdown-item:hover {
+    background: linear-gradient(135deg, #667eea, #764ba2) !important;
+    color: white !important;
+    transform: translateX(5px);
+}
+
+/* Sélecteur d'école cylindrique */
+.ecole-selector .input-group {
+    border-radius: 50px !important;
+    overflow: hidden;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(15px);
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.ecole-selector .input-group-text {
+    background: linear-gradient(135deg, #667eea, #764ba2) !important;
+    border: none;
+    color: white;
+    font-weight: 600;
+    border-radius: 50px 0 0 50px !important;
+}
+
+.ecole-selector .form-select {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border: none;
+    border-radius: 0 50px 50px 0 !important;
+    padding: 0.6rem 1rem;
+}
+
+/* Responsive pour les boutons */
+@media (max-width: 768px) {
+    .btn {
+        padding: 0.6rem 1.5rem;
+        font-size: 0.8rem;
+    }
+    
+    .navbar .btn {
+        padding: 0.4rem 1rem;
+        margin: 0.1rem;
+    }
+    
+    .ecole-selector .input-group {
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Cartes générales (pour les autres pages) */
+.card {
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+}
+
+/* Tables modernes */
+.table {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.table th {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    font-weight: 600;
+    border: none;
+    padding: 1rem;
+}
+
+.table td {
+    padding: 0.8rem 1rem;
+    border-color: #f1f5f9;
+}
+
+/* Modals élégants */
+.modal-content {
+    border-radius: 20px;
+    border: none;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border-radius: 20px 20px 0 0;
+    border: none;
+}
+
+.modal-footer {
+    border-radius: 0 0 20px 20px;
+    border: none;
+}
+
+/* Z-index pour modals */
 .modal {
-  z-index: 2000 !important;
+    z-index: 2000 !important;
 }
 .modal-backdrop {
-  z-index: 1990 !important;
+    z-index: 1990 !important;
 }
 
-.btn-gradient {
-    background: linear-gradient(135deg, #00c6ff, #0072ff);
-    color: #fff;
+/* IMPORTANT: S'assurer que le dashboard n'est pas affecté */
+body.edashboard {
+    background-image: none !important;
+}
+
+body.edashboard::before {
+    display: none !important;
+}
+
+/* Notifications élégantes */
+#notificationContainer .toast {
+    border-radius: 12px;
     border: none;
-    font-weight: 500;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    transition: 0.3s ease;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(10px);
 }
 
-.btn-gradient:hover {
-    background: linear-gradient(135deg, #0072ff, #00c6ff);
-    transform: scale(1.05);
-    box-shadow: 0 6px 14px rgba(0,0,0,0.3);
-    color: #fff;
+/* Responsive */
+@media (max-width: 768px) {
+    .container {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+    
+    .navbar-brand {
+        font-size: 1.1rem;
+    }
+    
+    .btn {
+        padding: 0.4rem 1rem;
+        font-size: 0.9rem;
+    }
+}
+
+/* RESTAURATION DES ICÔNES FONT AWESOME */
+
+/* Icônes d'action standard */
+.fa-trash, .fa-edit, .fa-eye, .fa-search, .fa-plus, 
+.fa-save, .fa-times, .fa-download, .fa-upload, .fa-print {
+    font-family: 'Font Awesome 6 Free' !important;
+    font-weight: 900 !important;
+}
+
+/* Couleurs des icônes d'action */
+.fa-trash { color: #dc3545 !important; }
+.fa-edit { color: #ffc107 !important; }
+.fa-eye { color: #0dcaf0 !important; }
+.fa-search { color: #6c757d !important; }
+.fa-plus { color: #198754 !important; }
+.fa-save { color: #198754 !important; }
+.fa-times { color: #6c757d !important; }
+.fa-download { color: #0d6efd !important; }
+.fa-upload { color: #0d6efd !important; }
+.fa-print { color: #6c757d !important; }
+
+/* Boutons avec icônes */
+.btn .fa {
+    margin-right: 0.5rem;
+}
+
+/* Tailles des icônes */
+.fa-lg { font-size: 1.2rem !important; }
+.fa-xl { font-size: 1.5rem !important; }
+.fa-2x { font-size: 2rem !important; }
+
+/* Icônes dans les tableaux */
+.table .fa {
+    opacity: 0.8;
+    transition: all 0.3s ease;
+}
+
+.table .fa:hover {
+    opacity: 1;
+    transform: scale(1.2);
+}
+
+/* Icônes dans la navbar */
+.navbar .fa {
+    font-size: 1.1rem;
+}
+
+/* Indicateur de chargement pour les tableaux */
+.table-responsive.loading {
+    position: relative;
+}
+
+.table-responsive.loading::after {
+    content: "🔄 Chargement...";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.9);
+    padding: 10px 20px;
+    border-radius: 5px;
+    z-index: 1000;
+    font-weight: bold;
+}
+
+/* Assurer que DataTables se comporte bien */
+.dataTables_wrapper {
+    position: relative;
+}
+
+/* Ajouter dans ebase.css */
+.disabled-selector {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.disabled-selector .input-group-text {
+    background-color: #6c757d !important;
+    border-color: #6c757d;
+}
+
+.disabled-selector .select2-selection {
+    background-color: #e9ecef;
+    border-color: #6c757d;
+}
+
+.disabled-selector .form-text {
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+/* Ajouter dans ebase.css */
+.disabled-selector {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.disabled-selector .input-group-text {
+    background-color: #6c757d !important;
+    border-color: #6c757d;
+}
+
+.disabled-selector .select2-selection {
+    background-color: #e9ecef;
+    border-color: #6c757d;
+    cursor: not-allowed;
+}
+
+.disabled-selector .select2-selection__arrow {
+    display: none;
+}
+
+/* Styles pour les sélecteurs verrouillés */
+.disabled-selector .input-group-text {
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+}
+
+.disabled-selector.admin-locked .input-group-text {
+    background-color: #dc3545 !important;
+    border-color: #dc3545 !important;
+}
+
+.disabled-selector.user-locked .input-group-text {
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+}
+
+/* Style pour le sélecteur d'école admin système */
+.select2-ecole:not([disabled]) {
+    border-color: #0d6efd !important;
+}
+
+/* Indicateurs visuels */
+.ecole-status .bi-shield-lock {
+    color: #dc3545;
+}
+
+.ecole-status .bi-person-lock {
+    color: #6c757d;
+}
+
+.ecole-status .bi-unlock {
+    color: #0d6efd;
+}
+
+/* CORRECTION : Styles pour sélecteur actif même en lecture seule */
+.ecole-selector .form-select:not([disabled]) {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border-color: #0d6efd !important;
+}
+
+/* Style admin système */
+.is-system-admin .ecole-selector .input-group-text {
+    background: linear-gradient(135deg, #667eea, #764ba2) !important;
+}
+
+/* Style lecture seule */
+.ecole-selector .form-select[disabled] {
+    background-color: #e9ecef !important;
+    opacity: 1 !important;
+    cursor: not-allowed;
 }

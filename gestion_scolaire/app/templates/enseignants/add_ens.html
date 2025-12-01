@@ -32,19 +32,19 @@
             </div>
           </div>
 
-          <div class="mb-3">
-            <label for="matiere_id" class="form-label">Matière</label>
-            <select class="form-select" id="matiere_id" name="matiere_id" multiple required></select>
-          </div>
+         <div class="mb-3">
+            <label for="matiere_id" class="form-label">Matière(s) enseignée(s)</label>
+            <select id="matiere_id" name="matiere_id" multiple class="form-select" size="3">
+          <!-- Chargé dynamiquement -->
+          </select>
+             <input type="text" id="add_matiere_libelle" class="form-control mt-2" readonly 
+             placeholder="Matières sélectionnées">
+           </div>
 
-          <div class="mb-3">
-            <input id="add_matiere_libelle" class="form-control" placeholder="Matières sélectionnées" readonly>
-          </div>
-
-          <div class="mb-3">
-            <label for="titre" class="form-label">Titre</label>
-            <input type="text" class="form-control" id="titre" name="titre" required>
-          </div>
+           <div class="mb-3">
+              <label for="titre" class="form-label">Titre</label>
+              <input type="text" class="form-control" id="titre" name="titre" required>
+           </div>
 
           <div class="mb-3">
             <label for="date_fonction" class="form-label">Date de prise de fonction</label>

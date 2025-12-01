@@ -5,8 +5,22 @@
         <h5 class="modal-title" id="editModalLabel-{{ user.id }}">Modifier utilisateur</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
       </div>
+
       <form method="POST" action="{{ url_for('auth.user_edit', id=user.id) }}">
         <div class="modal-body">
+          {% if current_user.is_system_admin %}
+                <div class="form-group mb-3">
+                <label for="ecole_id">École</label>
+                 <select name="ecole_id" class="form-select">
+                 <option value="">--Sélectionner une école--</option>
+                {% for ecole in ecoles %}
+                     <option value="{{ ecole.id }}" {% if user.ecole_id == ecole.id %}selected{% endif %}>
+                        {{ ecole.nom }}
+                     </option>
+                {% endfor %}
+                </select>
+              </div>
+          {% endif %}
           <input type="text" name="id" value="{{ user.id }}" class="form-control mb-2" placeholder="ID" disabled>
           <input type="text" name="nom" value="{{ user.nom }}" class="form-control mb-2" placeholder="Nom">
           <input type="text" name="prenoms" value="{{ user.prenoms }}" class="form-control mb-2" placeholder="Prénoms">

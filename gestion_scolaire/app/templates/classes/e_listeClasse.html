@@ -1,52 +1,63 @@
 {% extends 'ebase.html' %}
 
 {% block title %}Liste des classes{% endblock %}
-
+{% block styles %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/classes.css') }}">
+{% endblock %}
 {% block content %}
 <div class="container mt-4">
     <h2 class="mb-3">LISTE DES CLASSES</h2>
 
-    <!-- Barre de recherche et affichage par page -->
-    <form method="get" class="row mb-3 g-2 align-items-center">
-        <!-- Recherche -->
-        <div class="col-md-4 col-12">
-            <div class="input-group rounded-pill border overflow-hidden">
-                <input type="text" name="search" value="{{ search }}" class="form-control border-0" placeholder="Rechercher une classe...">
+    <!-- BARRE D'OUTILS COMPACTE ALIGNÉE -->
+    <div class="toolbar-container">
+        <!-- Recherche compacte -->
+        <div class="toolbar-search">
+            <form method="get" class="input-group">
+                <input type="text" name="search" value="{{ search }}" class="form-control" placeholder="Rechercher...">
                 <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i></button>
+            </form>
+        </div>
+        
+        <!-- Groupe droit compact -->
+        <div class="toolbar-right-group">
+            <!-- Affichage par page compact -->
+            <div class="toolbar-perpage">
+                <form method="get" class="d-inline">
+                    <input type="hidden" name="search" value="{{ search }}">
+                    <select name="per_page" class="form-select" onchange="this.form.submit()">
+                        {% for n in [5,10,20,30,50,100,150,200,500] %}
+                            <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }} par page</option>
+                        {% endfor %}
+                    </select>
+                </form>
             </div>
-        </div>
-        <!-- Affichage par page -->
-        <div class="col-md-4 col-6 text-center flex-grow-1">
-            <select name="per_page" class="form-select d-inline-block w-auto rounded-pill" onchange="this.form.submit()">
-                {% for n in [5,10,20,30,50,100,150,200,500] %}
-                    <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }} par page</option>
-                {% endfor %}
-            </select>
-        </div>
-        <!-- Bouton ajouter -->
-        <div class="col-md-4 text-end ms-2 flex-grow-1">
+            
+            <!-- Bouton ajouter compact -->
             {% if user_role in ['admin', 'administrateur'] %}
-            <button type="button" class="btn btn-success rounded-pill" data-bs-toggle="modal" data-bs-target="#addClModal">
-                <i class="bi bi-plus-circle me-1"></i>Ajouter
-            </button>
+            <div class="toolbar-add">
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addClModal">
+                    <i class="bi bi-plus-circle"></i>
+                </button>
+            </div>
             {% endif %}
         </div>
-    </form>
+    </div>
 
     <!-- Tableau des classes -->
     <div class="table-responsive">
         <table class="table table-bordered table-striped text-center align-middle" id="table-classes">
-            <thead class="table-dark">
-                <tr>
-                    <th width="10%">Code</th>
-                    <th width="10%">Classe</th>
-                    <th width="2%">Effectif</th>
-                    <th width="60%">Enseignants</th>
-                    <th width="8%">État</th>
-                    <th width="8%">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
+           <thead class="table-dark">
+             <tr>
+                <th width="110px">Code</th>
+                <th width="130px">Classe</th>
+                <th width="70px">Effectif</th>
+                <th width="280px">Enseignants</th>
+                <th width="140px">État</th> <!-- Augmenté à 140px -->
+               <th width="90px">Actions</th>
+            </tr>
+         </thead>
+             <tbody>
                 {% for classe in classes %}
                 <tr data-id="classe-{{ classe.id }}">
                     <td class="col-code">
@@ -60,19 +71,33 @@
                     <td class="col-effectif">
                         <span class="badge bg-secondary fs-6">{{ classe.effectif }}</span>
                     </td>
-                   <td class="col-enseignant" title="{% for ens in classe.enseignants %}{{ ens.utilisateur.prenoms }} {{ ens.utilisateur.nom }}{% if not loop.last %}, {% endif %}{% endfor %}">
-                       <div class="enseignants-container">
-                           {% for ens in classe.enseignants %}
-                               <span class="badge badge-enseignant">
-                                 {{ ens.utilisateur.prenoms }} {{ ens.utilisateur.nom }}
-                               </span>
-                              {% else %}
-                              <span class="text-muted small">Aucun enseignant</span>
-                             {% endfor %}
-                           </div>
-                        </td>
-                      <td class="etat text-center">
-                        <span class="badge
+                    <td class="col-enseignant" 
+                         data-teachers="{% for ens in classe.enseignants %}{{ ens.utilisateur.prenoms }} {{ ens.utilisateur.nom }}{% if not loop.last %}, {% endif %}{% endfor %}">
+                         <div class="enseignants-container">
+                         {% for ens in classe.enseignants %}
+                           {% if loop.index <= 2 %}
+                            <span class="badge badge-enseignant" title="{{ ens.utilisateur.prenoms }} {{ ens.utilisateur.nom }}">
+                              {{ ens.utilisateur.prenoms[:1] }}. {{ ens.utilisateur.nom[:8] }}{% if ens.utilisateur.nom|length > 8 %}...{% endif %}
+                           </span>
+                         {% endif %}
+                       {% endfor %}
+        
+                       {% if classe.enseignants|length > 2 %}
+                          <span class="enseignants-ellipsis" title="{% for ens in classe.enseignants %}{% if loop.index > 2 %}{{ ens.utilisateur.prenoms }} {{ ens.utilisateur.nom }}{% if not loop.last %}, {% endif %}{% endif %}{% endfor %}">
+                           +{{ classe.enseignants|length - 2 }}
+                         </span>
+                      {% endif %}
+        
+                      {% if classe.enseignants|length == 0 %}
+                         <span class="enseignants-aucun">Aucun</span>
+                     {% endif %}
+                    </div>
+                  </td>
+                  
+                  <!-- COLONNE ÉTAT CORRIGÉE -->
+                  <td class="etat text-center">
+                    <div class="etat-container">
+                        <span class="etat-badge
                             {% if classe.etat == 'Actif' %}bg-success
                             {% elif classe.etat == 'Fermé' %}bg-dark
                             {% else %}bg-secondary
@@ -81,7 +106,7 @@
                         </span>
                         
                         {% if user_role in ['admin', 'administrateur'] and classe.etat != "Fermé" %}
-                        <select class="form-select form-select-sm d-inline-block w-auto ms-1 select-action" data-id="{{ classe.id }}">
+                        <select class="etat-select select-action" data-id="{{ classe.id }}">
                             <option value="">Action</option>
                             {% if classe.etat | lower == 'inactif' %}
                             <option value="Activer">Activer</option>
@@ -90,8 +115,10 @@
                             {% endif %}
                         </select>
                         {% endif %}
-                    </td>
-                    <td class="text-nowrap actions-cell">
+                    </div>
+                  </td>
+                  
+                  <td class="text-nowrap actions-cell">
                         <button class="btn btn-info btn-sm btn-detail" data-id="{{ classe.id }}" title="Détails">
                             <i class="bi bi-eye"></i>
                         </button>
@@ -169,6 +196,5 @@
         </div>
     </div>
 </div>
-
 
 {% endblock %}

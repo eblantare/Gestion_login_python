@@ -4,7 +4,7 @@ from extensions import db
 from dotenv import load_dotenv
 from urllib.parse import quote_plus
 
- # Register blueprints
+# Register blueprints
 from .routes.eleves import eleves_bp
 from .routes.services import services_bp
 from .routes.appreciations import appreciations_bp
@@ -15,10 +15,12 @@ from .routes.paiements import paiements_bp
 from .routes.notes import notes_bp
 from .routes.moyennes import moyennes_bp
 from .routes.enseignements import enseignements_bp
-from .routes.ecoles import ecoles_bp
-from .routes.moyennes_export import moyennes_export_bp
+# from .routes.moyennes_export_backup import moyennes_export_bp
 from .routes.bulletins_export import bulletins_export_bp
 from .routes.main import main_bp
+from .routes.ecoles import ecoles_bp
+from .utils.context import inject_ecole_context_global
+from .utils.permissions import is_system_admin, is_ecole_admin
 
 load_dotenv()
 
@@ -39,8 +41,17 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = f"postgresql://{DB_USER}:{DB_PASSWORD_ENCODED}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-   
+    # ========== CONTEXT PROCESSOR POUR LES PERMISSIONS ==========
+    @app.context_processor
+    def utility_processor():
+        """Rend les fonctions de permissions disponibles dans tous les templates"""
+        return dict(
+            is_system_admin=is_system_admin,  # CORRECTION: Passer la fonction, pas son résultat
+            is_ecole_admin=is_ecole_admin     # CORRECTION: Passer la fonction, pas son résultat
+        )
+    # ========== FIN CONTEXT PROCESSOR ==========
 
+    # Enregistrement des blueprints
     app.register_blueprint(eleves_bp, url_prefix='/eleves')
     app.register_blueprint(enseignants_bp, url_prefix='/enseignants')
     app.register_blueprint(services_bp, url_prefix='/services')
@@ -51,8 +62,9 @@ def create_app():
     app.register_blueprint(notes_bp, url_prefix='/notes')
     app.register_blueprint(moyennes_bp, url_prefix='/moyennes')
     app.register_blueprint(enseignements_bp, url_prefix='/enseignements')
-    app.register_blueprint(ecoles_bp, url_prefix='/ecoles')
-    app.register_blueprint(moyennes_export_bp, url_prefix='/moyennes')
+    app.register_blueprint(ecoles_bp, url_prefix='/admin/ecoles')
+    
+    # app.register_blueprint(moyennes_export_bp, url_prefix='/moyennes')
     app.register_blueprint(bulletins_export_bp, url_prefix='/')
     app.register_blueprint(main_bp, url_prefix='/scolaire')
 

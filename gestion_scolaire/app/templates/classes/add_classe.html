@@ -10,31 +10,36 @@
         <input name="nom" class="form-control mb-2" placeholder="Nom" required>
         <input name="effectif" class="form-control mb-2" placeholder="Effectif" type="number" required>
 
-        <!-- Sélection multiple enseignants - AMÉLIORÉE -->
+        <!-- Sélection multiple enseignants - VERSION AMÉLIORÉE -->
         <div class="mb-3">
           <label for="addCl_enseignants" class="form-label select-multiple-label">
             Enseignants responsables
+            <span class="selection-indicator">
+              <span id="addCl_count">0</span> sélectionné(s)
+            </span>
           </label>
           
-          <select name="enseignants[]" id="addCl_enseignants" class="form-select" multiple size="4">
+          <select name="enseignants[]" id="addCl_enseignants" class="form-select select-enseignants" multiple size="5">
             {% for enseignant in enseignants %}
               <option value="{{ enseignant.id }}">
                 👨‍🏫 {{ enseignant.utilisateur.prenoms }} {{ enseignant.utilisateur.nom }}
+                {% if enseignant.matieres %}
+                  - {{ enseignant.matieres[0].libelle if enseignant.matieres else '' }}
+                {% endif %}
               </option>
             {% endfor %}
           </select>
-<!--           
-          <div class="select-multiple-hint">
-            <strong>💡 Comment sélectionner :</strong><br>
-            • <kbd>Ctrl</kbd> + clic : Sélection multiple<br>
-            • <kbd>Shift</kbd> + clic : Sélection par plage<br>
-            • <kbd>Ctrl</kbd> + <kbd>A</kbd> : Tout sélectionner
-          </div> -->
+          
+          <!-- Zone d'affichage des sélections -->
+          <div id="addCl_selected" class="selected-teachers-container mt-2">
+            <!-- Les badges des enseignants sélectionnés apparaîtront ici -->
+          </div>
+        
         </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Annuler</button>
-        <button type="submit" class="btn btn-success rounded-pill">Enregistrer</button>
+        <button type="submit" class="btn btn-success rounded-pill btn-lg">Enregistrer</button>
       </div>
     </form>
   </div>

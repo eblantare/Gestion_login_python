@@ -9,10 +9,17 @@ class Appreciations(BaseModel):
                         {"schema": "geslog_schema", "extend_existing": True} ) 
      id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False) 
      libelle = db.Column(db.String(200), nullable=False) 
+
+         # Lien avec l'école
+     ecole_id = db.Column(UUID(as_uuid=True), db.ForeignKey('geslog_schema.ecoles.id'), nullable=False)
+
      seuil_min = db.Column(db.Float, nullable=False)
      seuil_max = db.Column(db.Float, nullable=False)
      description = db.Column(db.String(300), nullable=True) 
      etat = db.Column(db.String(40), default="Inactif")
+
+     # NOUVEAU : Échelle maximale (20, 40, 100, etc.)
+     echelle_max = db.Column(db.Float, nullable=False, default=20.0)
 
 
 

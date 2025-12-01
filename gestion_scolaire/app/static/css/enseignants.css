@@ -1,5 +1,3 @@
-
-
 /* ======================= */
 /* STYLES OPTIMISÉS POUR LE TABLEAU */
 /* ======================= */
@@ -160,6 +158,30 @@
 }
 
 /* ======================= */
+/* BARRE D'OUTILS CORRIGÉE */
+/* ======================= */
+
+.toolbar-container {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid #dee2e6;
+    margin-bottom: 1rem;
+}
+
+.toolbar-container .input-group {
+    flex-wrap: nowrap;
+}
+
+.toolbar-container .btn {
+    white-space: nowrap;
+}
+
+.toolbar-container .form-select {
+    font-size: 0.875rem;
+}
+
+/* ======================= */
 /* RESPONSIVE DESIGN AMÉLIORÉ */
 /* ======================= */
 
@@ -190,6 +212,10 @@
     
     #table-enseignants {
         min-width: 1100px;
+    }
+    
+    .toolbar-container .col-md-3 {
+        margin-bottom: 0.5rem;
     }
 }
 
@@ -240,6 +266,15 @@
         min-width: 55px;
         font-size: 0.6rem;
     }
+    
+    .toolbar-container {
+        padding: 0.75rem;
+    }
+    
+    .toolbar-container .btn {
+        font-size: 0.8rem;
+        padding: 0.375rem 0.75rem;
+    }
 }
 
 /* Très petits écrans */
@@ -256,6 +291,10 @@
     .select-action.form-select {
         width: 75px !important;
         font-size: 0.55rem !important;
+    }
+    
+    .toolbar-container .col-12 {
+        margin-bottom: 0.5rem;
     }
 }
 
@@ -298,4 +337,113 @@
 .etat .d-flex, .actions-cell .d-flex {
     align-items: center;
     justify-content: center;
+}
+
+/* CORRECTION : Style amélioré pour les selects multiples */
+#matiere_id, #edit_matiere_id {
+    height: auto;
+    min-height: 120px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+#matiere_id option, #edit_matiere_id option {
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+}
+
+#matiere_id option:hover, #edit_matiere_id option:hover {
+    background-color: #f8f9fa;
+}
+
+#matiere_id option:checked, #edit_matiere_id option:checked {
+    background-color: #007bff !important;
+    color: white !important;
+}
+
+/* Champs d'affichage des matières sélectionnées */
+#add_matiere_libelle, #edit_matiere_libelle {
+    background-color: #f8f9fa;
+    min-height: 38px;
+    padding: 8px 12px;
+    border-radius: 0.375rem;
+    border: 1px solid #ced4da;
+    font-size: 0.875rem;
+}
+
+/* Agrandissement spécifique du bouton Enregistrer */
+#addEnsModal .btn-success {
+    min-width: 140px;
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+/* Effet au survol */
+#addEnsModal .btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+/* CORRECTION DÉFINITIVE : Styles pour les selects multiples */
+#matiere_id, #edit_matiere_id {
+    height: auto;
+    min-height: 120px;
+    max-height: 200px;
+    overflow-y: auto;
+    border: 2px solid #ced4da;
+    border-radius: 0.5rem;
+    padding: 8px;
+    background-color: white;
+}
+
+#matiere_id:focus, #edit_matiere_id:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+#matiere_id option, #edit_matiere_id option {
+    padding: 10px 12px;
+    margin: 2px 0;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+#matiere_id option:hover, #edit_matiere_id option:hover {
+    background-color: #e9ecef !important;
+    border-color: #007bff;
+}
+
+#matiere_id option:checked, #edit_matiere_id option:checked {
+    background-color: #007bff !important;
+    color: white !important;
+    font-weight: 600;
+    border-color: #0056b3;
+}
+
+/* Indicateur visuel amélioré */
+.select-multiple-hint {
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.select-multiple-hint i {
+    color: #007bff;
+    margin-right: 4px;
+}
+
+/* Champs d'affichage améliorés */
+#add_matiere_libelle, #edit_matiere_libelle {
+    background-color: #f8f9fa;
+    min-height: 42px;
+    padding: 10px 12px;
+    border-radius: 0.5rem;
+    border: 1px solid #ced4da;
+    font-size: 0.9rem;
+    cursor: not-allowed;
+    font-weight: 500;
 }
