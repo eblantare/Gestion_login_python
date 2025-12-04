@@ -193,23 +193,75 @@ def add_ens():
     ecole_id = get_current_ecole_id()
     data = request.form
     utilisateur_id = data.get("utilisateur_id")
+    ignore_warning = data.get("ignore_warning") == "true"  # Nouveau paramètre
 
-    # Vérification si cet utilisateur est déjà enregistré comme enseignant dans cette école
+    # Vérification PRINCIPALE: si cet utilisateur est déjà enregistré comme enseignant dans cette école
     existing_ens = Enseignant.query.filter_by(utilisateur_id=utilisateur_id, ecole_id=ecole_id).first()
     if existing_ens:
-        return jsonify({"error": "Cet utilisateur est déjà enregistré comme enseignant dans cette école"}), 400
+        # Récupérer les détails de l'enseignant existant
+        utilisateur = existing_ens.utilisateur if hasattr(existing_ens, 'utilisateur') else None
+        nom_complet = f"{utilisateur.nom} {utilisateur.prenoms}" if utilisateur else "Cet enseignant"
+        
+        return jsonify({
+            "error": f"{nom_complet} est déjà enregistré comme enseignant dans cette école.",
+            "duplicate_id": str(existing_ens.id) if existing_ens else None
+        }), 400
 
+    # Récupérer l'utilisateur
+    utilisateur = Utilisateur.query.get(utilisateur_id)
+    if not utilisateur:
+        return jsonify({"error": "Utilisateur non trouvé"}), 404
+    
+    # Vérification OPTIONNELLE: si un enseignant avec le même nom et prénom existe déjà dans cette école
+    # (mais avec un compte utilisateur différent)
+    # CORRECTION : Ajouter la condition ignore_warning
+    if not ignore_warning:
+        enseignant_existant = db.session.query(Enseignant).join(Utilisateur).filter(
+            Utilisateur.nom == utilisateur.nom,
+            Utilisateur.prenoms == utilisateur.prenoms,
+            Enseignant.ecole_id == ecole_id,
+            Enseignant.utilisateur_id != utilisateur_id  # Important: exclure le même utilisateur
+        ).first()
+        
+        if enseignant_existant:
+            # Si on arrive ici, c'est qu'un enseignant avec le même nom existe mais avec un autre compte utilisateur
+            enseignant_existant_user = enseignant_existant.utilisateur
+            return jsonify({
+                "error": f"Un enseignant nommé {utilisateur.nom} {utilisateur.prenoms} existe déjà dans cette école "
+                        f"(compte utilisateur différent: {enseignant_existant_user.email or 'N/A'}). "
+                        f"Voulez-vous quand même l'ajouter ?",
+                "duplicate_id": str(enseignant_existant.id),
+                "warning": True,
+                "can_ignore": True  # Nouveau flag pour permettre d'ignorer
+            }), 400
+
+    # Vérification 3: si l'utilisateur a déjà un compte enseignant dans une autre école
+    # (uniquement pour admin système)
+    if is_system_admin_enhanced() and not ignore_warning:
+        enseignant_autre_ecole = Enseignant.query.filter_by(utilisateur_id=utilisateur_id).first()
+        if enseignant_autre_ecole:
+            ecole_existante = Ecole.query.get(enseignant_autre_ecole.ecole_id)
+            nom_ecole = ecole_existante.nom if ecole_existante else "une autre école"
+            return jsonify({
+                "error": f"Cet utilisateur est déjà enseignant dans {nom_ecole}. "
+                        f"Voulez-vous vraiment l'ajouter aussi dans cette école ?",
+                "warning": True,
+                "ecole_existante": nom_ecole,
+                "can_ignore": True  # Nouveau flag pour permettre d'ignorer
+            }), 400
+
+    # Créer l'enseignant
     enseignant = Enseignant(
         utilisateur_id=utilisateur_id,
         titre=data.get("titre"),
         date_fonction=data.get("date_fonction"),
         etat="Inactif",
-        ecole_id=ecole_id  # Lier à l'école courante
+        ecole_id=ecole_id
     )
     db.session.add(enseignant)
     db.session.commit()
 
-    # Ajouter les matières sélectionnées (vérifier qu'elles appartiennent à l'école)
+    # Ajouter les matières sélectionnées
     matieres_ids = request.form.getlist("matiere_id")
     if matieres_ids:
         matieres = Matiere.query.filter(
@@ -220,6 +272,7 @@ def add_ens():
         db.session.commit()
 
     return jsonify({"message": "Ajout réussi"}), 200
+
 
 @enseignants_bp.route("/update/<string:id>", methods=["POST"])
 @login_required
@@ -243,10 +296,49 @@ def update_ens(id):
         return jsonify({"error": "État non inactif"}), 403
     
     try:
+        # Récupérer l'utilisateur
+        utilisateur = enseignant.utilisateur
+        if not utilisateur:
+            return jsonify({"error": "Utilisateur non trouvé"}), 404
+        
+        # VÉRIFICATION: si le nom/prénom change, vérifier s'il existe déjà dans cette école
+        nouveau_nom = request.form.get("nom")
+        nouveau_prenoms = request.form.get("prenoms")
+        
+        if (nouveau_nom and nouveau_nom != utilisateur.nom) or (nouveau_prenoms and nouveau_prenoms != utilisateur.prenoms):
+            # Vérifier s'il existe déjà un enseignant avec ce nom/prénom dans la même école
+            ecole_id = enseignant.ecole_id
+            nom_a_verifier = nouveau_nom if nouveau_nom else utilisateur.nom
+            prenoms_a_verifier = nouveau_prenoms if nouveau_prenoms else utilisateur.prenoms
+            
+            enseignant_existant = db.session.query(Enseignant).join(Utilisateur).filter(
+                Utilisateur.nom == nom_a_verifier,
+                Utilisateur.prenoms == prenoms_a_verifier,
+                Enseignant.ecole_id == ecole_id,
+                Enseignant.id != id  # Exclure l'enseignant en cours de modification
+            ).first()
+            
+            if enseignant_existant:
+                return jsonify({
+                    "error": f"Un enseignant nommé {nom_a_verifier} {prenoms_a_verifier} existe déjà dans cette école."
+                }), 400
+        
         # Mettre à jour les champs de base
         for field in ["titre", "date_fonction"]:
             if field in request.form:
                 setattr(enseignant, field, request.form.get(field))
+        
+        # Mettre à jour l'utilisateur si les champs sont présents
+        if "nom" in request.form:
+            utilisateur.nom = request.form.get("nom")
+        if "prenoms" in request.form:
+            utilisateur.prenoms = request.form.get("prenoms")
+        if "email" in request.form:
+            utilisateur.email = request.form.get("email")
+        if "telephone" in request.form:
+            utilisateur.telephone = request.form.get("telephone")
+        if "sexe" in request.form:
+            utilisateur.sexe = request.form.get("sexe")
         
         # CORRECTION CRITIQUE : Gestion de la relation many-to-many
         matiere_ids = request.form.getlist('matiere_id')
@@ -256,7 +348,7 @@ def update_ens(id):
         matiere_ids = [mid for mid in matiere_ids if mid.strip()]
         
         if matiere_ids:
-            # Récupérer les matières depuis la base (SQLAlchemy gère la conversion UUID)
+            # Récupérer les matières depuis la base
             ecole_id = enseignant.ecole_id if not user_is_system_admin else get_current_ecole_id()
             nouvelles_matieres = Matiere.query.filter(
                 Matiere.id.in_(matiere_ids),
@@ -295,27 +387,108 @@ def update_ens(id):
 @enseignants_bp.route("/delete/<string:id>", methods=["POST"])
 @login_required
 def delete_ens(id):
-    """Supprimer un enseignant - CORRECTION : Sans @ecole_required pour admin système"""
+    """Supprimer un enseignant avec gestion des enseignements associés"""
     if not is_admin():
         return jsonify({"error": "Accès refusé"}), 403
     
     user_is_system_admin = is_system_admin_enhanced()
     
+    try:
+        # Récupérer l'enseignant
+        if user_is_system_admin:
+            enseignant = Enseignant.query.filter_by(id=id).first_or_404()
+        else:
+            ecole_id = get_current_ecole_id()
+            enseignant = Enseignant.query.filter_by(id=id, ecole_id=ecole_id).first_or_404()
+        
+        # Contrôle sur l'état
+        if enseignant.etat.lower() != 'inactif':
+            return jsonify({"error": "Impossible de supprimer un enseignant dont l'état n'est pas 'Inactif'. Modifiez d'abord son état."}), 403
+        
+        # OPTION A : Réassigner les enseignements à un autre enseignant
+        # Vous pouvez ajouter un paramètre pour choisir un nouvel enseignant
+        
+        # OPTION B : Supprimer les enseignements associés (si c'est acceptable)
+        if hasattr(enseignant, 'enseignements') and enseignant.enseignements:
+            # Vérifier si l'utilisateur veut réassigner ou supprimer
+            data = request.get_json() or {}
+            action = data.get('action', 'delete')  # 'delete' ou 'reassign'
+            new_enseignant_id = data.get('new_enseignant_id')
+            
+            if action == 'reassign' and new_enseignant_id:
+                # Réassigner à un autre enseignant
+                nouvel_enseignant = Enseignant.query.filter_by(id=new_enseignant_id).first()
+                if nouvel_enseignant:
+                    for enseignement in enseignant.enseignements:
+                        enseignement.enseignant_id = new_enseignant_id
+                    db.session.commit()
+                else:
+                    return jsonify({"error": "Enseignant de remplacement non trouvé"}), 400
+            else:
+                # Supprimer les enseignements
+                for enseignement in enseignant.enseignements:
+                    db.session.delete(enseignement)
+                db.session.commit()
+        
+        # Maintenant supprimer l'enseignant
+        db.session.delete(enseignant)
+        db.session.commit()
+        
+        return jsonify({
+            "success": True, 
+            "message": "Enseignant supprimé avec succès"
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Erreur lors de la suppression: {str(e)}")
+        return jsonify({"error": f"Erreur lors de la suppression: {str(e)}"}), 500
+
+@enseignants_bp.route("/check-dependencies/<string:id>", methods=["GET"])
+@login_required
+def check_dependencies(id):
+    """Vérifier si un enseignant a des dépendances avant suppression"""
+    user_is_system_admin = is_system_admin_enhanced()
+    
     if user_is_system_admin:
-        # Admin système peut supprimer n'importe quel enseignant
         enseignant = Enseignant.query.filter_by(id=id).first_or_404()
     else:
-        # Autres admins : seulement les enseignants de leur école
         ecole_id = get_current_ecole_id()
         enseignant = Enseignant.query.filter_by(id=id, ecole_id=ecole_id).first_or_404()
     
-    # Contrôle sur l'état
-    if enseignant.etat.lower() != 'inactif':
-        return jsonify({"error": "Impossible de supprimer"}), 403
+    # Collecter les dépendances
+    dependances = []
     
-    db.session.delete(enseignant)
-    db.session.commit()
-    return jsonify({"success": True})
+    # Enseignements
+    if hasattr(enseignant, 'enseignements') and enseignant.enseignements:
+        enseignements_count = len(enseignant.enseignements)
+        dependances.append(f"{enseignements_count} enseignement(s)")
+        
+        # Détails supplémentaires (optionnel)
+        enseignements_details = []
+        for ens in enseignant.enseignements[:5]:  # Limiter à 5
+            # Vous pouvez récupérer plus d'infos sur chaque enseignement
+            enseignements_details.append(f"Enseignement #{ens.id[:8]}...")
+        
+        if enseignements_details:
+            dependances.append("Détails: " + ", ".join(enseignements_details))
+    
+    # Autres vérifications...
+    
+    if dependances:
+        return jsonify({
+            "can_delete": False,
+            "dependances": dependances,
+            "message": f"Cet enseignant a {len(enseignant.enseignements) if hasattr(enseignant, 'enseignements') else 0} élément(s) dépendant(s)",
+            "nom": enseignant.utilisateur.nom if hasattr(enseignant, 'utilisateur') and enseignant.utilisateur else '',
+            "prenoms": enseignant.utilisateur.prenoms if hasattr(enseignant, 'utilisateur') and enseignant.utilisateur else ''
+        }), 400
+    
+    return jsonify({
+        "can_delete": True,
+        "nom": enseignant.utilisateur.nom if hasattr(enseignant, 'utilisateur') and enseignant.utilisateur else '',
+        "prenoms": enseignant.utilisateur.prenoms if hasattr(enseignant, 'utilisateur') and enseignant.utilisateur else ''
+    })
 
 @enseignants_bp.route("/get/<string:enseignant_id>", methods=["GET"])
 @login_required
@@ -432,64 +605,60 @@ def enseignants_options():
     Renvoie en une seule requête :
       - liste des utilisateurs (selon le rôle : tous pour admin système, seulement l'école pour les autres)
       - liste des matieres (id, libelle) de l'école courante
-    CORRECTION : Gestion des matières pour admin système avec école sélectionnée
+    CORRECTION : Gestion cohérente avec la liste principale
     """
     try:
-        ecole_id = get_current_ecole_id()
+        # RÉCUPÉRATION UNIFORMISÉE DE L'ÉCOLE (identique à liste_enseignants)
+        ecole_url = request.args.get('ecole', '', type=str)
         user_is_system_admin = is_system_admin_enhanced()
         
-        # CORRECTION CRITIQUE : Récupérer l'école depuis l'URL pour l'admin système
-        ecole_url = request.args.get('ecole', '', type=str)
-        
-        # DÉTERMINATION DE L'ÉCOLE POUR LES MATIÈRES
         if user_is_system_admin:
-            # Admin système : utiliser l'école de l'URL si disponible, sinon l'école courante
-            ecole_matiere_id = ecole_url if ecole_url else ecole_id
-            current_app.logger.info(f"🔍 ADMIN SYSTÈME - Ecole matières: URL={ecole_url}, Courante={ecole_id}, Utilisée={ecole_matiere_id}")
+            # ADMIN SYSTÈME : Priorité ABSOLUE au paramètre URL (comme liste_enseignants)
+            if ecole_url:
+                ecole_id = ecole_url
+                current_app.logger.info(f"🔍 ADMIN - Options utilisateurs: École URL: {ecole_id}")
+            else:
+                # Si pas de paramètre URL, on utilise l'école de session
+                ecole_id = get_current_ecole_id()
+                current_app.logger.info(f"🔍 ADMIN - Options utilisateurs: École session: {ecole_id}")
         else:
-            # Autres utilisateurs : toujours l'école courante
-            ecole_matiere_id = ecole_id
-            current_app.logger.info(f"🔍 AUTRE UTILISATEUR - Ecole matières: {ecole_matiere_id}")
+            # Non-admin : toujours l'école courante
+            ecole_id = get_current_ecole_id()
+            current_app.logger.info(f"🔍 NON-ADMIN - Options utilisateurs: École session: {ecole_id}")
 
         # ========== CHARGEMENT DES UTILISATEURS ==========
         if user_is_system_admin:
-            users = Utilisateur.query.all()
-            current_app.logger.info(f"🔍 Admin système - {len(users)} utilisateurs chargés")
+            if ecole_id:
+                # CORRECTION CRITIQUE : Admin système avec école sélectionnée
+                # -> Uniquement les utilisateurs de CETTE école
+                users = Utilisateur.query.filter_by(ecole_id=ecole_id).all()
+                current_app.logger.info(f"🔍 Admin système avec école {ecole_id} - {len(users)} utilisateurs de cette école")
+            else:
+                # Admin système SANS école spécifique -> TOUS les utilisateurs
+                users = Utilisateur.query.all()
+                current_app.logger.info(f"🔍 Admin système sans école - {len(users)} utilisateurs (tous)")
         else:
+            # Utilisateurs normaux : seulement leur école
             if not ecole_id:
                 return jsonify({"error": "Aucune école sélectionnée"}), 400
             users = Utilisateur.query.filter_by(ecole_id=ecole_id).all()
-            current_app.logger.info(f"🔍 Utilisateur normal - Ecole {ecole_id}, {len(users)} utilisateurs chargés")
+            current_app.logger.info(f"🔍 Utilisateur normal - École {ecole_id}, {len(users)} utilisateurs")
 
-        # ========== CHARGEMENT CRITIQUE DES MATIÈRES ==========
-        current_app.logger.info(f"🔍 Chargement des matières pour école: {ecole_matiere_id}")
-        
-        if user_is_system_admin and not ecole_matiere_id:
-            # CAS 1 : Admin système sans école spécifique - AUCUNE matière
-            matieres = []
-            current_app.logger.info(f"🔍 Admin système - AUCUNE matière (pas d'école sélectionnée)")
-        elif ecole_matiere_id:
-            # CAS 2 : École spécifique (admin système ou autre) - matières de cette école
-            matieres_query = Matiere.query.filter_by(ecole_id=ecole_matiere_id)
-            matieres_count = matieres_query.count()
-            current_app.logger.info(f"🔍 Nombre total de matières pour l'école {ecole_matiere_id}: {matieres_count}")
-            
-            # Récupération effective avec DISTINCT pour éviter les doublons
+        # ========== CHARGEMENT DES MATIÈRES ==========
+        # CORRECTION : Toujours filtrer par l'école déterminée ci-dessus
+        if ecole_id:
+            matieres_query = Matiere.query.filter_by(ecole_id=ecole_id)
             matieres = matieres_query.with_entities(Matiere.id, Matiere.libelle).distinct().all()
-            current_app.logger.info(f"🔍 Matières récupérées (distinct): {len(matieres)}")
-            
-            # Log détaillé de chaque matière
-            for i, matiere in enumerate(matieres):
-                current_app.logger.info(f"🔍 Matière {i+1}: ID={matiere.id}, Libellé='{matiere.libelle}'")
+            current_app.logger.info(f"🔍 Matières pour école {ecole_id}: {len(matieres)}")
         else:
-            # CAS 3 : Autre utilisateur sans école - AUCUNE matière
+            # Admin système sans école spécifique -> AUCUNE matière
             matieres = []
-            current_app.logger.info(f"🔍 Aucune école - matières vides")
+            current_app.logger.info(f"🔍 Aucune matière (admin système sans école spécifique)")
 
         # ========== CONSTRUCTION DE LA RÉPONSE ==========
         users_list = []
         for u in users:
-            # CORRECTION : Récupérer le nom de l'école via une requête séparée si nécessaire
+            # Récupérer le nom de l'école
             ecole_nom = None
             if u.ecole_id:
                 ecole = Ecole.query.get(u.ecole_id)
@@ -508,13 +677,12 @@ def enseignants_options():
             }
             users_list.append(user_data)
 
-        # CORRECTION : Supprimer les doublons de matières par ID
+        # Déduplication des matières
         matieres_dict = {}
         for m in matieres:
             matieres_dict[str(m.id)] = {"id": str(m.id), "libelle": m.libelle}
         
         matieres_list = list(matieres_dict.values())
-        current_app.logger.info(f"🔍 Matières finales après déduplication: {len(matieres_list)}")
 
         response_data = {
             "utilisateurs": users_list, 
@@ -522,11 +690,9 @@ def enseignants_options():
             "debug": {
                 "ecole_id": str(ecole_id) if ecole_id else None,
                 "ecole_url": ecole_url,
-                "ecole_matiere_id": str(ecole_matiere_id) if ecole_matiere_id else None,
                 "is_system_admin": user_is_system_admin,
                 "users_count": len(users_list),
-                "matieres_count": len(matieres_list),
-                "matieres_details": [f"{m['id']}: {m['libelle']}" for m in matieres_list]
+                "matieres_count": len(matieres_list)
             }
         }
 
@@ -534,7 +700,7 @@ def enseignants_options():
 
     except Exception as exc:
         import traceback
-        traceback.print_exc()
+        current_app.logger.error(f"❌ Erreur chargement options: {traceback.format_exc()}")
         return jsonify({"error": f"Impossible de charger les options: {str(exc)}"}), 500
 
 

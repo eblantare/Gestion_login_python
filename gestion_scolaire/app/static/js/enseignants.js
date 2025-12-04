@@ -466,25 +466,6 @@ function initAddEns() {
     var form = document.getElementById("addEnsForm");
     if (!form) return;
 
-    var addModal = document.getElementById('addEnsModal');
-    if (addModal) {
-        addModal.addEventListener('show.bs.modal', function() {
-            form.reset();
-            form.classList.remove('was-validated');
-            
-            var matiereSelect = document.getElementById("matiere_id");
-            if (matiereSelect) {
-                Array.from(matiereSelect.options).forEach(function(option) {
-                    option.selected = false;
-                });
-                document.getElementById("add_matiere_libelle").value = "";
-            }
-            
-            // CORRECTION : Filtrer les utilisateurs par école sélectionnée
-            filtrerUtilisateursParEcole();
-        });
-    }
-
     form.addEventListener("submit", function(e) {
         e.preventDefault();
         form.classList.add("was-validated");
@@ -495,43 +476,115 @@ function initAddEns() {
             return;
         }
 
+        var utilisateurId = document.getElementById("utilisateur_id").value;
+        if (!utilisateurId) {
+            showNotification("Veuillez sélectionner un utilisateur", "warning");
+            return;
+        }
+
         var fd = new FormData(form);
+        
+        var submitBtn = form.querySelector('button[type="submit"]');
+        var originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Ajout...';
+        
         fetch("/enseignants/add", { 
             method: "POST", 
             body: fd 
         })
         .then(function(response) {
-            return response.json();
+            return response.json().then(function(data) {
+                return {
+                    status: response.status,
+                    data: data
+                };
+            });
         })
-        .then(function(data) {
-            if (data.error) {
-                showNotification(data.error, "danger");
-            } else {
+        .then(function(result) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+            
+            if (result.status === 200) {
                 var modal = bootstrap.Modal.getInstance(document.getElementById("addEnsModal"));
                 if (modal) modal.hide();
-                showNotification(data.message || "Ajout réussi", "success");
+                showNotification(result.data.message || "Ajout réussi", "success");
                 setTimeout(function() { location.reload(); }, 1000);
+                
+            } else if (result.status === 400 && result.data.warning) {
+                // Cas d'avertissement
+                if (confirm(`⚠️ ${result.data.error}\n\nVoulez-vous quand même l'ajouter dans cette école ?`)) {
+                    fd.append("ignore_warning", "true");
+                    
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Ajout...';
+                    
+                    return fetch("/enseignants/add", { 
+                        method: "POST", 
+                        body: fd 
+                    }).then(function(response) {
+                        return response.json();
+                    }).then(function(data) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalText;
+                        
+                        if (data.error) {
+                            showNotification(data.error, "danger");
+                        } else {
+                            var modal = bootstrap.Modal.getInstance(document.getElementById("addEnsModal"));
+                            if (modal) modal.hide();
+                            showNotification(data.message || "Ajout réussi", "success");
+                            setTimeout(function() { location.reload(); }, 1000);
+                        }
+                    }).catch(function(err2) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalText;
+                        showNotification("Erreur réseau: " + err2.message, "danger");
+                    });
+                }
+            } else {
+                // Erreur normale - afficher une seule fois
+                showNotification(result.data.error || "Erreur lors de l'ajout", "danger");
             }
+            
+            // CORRECTION CRITIQUE : Retourner une promesse résolue
+            // pour éviter que l'erreur ne soit attrapée par le .catch() suivant
+            return Promise.resolve();
         })
         .catch(function(err) {
-            showNotification("Erreur réseau lors de l'ajout: " + err.message, "danger");
+            // Ce bloc ne devrait s'exécuter QUE pour les erreurs réseau
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+            
+            // Vérifier si c'est une erreur de parsing JSON ou réseau
+            if (err instanceof TypeError || err.message.includes("fetch") || err.message.includes("network")) {
+                showNotification("Erreur réseau lors de l'ajout: " + err.message, "danger");
+            }
+            // Les autres erreurs (validation serveur) ont déjà été traitées dans le .then()
         });
     });
 }
 
 // CORRECTION : Filtrer les utilisateurs par école sélectionnée
+// CORRECTION : Filtrer les utilisateurs par école sélectionnée
 function filtrerUtilisateursParEcole() {
     var selectUtilisateur = document.getElementById("utilisateur_id");
     if (!selectUtilisateur || !window.utilisateursMap) return;
     
-    // Récupérer l'école sélectionnée
-    var ecoleId = getCurrentEcoleId();
+    // Récupérer l'école depuis l'URL (identique à liste_enseignants)
+    var urlParams = new URLSearchParams(window.location.search);
+    var ecoleId = urlParams.get('ecole');
+    
+    console.log(`🔍 Filtrage utilisateurs pour école: ${ecoleId}`);
     
     // Vider le select
     selectUtilisateur.innerHTML = '<option value="">-- Sélectionnez un utilisateur --</option>';
     
     // Filtrer les utilisateurs par école
+    var usersAdded = 0;
     Object.values(window.utilisateursMap).forEach(function(user) {
+        // CORRECTION : Si écoleId est spécifié, filtrer strictement
+        // Si écoleId n'est pas spécifié (admin sans école), afficher tous
         if (!ecoleId || user.ecole_id === ecoleId) {
             var ecoleInfo = user.ecole_nom ? ' - ' + user.ecole_nom : ' - Sans école';
             var optionText = user.nom + ' ' + user.prenoms + ecoleInfo;
@@ -540,14 +593,167 @@ function filtrerUtilisateursParEcole() {
             option.value = user.id;
             option.textContent = optionText;
             selectUtilisateur.appendChild(option);
+            usersAdded++;
         }
     });
     
+    console.log(`✅ ${usersAdded} utilisateurs filtrés pour le select`);
+    
     // Si aucun utilisateur trouvé pour cette école
-    if (selectUtilisateur.options.length === 1) {
-        selectUtilisateur.innerHTML = '<option value="">Aucun utilisateur disponible pour cette école</option>';
+    if (usersAdded === 0) {
+        var message = ecoleId 
+            ? 'Aucun utilisateur disponible pour cette école'
+            : 'Aucun utilisateur disponible';
+        selectUtilisateur.innerHTML = `<option value="">${message}</option>`;
     }
 }
+
+
+// ===============================
+// GESTION DE L'INDICATEUR D'ÉCOLE
+// ===============================
+
+function updateSelectedEcoleIndicator() {
+    var indicator = document.getElementById('selectedEcoleIndicator');
+    var alertDiv = document.getElementById('adminEcoleAlert');
+    var alertMessage = document.getElementById('adminEcoleMessage');
+    
+    if (!indicator || !alertDiv || !alertMessage) return;
+    
+    // Récupérer le paramètre école de l'URL
+    var urlParams = new URLSearchParams(window.location.search);
+    var ecoleId = urlParams.get('ecole');
+    
+    if (isSystemAdmin()) {
+        // Afficher l'alerte pour l'admin système
+        alertDiv.classList.remove('d-none');
+        
+        if (ecoleId) {
+            // Admin avec école sélectionnée
+            indicator.textContent = `École sélectionnée: ${ecoleId}`;
+            indicator.className = 'text-warning ms-2';
+            alertMessage.textContent = `Vous ajoutez un enseignant pour l'école ${ecoleId}`;
+        } else {
+            // Admin sans école sélectionnée
+            indicator.textContent = 'Toutes les écoles';
+            indicator.className = 'text-danger ms-2';
+            alertMessage.textContent = 'ATTENTION: Vous travaillez sur toutes les écoles. Les utilisateurs de toutes les écoles sont visibles.';
+        }
+    } else {
+        // Cacher l'alerte pour les non-admins
+        alertDiv.classList.add('d-none');
+        
+        // Afficher simplement l'école courante
+        indicator.textContent = `École: ${ecoleId || 'Non spécifiée'}`;
+        indicator.className = 'text-muted ms-2';
+    }
+}
+
+function updateUtilisateursCount(count) {
+    var countInfo = document.getElementById('utilisateursCountInfo');
+    var filterInfo = document.getElementById('utilisateursFilterInfo');
+    
+    if (countInfo) {
+        countInfo.textContent = `(${count} disponible${count > 1 ? 's' : ''})`;
+    }
+    
+    if (filterInfo) {
+        var urlParams = new URLSearchParams(window.location.search);
+        var ecoleId = urlParams.get('ecole');
+        
+        if (isSystemAdmin() && ecoleId) {
+            filterInfo.textContent = `Filtrés pour l'école ${ecoleId}`;
+        } else if (isSystemAdmin() && !ecoleId) {
+            filterInfo.textContent = 'Tous les utilisateurs (toutes les écoles)';
+            filterInfo.className = 'text-danger';
+        } else {
+            filterInfo.textContent = `Utilisateurs de votre école`;
+        }
+    }
+}
+
+function updateMatieresCount(count) {
+    var countInfo = document.getElementById('matieresCountInfo');
+    if (countInfo) {
+        countInfo.textContent = `(${count} disponible${count > 1 ? 's' : ''})`;
+    }
+}
+
+// Modifier la fonction populateSelects pour inclure les compteurs
+function populateSelects(payload) {
+    if (!payload || typeof payload !== 'object') return;
+
+    // Réinitialiser les maps
+    window.utilisateursMap = {};
+    window.matieresMap = {};
+
+    // Mettre à jour les compteurs
+    updateUtilisateursCount(payload.utilisateurs ? payload.utilisateurs.length : 0);
+    updateMatieresCount(payload.matieres ? payload.matieres.length : 0);
+
+    // CORRECTION : Peuplement des utilisateurs
+    var selUsers = document.getElementById("utilisateur_id");
+    if (selUsers && Array.isArray(payload.utilisateurs)) {
+        selUsers.innerHTML = '<option value="">-- Sélectionnez un utilisateur --</option>';
+        
+        // CORRECTION : Filtrer les utilisateurs pour admin système avec école sélectionnée
+        var ecoleId = getCurrentEcoleId();
+        var usersToShow = payload.utilisateurs;
+        
+        if (isSystemAdmin() && ecoleId) {
+            // Admin système avec école sélectionnée : seulement les utilisateurs de cette école
+            usersToShow = payload.utilisateurs.filter(function(user) {
+                return user.ecole_id === ecoleId;
+            });
+            console.log(`🔍 Admin système - Utilisateurs filtrés pour école ${ecoleId}: ${usersToShow.length}`);
+        }
+        
+        usersToShow.forEach(function(u) {
+            var ecoleInfo = u.ecole_nom ? ' - ' + u.ecole_nom : ' - Sans école';
+            var optionText = u.nom + ' ' + u.prenoms + ecoleInfo;
+            
+            selUsers.innerHTML += '<option value="' + u.id + '">' + optionText + '</option>';
+            window.utilisateursMap[u.id] = u;
+        });
+        
+        if (usersToShow.length === 0) {
+            selUsers.innerHTML = '<option value="">Aucun utilisateur disponible</option>';
+        }
+        
+        console.log(`✅ ${usersToShow.length} utilisateurs chargés dans le select`);
+    }
+
+    // CORRECTION : Peuplement des matières
+    var selMat = document.getElementById("matiere_id");
+    var editSelMat = document.getElementById("edit_matiere_id");
+    
+    if (Array.isArray(payload.matieres)) {
+        // Stocker les matières dans la map globale
+        payload.matieres.forEach(function(m) {
+            window.matieresMap[m.id] = m;
+        });
+        
+        console.log(`📦 ${Object.keys(window.matieresMap).length} matières chargées dans la map`);
+        
+        // Utiliser la nouvelle fonction de remplissage
+        populateMatiereSelects();
+    } else {
+        console.warn("⚠️ Aucune matière disponible dans la réponse");
+    }
+
+    attachAutoFillListeners();
+}
+
+// Mettre à jour lors de l'ouverture du modal
+document.getElementById('addEnsModal').addEventListener('show.bs.modal', function() {
+    updateSelectedEcoleIndicator();
+    filtrerUtilisateursParEcole();
+    
+    // Recharger les données si nécessaire
+    if (!window.utilisateursMap || Object.keys(window.utilisateursMap).length === 0) {
+        chargerSelects();
+    }
+});
 
 function initEditEns() {
     var form = document.getElementById("editEnsForm");
@@ -608,46 +814,187 @@ function initDeleteEns() {
     
     form.addEventListener("submit", function(e) {
         e.preventDefault();
+        
+        // Afficher un loader
         submitBtn.disabled = true;
+        var originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Suppression...';
 
         var id = document.getElementById("deleteEns_id").value;
+        
+        // Envoyer la requête
         fetch('/enseignants/delete/' + id, { 
             method: "POST", 
-            headers: { "X-Requested-With": "XMLHttpRequest" } 
+            headers: { 
+                "Content-Type": "application/json",
+                "X-Requested-With": "XMLHttpRequest" 
+            },
+            body: JSON.stringify({ force: false })  // Par défaut, pas de force
         })
         .then(function(response) {
-            if (response.ok) {
+            return response.json().then(function(data) {
+                return {
+                    status: response.status,
+                    data: data
+                };
+            });
+        })
+        .then(function(result) {
+            if (result.status === 200) {
+                // Suppression réussie
                 var modal = bootstrap.Modal.getInstance(document.getElementById("deleteEnsModal"));
                 if (modal) modal.hide();
-                showNotification("Enseignant supprimé avec succès", "success");
+                
+                showNotification(result.data.message || "Enseignant supprimé avec succès", "success");
                 setTimeout(function() { location.reload(); }, 1000);
+                
+            } else if (result.status === 400 && result.data.require_confirmation) {
+                // Demander confirmation pour suppression forcée
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+                
+                if (confirm("⚠️ " + result.data.message.replace(/<br>|<li>|<\/li>|<ul>|<\/ul>/g, '\n') + 
+                           "\n\nVoulez-vous vraiment supprimer cet enseignant et tous ses enseignements associés ?")) {
+                    
+                    // Relancer la suppression avec force=true
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Suppression forcée...';
+                    
+                    return fetch('/enseignants/delete/' + id, { 
+                        method: "POST", 
+                        headers: { 
+                            "Content-Type": "application/json",
+                            "X-Requested-With": "XMLHttpRequest" 
+                        },
+                        body: JSON.stringify({ force: true })
+                    }).then(function(response) {
+                        return response.json().then(function(data) {
+                            return {
+                                status: response.status,
+                                data: data
+                            };
+                        });
+                    }).then(function(secondResult) {
+                        if (secondResult.status === 200) {
+                            var modal = bootstrap.Modal.getInstance(document.getElementById("deleteEnsModal"));
+                            if (modal) modal.hide();
+                            showNotification("Enseignant supprimé avec succès (suppression forcée)", "success");
+                            setTimeout(function() { location.reload(); }, 1000);
+                        } else {
+                            throw new Error(secondResult.data.error || "Erreur lors de la suppression forcée");
+                        }
+                    });
+                }
+                
             } else {
-                throw new Error("Erreur suppression: " + response.status);
+                // Autre erreur
+                throw new Error(result.data.error || "Erreur lors de la suppression");
             }
         })
         .catch(function(err) {
-            showNotification("Erreur lors de la suppression: " + err.message, "danger");
+            // Réactiver le bouton
             submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+            
+            showNotification("Erreur lors de la suppression: " + err.message, "danger");
         });
     });
 }
-
+// Nouvelle fonction pour afficher le modal d'erreur détaillée
+function showDependanceErrorModal(errorData) {
+    // Créer ou réutiliser un modal pour les erreurs de dépendance
+    var errorModal = document.getElementById('dependanceErrorModal');
+    
+    if (!errorModal) {
+        // Créer le modal s'il n'existe pas
+        errorModal = document.createElement('div');
+        errorModal.className = 'modal fade';
+        errorModal.id = 'dependanceErrorModal';
+        errorModal.tabIndex = '-1';
+        errorModal.innerHTML = `
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            Impossible de supprimer
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="dependanceErrorContent"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle me-1"></i> Fermer
+                        </button>
+                        <button type="button" class="btn btn-primary" id="viewDependancesBtn">
+                            <i class="bi bi-eye me-1"></i> Voir les détails
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(errorModal);
+    }
+    
+    // Remplir le contenu
+    var content = document.getElementById('dependanceErrorContent');
+    if (content) {
+        if (errorData.message) {
+            content.innerHTML = errorData.message;
+        } else {
+            content.innerHTML = `
+                <div class="alert alert-danger">
+                    <h6><i class="bi bi-exclamation-octagon-fill me-2"></i>Cet enseignant ne peut pas être supprimé</h6>
+                    <p>Il est utilisé dans les éléments suivants :</p>
+                    <ul>
+                        ${errorData.dependances ? errorData.dependances.map(d => `<li>${d}</li>`).join('') : ''}
+                    </ul>
+                    <hr>
+                    <p class="mb-0">
+                        <strong>Actions recommandées :</strong><br>
+                        1. Réassignez d'abord ses éléments<br>
+                        2. OU conservez-le en le mettant en état "Retraité"
+                    </p>
+                </div>
+            `;
+        }
+    }
+    
+    // Gérer le bouton "Voir les détails"
+    var viewBtn = document.getElementById('viewDependancesBtn');
+    if (viewBtn) {
+        viewBtn.onclick = function() {
+            // Rediriger vers la page des enseignements de l'enseignant
+            // Ou ouvrir un autre modal avec plus de détails
+            alert('Fonctionnalité à implémenter : Affichage détaillé des dépendances');
+        };
+    }
+    
+    // Afficher le modal
+    var modal = new bootstrap.Modal(errorModal);
+    modal.show();
+}
 // ===============================
 // 5️⃣ GESTION DES SELECTS
 // ===============================
 // ===============================
-// 5️⃣ GESTION DES SELECTS - CORRIGÉ
-// ===============================
-
 async function chargerSelects() {
     try {
         initEmptySelects();
         
-        // CORRECTION : Ajouter le paramètre école dans la requête
-        var ecoleId = getCurrentEcoleId();
+        // CORRECTION CRITIQUE : Toujours passer le paramètre école
+        var urlParams = new URLSearchParams(window.location.search);
+        var ecoleId = urlParams.get('ecole');
+        
+        // Construire l'URL avec le paramètre école si présent
         var url = "/enseignants/options";
         if (ecoleId) {
             url += "?ecole=" + encodeURIComponent(ecoleId);
+            console.log(`🔗 Chargement options avec école: ${ecoleId}`);
+        } else {
+            console.log(`🔗 Chargement options sans paramètre école`);
         }
         
         var res = await fetch(url);
@@ -655,14 +1002,11 @@ async function chargerSelects() {
         
         var payload = await res.json();
         
-        // CORRECTION : Vérification améliorée des matières
+        // Afficher un debug dans la console
+        console.log(`📊 Réponse options:`, payload.debug);
+        
         if (payload.matieres && payload.matieres.length === 0) {
-            console.warn("⚠️ Aucune matière disponible pour cette école");
-            if (isSystemAdmin()) {
-                showNotification("Veuillez sélectionner une école pour voir ses matières", "info", 3000);
-            }
-        } else if (payload.matieres) {
-            console.log("✅ Matières chargées:", payload.matieres.length);
+            console.warn("⚠️ Aucune matière disponible");
         }
 
         populateSelects(payload);
@@ -686,65 +1030,7 @@ function initEmptySelects() {
     if (editSelMat) editSelMat.innerHTML = '<option value="">Chargement des matières...</option>';
 }
 
-function populateSelects(payload) {
-    if (!payload || typeof payload !== 'object') return;
 
-    // Réinitialiser les maps
-    window.utilisateursMap = {};
-    window.matieresMap = {};
-
-    // CORRECTION : Peuplement des utilisateurs (PARTIE MANQUANTE !)
-    var selUsers = document.getElementById("utilisateur_id");
-    if (selUsers && Array.isArray(payload.utilisateurs)) {
-        selUsers.innerHTML = '<option value="">-- Sélectionnez un utilisateur --</option>';
-        
-        // CORRECTION : Filtrer les utilisateurs pour admin système avec école sélectionnée
-        var ecoleId = getCurrentEcoleId();
-        var usersToShow = payload.utilisateurs;
-        
-        if (isSystemAdmin() && ecoleId) {
-            // Admin système avec école sélectionnée : seulement les utilisateurs de cette école
-            usersToShow = payload.utilisateurs.filter(function(user) {
-                return user.ecole_id === ecoleId;
-            });
-            console.log(`🔍 Admin système - Utilisateurs filtrés pour école ${ecoleId}: ${usersToShow.length}`);
-        }
-        
-        usersToShow.forEach(function(u) {
-            var ecoleInfo = u.ecole_nom ? ' - ' + u.ecole_nom : ' - Sans école';
-            var optionText = u.nom + ' ' + u.prenoms + ecoleInfo;
-            
-            selUsers.innerHTML += '<option value="' + u.id + '">' + optionText + '</option>';
-            window.utilisateursMap[u.id] = u;
-        });
-        
-        if (usersToShow.length === 0) {
-            selUsers.innerHTML = '<option value="">Aucun utilisateur disponible</option>';
-        }
-        
-        console.log(`✅ ${usersToShow.length} utilisateurs chargés dans le select`);
-    }
-
-    // CORRECTION : Peuplement des matières
-    var selMat = document.getElementById("matiere_id");
-    var editSelMat = document.getElementById("edit_matiere_id");
-    
-    if (Array.isArray(payload.matieres)) {
-        // Stocker les matières dans la map globale
-        payload.matieres.forEach(function(m) {
-            window.matieresMap[m.id] = m;
-        });
-        
-        console.log(`📦 ${Object.keys(window.matieresMap).length} matières chargées dans la map`);
-        
-        // Utiliser la nouvelle fonction de remplissage
-        populateMatiereSelects();
-    } else {
-        console.warn("⚠️ Aucune matière disponible dans la réponse");
-    }
-
-    attachAutoFillListeners();
-}
 
 function initializeSelects() {
     initMatiereSelects();

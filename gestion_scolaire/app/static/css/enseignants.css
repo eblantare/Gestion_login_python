@@ -447,3 +447,21 @@
     cursor: not-allowed;
     font-weight: 500;
 }
+
+/* Style pour le modal d'erreur de dépendance */
+#dependanceErrorModal .modal-header {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+}
+
+#dependanceErrorModal .modal-body ul {
+    padding-left: 1.5rem;
+}
+
+#dependanceErrorModal .modal-body li {
+    margin-bottom: 0.5rem;
+    padding-left: 0.5rem;
+}
+
+#dependanceErrorModal .alert {
+    border-left: 4px solid #dc3545;
+}

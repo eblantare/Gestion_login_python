@@ -3,15 +3,36 @@
     <div class="modal-content rounded-3 shadow">
       
       <div class="modal-header bg-success text-white">
-        <h5 class="modal-title">Ajouter un enseignant</h5>
+        <h5 class="modal-title">
+          Ajouter un enseignant
+          <!-- Indicateur d'école sélectionnée -->
+          <small id="selectedEcoleIndicator" class="text-muted ms-2" style="font-size: 0.8rem; opacity: 0.9;">
+            <!-- Texte généré par JavaScript -->
+          </small>
+        </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       
       <div class="modal-body">
         <form id="addEnsForm" class="needs-validation" novalidate>
+          
+          <!-- Indicateur visuel pour l'admin système -->
+          <div id="adminEcoleAlert" class="alert alert-info d-none mb-3">
+            <i class="bi bi-info-circle me-2"></i>
+            <span id="adminEcoleMessage">Chargement des informations d'école...</span>
+          </div>
+          
           <div class="mb-3">
-            <label for="utilisateur_id" class="form-label">Utilisateur</label>
-            <select class="form-select" id="utilisateur_id" name="utilisateur_id" required></select>
+            <label for="utilisateur_id" class="form-label">
+              Utilisateur
+              <small class="text-muted" id="utilisateursCountInfo">(0 disponibles)</small>
+            </label>
+            <select class="form-select" id="utilisateur_id" name="utilisateur_id" required>
+              <option value="">-- Sélectionnez un utilisateur --</option>
+            </select>
+            <div class="form-text">
+              <small id="utilisateursFilterInfo">Filtrés par école sélectionnée</small>
+            </div>
           </div>
 
           <div class="row g-2">
@@ -32,30 +53,39 @@
             </div>
           </div>
 
-         <div class="mb-3">
-            <label for="matiere_id" class="form-label">Matière(s) enseignée(s)</label>
+          <div class="mb-3">
+            <label for="matiere_id" class="form-label">
+              Matière(s) enseignée(s)
+              <small class="text-muted" id="matieresCountInfo">(0 disponibles)</small>
+            </label>
             <select id="matiere_id" name="matiere_id" multiple class="form-select" size="3">
-          <!-- Chargé dynamiquement -->
-          </select>
-             <input type="text" id="add_matiere_libelle" class="form-control mt-2" readonly 
-             placeholder="Matières sélectionnées">
-           </div>
+              <option value="">Chargement des matières...</option>
+            </select>
+            <div class="form-text">
+              <small>Maintenez Ctrl/Cmd pour sélectionner plusieurs matières</small>
+            </div>
+            <input type="text" id="add_matiere_libelle" class="form-control mt-2" readonly 
+                   placeholder="Matières sélectionnées">
+          </div>
 
-           <div class="mb-3">
-              <label for="titre" class="form-label">Titre</label>
-              <input type="text" class="form-control" id="titre" name="titre" required>
-           </div>
+          <div class="mb-3">
+            <label for="titre" class="form-label">Titre</label>
+            <input type="text" class="form-control" id="titre" name="titre" 
+                   placeholder="Ex: Enseignant, Directeur, etc." required>
+          </div>
 
           <div class="mb-3">
             <label for="date_fonction" class="form-label">Date de prise de fonction</label>
-            <input type="date" class="form-control" id="date_fonction" name="date_fonction">
+            <input type="date" class="form-control" id="date_fonction" name="date_fonction" 
+                   value="<?= date('Y-m-d') ?>">
           </div>
 
           <div class="mb-2">
-              <label class="form-label">Photo</label>
-             <input id="add_photo_filename" name="photo_filename" class="form-control" readonly>
-             <img id="add_photo_preview" class="img-thumbnail mt-2" style="max-width:120px; 
-             display:none;" alt="Photo utilisateur">
+            <label class="form-label">Photo</label>
+            <input id="add_photo_filename" name="photo_filename" class="form-control" readonly 
+                   placeholder="Aucune photo disponible">
+            <img id="add_photo_preview" class="img-thumbnail mt-2" 
+                 style="max-width:120px; display:none;" alt="Photo utilisateur">
           </div>
 
           <div class="modal-footer">
