@@ -1,7 +1,7 @@
 /**
  * GESTION DES ÉCOLES - SCRIPT PRINCIPAL
  * Organisation modulaire pour une meilleure maintenabilité
- * Version avec compatibilité
+ * Version avec compatibilité et gestion des cycles
  */
 
 // Vérification de la disponibilité de Bootstrap
@@ -55,6 +55,7 @@ class EcolesManager {
             this.initializeTableEvents();
             this.initializeForms();
             this.initializeValidation();
+            this.initializeCyclesValidation();
         }, 100);
     }
 
@@ -116,6 +117,17 @@ class EcolesManager {
 
         this.initializeCustomValidation();
     }
+    
+    initializeCyclesValidation() {
+        // Vérifier qu'au moins un cycle est sélectionné
+        const forms = ['addEcoForm', 'editEcoForm'];
+        forms.forEach(formId => {
+            const form = document.getElementById(formId);
+            if (form) {
+                form.addEventListener('submit', (e) => this.validateCyclesSelection(e));
+            }
+        });
+    }
 
     // ========== GESTION DES ÉVÉNEMENTS ==========
 
@@ -141,6 +153,45 @@ class EcolesManager {
             event.stopPropagation();
         }
         form.classList.add('was-validated');
+    }
+    
+    validateCyclesSelection(event) {
+        const form = event.target;
+        const isAddForm = form.id === 'addEcoForm';
+        const isEditForm = form.id === 'editEcoForm';
+        
+        if (!isAddForm && !isEditForm) return true;
+        
+        const collegeCheckbox = form.querySelector('input[name="cycle_college"]');
+        const lyceeCheckbox = form.querySelector('input[name="cycle_lycee"]');
+        
+        if (!collegeCheckbox || !lyceeCheckbox) return true;
+        
+        const isCollegeChecked = collegeCheckbox.checked;
+        const isLyceeChecked = lyceeCheckbox.checked;
+        
+        if (!isCollegeChecked && !isLyceeChecked) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            // Afficher un message d'erreur
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'alert alert-warning mt-2';
+            errorDiv.innerHTML = `
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                Veuillez sélectionner au moins un cycle (Collège ou Lycée)
+            `;
+            
+            const cyclesSection = collegeCheckbox.closest('.form-check').parentElement.parentElement;
+            cyclesSection.appendChild(errorDiv);
+            
+            // Supprimer l'alerte après 5 secondes
+            setTimeout(() => errorDiv.remove(), 5000);
+            
+            return false;
+        }
+        
+        return true;
     }
 
     // ========== VALIDATION PERSONNALISÉE ==========
@@ -322,7 +373,7 @@ class EcolesManager {
         const form = e.target;
         form.classList.add('was-validated');
         
-        if (!this.validateForm(form) || !form.checkValidity()) return;
+        if (!this.validateForm(form) || !form.checkValidity() || !this.validateCyclesSelection(e)) return;
 
         try {
             const formData = new FormData(form);
@@ -382,12 +433,20 @@ class EcolesManager {
             'editEco_prefecture': ecole.prefecture,
             'editEco_chef_etablissement_nom': ecole.chef_etablissement_nom,
             'editEco_chef_etablissement_titre': ecole.chef_etablissement_titre,
-            'editEco_chef_etablissement_civilite': ecole.chef_etablissement_civilite
+            'editEco_chef_etablissement_civilite': ecole.chef_etablissement_civilite,
+            'editEco_cycle_college': ecole.cycles_disponibles?.college || false,
+            'editEco_cycle_lycee': ecole.cycles_disponibles?.lycee || false
         };
 
         Object.entries(fields).forEach(([fieldId, value]) => {
             const element = document.getElementById(fieldId);
-            if (element) element.value = value || '';
+            if (element) {
+                if (element.type === 'checkbox') {
+                    element.checked = value;
+                } else {
+                    element.value = value || '';
+                }
+            }
         });
 
         // Gestion de l'aperçu du logo
@@ -425,7 +484,7 @@ class EcolesManager {
         e.preventDefault();
         const form = e.target;
         
-        if (!this.validateForm(form) || !form.checkValidity()) {
+        if (!this.validateForm(form) || !form.checkValidity() || !this.validateCyclesSelection(e)) {
             form.classList.add('was-validated');
             return;
         }
@@ -504,6 +563,22 @@ class EcolesManager {
                 `;
             }
         }
+        
+        // Ajouter une indication des cycles dans la cellule nom (optionnel)
+        const nomCell = row.querySelector('.col-nom');
+        if (nomCell && data.cycles_disponibles) {
+            const cycles = [];
+            if (data.cycles_disponibles.college) cycles.push('Collège');
+            if (data.cycles_disponibles.lycee) cycles.push('Lycée');
+            
+            if (cycles.length > 0) {
+                const cyclesSpan = document.createElement('span');
+                cyclesSpan.className = 'badge bg-info ms-2';
+                cyclesSpan.textContent = cycles.join(' + ');
+                cyclesSpan.title = 'Cycles disponibles';
+                nomCell.appendChild(cyclesSpan);
+            }
+        }
     }
 
     // ========== GESTION SUPPRESSION ==========
@@ -572,8 +647,15 @@ class EcolesManager {
                </div>`
             : '<div class="text-center mb-3 text-muted"><i class="bi bi-building" style="font-size: 3rem;"></i></div>';
 
+        const cyclesBadge = data.cycles_disponibles 
+            ? `<span class="badge bg-info mb-2">${data.cycles_disponibles}</span>`
+            : '<span class="badge bg-secondary mb-2">Collège (par défaut)</span>';
+
         const content = `
             ${logoHtml}
+            <div class="text-center mb-3">
+                ${cyclesBadge}
+            </div>
             <div class="row">
                 <div class="col-md-6">
                     <p><strong>Code:</strong> ${data.code || 'Non renseigné'}</p>
@@ -590,6 +672,35 @@ class EcolesManager {
                     <p><strong>IESG:</strong> ${data.inspection || 'Non renseigné'}</p>
                     <p><strong>Préfecture:</strong> ${data.prefecture || 'Non renseigné'}</p>
                     <p><strong>Devise:</strong> ${data.devise || 'Non renseigné'}</p>
+                </div>
+            </div>
+            <div class="mt-3 pt-3 border-top">
+                <h6 class="mb-2">Statistiques</h6>
+                <div class="row">
+                    <div class="col-6 col-md-3">
+                        <div class="text-center">
+                            <div class="h4 mb-1">${data.statistiques.nb_utilisateurs || 0}</div>
+                            <div class="small text-muted">Utilisateurs</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="text-center">
+                            <div class="h4 mb-1">${data.statistiques.nb_classes || 0}</div>
+                            <div class="small text-muted">Classes</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="text-center">
+                            <div class="h4 mb-1">${data.statistiques.nb_eleves || 0}</div>
+                            <div class="small text-muted">Élèves</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="text-center">
+                            <div class="h4 mb-1">${data.statistiques.nb_enseignants || 0}</div>
+                            <div class="small text-muted">Enseignants</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;

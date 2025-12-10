@@ -1,14 +1,6 @@
 // enseignants.js - VERSION FINALE CORRIGÉE
 // Gestion complète des enseignants avec interface moderne
 
-// ===============================
-// 🚀 INITIALISATION PRINCIPALE
-// ===============================
-
-document.addEventListener('DOMContentLoaded', function() {
-    initializeEnseignantsPage();
-});
-
 function initializeEnseignantsPage() {
     cleanupDataTable();
     
@@ -1367,3 +1359,41 @@ function getCurrentEcoleId() {
     var urlParams = new URLSearchParams(window.location.search);
     return urlParams.get('ecole');
 }
+
+// CORRECTION : Fonction pour vérifier les doublons côté client
+function checkForDuplicates() {
+    var rows = document.querySelectorAll('#enseignantsTable tbody tr:not([data-id=""])');
+    var seen = new Set();
+    var duplicates = [];
+    
+    rows.forEach(function(row) {
+        var id = row.getAttribute('data-id');
+        if (seen.has(id)) {
+            duplicates.push(row);
+            row.style.backgroundColor = '#ffe6e6';
+        } else {
+            seen.add(id);
+        }
+    });
+    
+    if (duplicates.length > 0) {
+        console.warn(`⚠️ ${duplicates.length} doublons détectés dans le tableau`);
+        showNotification(`Attention: ${duplicates.length} doublon(s) détecté(s)`, "warning", 5000);
+        
+        // Option: recharger la page
+        setTimeout(function() {
+            if (confirm("Des doublons ont été détectés. Voulez-vous rafraîchir la page?")) {
+                location.reload();
+            }
+        }, 2000);
+    }
+}
+
+// ===============================
+// 🚀 INITIALISATION PRINCIPALE
+// ===============================
+
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(checkForDuplicates, 1000);
+    initializeEnseignantsPage();
+});

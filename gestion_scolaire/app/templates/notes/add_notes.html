@@ -11,72 +11,94 @@
 
         <form id="noteEntryForm">
 
-          <!-- Sélection trimestre & année -->
+          <!-- Sélection du cycle -->
+          <div class="row mb-3">
+            <div class="col">
+              <div class="form-group">
+                <label class="form-label fw-bold">Sélectionnez le cycle :</label>
+                <div class="d-flex gap-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="cycle_type" id="cycle_college" value="college" checked>
+                    <label class="form-check-label" for="cycle_college">
+                      Collège (Trimestres)
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="cycle_type" id="cycle_lycee" value="lycee">
+                    <label class="form-check-label" for="cycle_lycee">
+                      Lycée (Semestres)
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sélection trimestre/semestre & année -->
           <div class="row g-2 mb-3">
             <div class="col">
-              <select id="trimestre" class="form-select" required>
-                <option value="">Trimestre</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
+              <label id="trimestreLabel" class="form-label">Trimestre</label>
+              <select id="trimestre" class="form-select bg-light text-muted" disabled required>
+                <option value="">Sélectionnez d'abord un cycle</option>
               </select>
             </div>
             <div class="col">
-              <select id="anneeScolaire" class="form-select" required></select>
+              <label class="form-label">Année scolaire</label>
+              <select id="anneeScolaire" class="form-select bg-light text-muted" disabled required></select>
             </div>
 
             <!-- Bouton réservé admin -->
-           {% if user_role == "admin" %}
-             <div class="mb-3">
-             <button type="button" id="btnCloture" class="btn btn-warning">
-             <i class="bi bi-lock"></i> Clôturer une période
-            </button>
-           </div>
-           <div class="mt-2">
-           <ul id="clotureList" class="list-group"></ul>
-          </div>
-          {% endif %}
+            {% if user_role == "admin" %}
+            <div class="mb-3">
+              <button type="button" id="btnCloture" class="btn btn-warning">
+                <i class="bi bi-lock"></i> Clôturer une période
+              </button>
+            </div>
+            <div class="mt-2">
+              <ul id="clotureList" class="list-group"></ul>
+            </div>
+            {% endif %}
           </div>
 
-           <!-- Arborescences élèves / matières -->
-<div id="treesContainer" class="row d-none">
-  <div class="col-md-6">
-    <h6>Élèves</h6>
-    <select id="classeFilterModal" class="form-select mb-2">
-      <option value="">Toutes les classes</option>
-    </select>
-    
-    <!-- 🔍 CHAMP DE RECHERCHE -->
-    <input 
-      type="text" 
-      id="eleveSearchInput" 
-      class="form-control mb-2" 
-      placeholder="🔍 Rechercher un élève..."
-      autocomplete="off"
-    >
-    
-    <ul id="eleveTree" class="list-group" style="max-height: 300px; overflow-y: auto;"></ul>
-  </div>
+          <!-- Arborescences élèves / matières -->
+          <div id="treesContainer" class="row d-none">
+            <div class="col-md-6">
+              <h6>Élèves</h6>
+              <select id="classeFilterModal" class="form-select mb-2">
+                <option value="">Toutes les classes</option>
+              </select>
+              
+              <!-- 🔍 CHAMP DE RECHERCHE -->
+              <input 
+                type="text" 
+                id="eleveSearchInput" 
+                class="form-control mb-2" 
+                placeholder="🔍 Rechercher un élève..."
+                autocomplete="off"
+              >
+              
+              <ul id="eleveTree" class="list-group" style="max-height: 300px; overflow-y: auto;"></ul>
+            </div>
 
-  <div class="col-md-6">
-    <h6>Matières</h6>
-    <ul id="matiereTree" class="list-group" style="max-height: 300px; overflow-y: auto;"></ul>
-  </div>
-</div>
+            <div class="col-md-6">
+              <h6>Matières</h6>
+              <ul id="matiereTree" class="list-group" style="max-height: 300px; overflow-y: auto;"></ul>
+            </div>
+          </div>
 
           <!-- Notes et coefficient -->
           <div id="noteInputsContainer" class="row g-2 mt-3 d-none">
             <div class="col">
-              <input type="number" id="note1" class="form-control" placeholder="Note 1">
+              <input type="number" id="note1" class="form-control" placeholder="Note 1" min="0" max="20" step="0.01">
             </div>
             <div class="col">
-              <input type="number" id="note2" class="form-control" placeholder="Note 2">
+              <input type="number" id="note2" class="form-control" placeholder="Note 2" min="0" max="20" step="0.01">
             </div>
             <div class="col">
-              <input type="number" id="note3" class="form-control" placeholder="Note 3">
+              <input type="number" id="note3" class="form-control" placeholder="Note 3" min="0" max="20" step="0.01">
             </div>
             <div class="col">
-              <input type="number" id="note_comp" class="form-control" placeholder="Comp.">
+              <input type="number" id="note_comp" class="form-control" placeholder="Comp." min="0" max="20" step="0.01">
             </div>
             <div class="col">
               <select id="coefficient" class="form-select">
@@ -89,22 +111,20 @@
               </select>
             </div>
 
-          <div class="col">
-            <select id="enseignantSelect" class="form-select">
-            <option value="">Sélectionner un enseignant</option>
-    <!-- CORRECTION : Utiliser enseignants au lieu de enseignements -->
-           {% for ens in enseignants %}
-              <option value="{{ ens.id }}">
-            {% if ens.utilisateur %}
-                  {{ ens.utilisateur.nom }} {{ ens.utilisateur.prenoms }}
-            {% else %}
-                 Enseignant #{{ ens.id }}
-            {% endif %}
-            </option>
-          {% endfor %}
-        </select>
-       </div>
-
+            <div class="col">
+              <select id="enseignantSelect" class="form-select">
+                <option value="">Sélectionner un enseignant</option>
+                {% for ens in enseignants %}
+                  <option value="{{ ens.id }}">
+                    {% if ens.utilisateur %}
+                      {{ ens.utilisateur.nom }} {{ ens.utilisateur.prenoms }}
+                    {% else %}
+                      Enseignant #{{ ens.id }}
+                    {% endif %}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
           </div>
 
         </form>

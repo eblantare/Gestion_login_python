@@ -19,29 +19,30 @@
     </div>
 
     <!-- BARRE D'OUTILS -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body py-3">
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body py-3">
+                <!-- FORMULAIRE UNIQUE POUR TOUS LES FILTRES -->
+                <form method="get" id="filtersForm">
                     <div class="row g-3 align-items-center">
                         <!-- Recherche -->
                         <div class="col-md-4 col-12">
-                            <form method="get" class="search-form">
-                              <div class="input-group input-group-sm search-container">
-                                  <input type="text" name="search" value="{{ search }}" 
-                                  class="form-control search-input" placeholder="Rechercher une école...">
-                                 <button class="btn btn-primary search-btn" type="submit">
+                            <div class="input-group input-group-sm search-container">
+                                <input type="text" name="search" value="{{ search }}" 
+                                class="form-control search-input" placeholder="Rechercher une école...">
+                               <button class="btn btn-primary search-btn" type="submit">
                                     <i class="bi bi-search"></i>
-                                 </button>
-                              </div>
-                            </form>
+                               </button>
+                            </div>
                         </div> 
 
-                        <!-- Affichage par page -->
+                        <!-- Affichage par page - CORRIGÉ -->
                         <div class="col-md-3 col-6">
-                            <select name="per_page" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <select name="per_page" class="form-select form-select-sm" 
+                                    onchange="document.getElementById('filtersForm').submit()">
                                 {% for n in [5,10,20,30,50,100,150] %}
-                                    <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>
+                                    <option value="{{ n }}" {% if per_page|int == n %}selected{% endif %}>
                                         {{ n }} par page
                                     </option>
                                 {% endfor %}
@@ -59,10 +60,11 @@
                             {% endif %}
                         </div>
                     </div>
-                </div>
+                </form>
             </div>
         </div>
     </div>
+</div>
 
     <!-- TABLEAU PRINCIPAL - VERSION CORRIGÉE -->
     <div class="row">
@@ -75,6 +77,7 @@
                                 <th class="col-logo text-center">Logo</th>
                                 <th class="col-code">Code</th>
                                 <th class="col-nom">Nom</th>
+                                <th class="col-cycles">Cycles</th> <!-- NOUVELLE COLONNE -->
                                 <th class="col-localite">Ville/Village</th>
                                 <th class="col-site">Site web</th>
                                 <th class="col-email">Email</th>
@@ -113,6 +116,21 @@
                                     <strong class="text-truncate" title="{{ eco.nom }}">
                                         {{ eco.nom }}
                                     </strong>
+                                </td>
+                                <td class="col-cycles">
+                                {% if eco.cycles_disponibles %}
+                                {% if eco.cycles_disponibles.college and eco.cycles_disponibles.lycee %}
+                                      <span class="badge bg-info" title="Collège + Lycée">C+L</span>
+                                {% elif eco.cycles_disponibles.college %}
+                                      <span class="badge bg-primary" title="Collège">C</span>
+                                {% elif eco.cycles_disponibles.lycee %}
+                                      <span class="badge bg-success" title="Lycée">L</span>
+                                {% else %}
+                                      <span class="badge bg-secondary" title="Par défaut">C</span>
+                                {% endif %}
+                                {% else %}
+                                      <span class="badge bg-secondary" title="Par défaut">C</span>
+                                {% endif %}
                                 </td>
                                 <td class="col-localite">
                                     <span class="text-truncate" title="{{ eco.localite }}">

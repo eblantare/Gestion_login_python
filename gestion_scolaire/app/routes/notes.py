@@ -79,7 +79,7 @@ def validate_pagination_params(f):
         return f(*args, **kwargs)
     return decorated_function
 
-def validate_export_params(classe_id, matiere_id, trimestre, annee_scolaire, ecole_id):
+def validate_export_params(classe_id, matiere_id, trimestre, annee_scolaire, ecole_id, cycle_type="college"):
     """Validation des paramètres d'export"""
     errors = []
     
@@ -98,8 +98,8 @@ def validate_export_params(classe_id, matiere_id, trimestre, annee_scolaire, eco
         except ValueError:
             errors.append("Format de matière invalide")
     
-    if trimestre and not validate_trimestre(trimestre):
-        errors.append("Trimestre invalide")
+    if trimestre and not validate_trimestre_for_cycle(trimestre, cycle_type):
+        errors.append(f"{'Semestre' if cycle_type == 'lycee' else 'Trimestre'} invalide")
     
     if annee_scolaire and not validate_annee_scolaire(annee_scolaire):
         errors.append("Format d'année scolaire invalide")
@@ -157,11 +157,16 @@ def validate_note_value(note_value):
     try:
         note_float = float(note_value)
         if 0 <= note_float <= 20:
-            return note_float
+            return round(note_float, 2)  # Arrondir à 2 décimales
         return None
     except (ValueError, TypeError):
         return None
-    
+
+def validate_trimestre_for_cycle(trimestre, cycle_type):
+    """Validation des trimestres/semestres selon le cycle"""
+    if cycle_type == 'lycee':
+        return trimestre in [1, 2]  # Semestres
+    return trimestre in [1, 2, 3]  # Trimestres
 #Fonction d'export
 def get_logo_path(ecole):
     """Retourne le chemin du logo de l'école - VERSION CORRIGÉE"""
@@ -768,7 +773,6 @@ def generate_excel_export(notes, classe_nom=None):
 
 # ========== ROUTES ==========
 
-# Liste des notes
 @notes_bp.route('/')
 @login_required
 @ecole_required
@@ -787,19 +791,25 @@ def liste_notes():
     classe_id = data.get("classe_id", type=str)
     trimestre = data.get("trimestre", type=int)
     annee_scolaire = data.get("annee_scolaire", type=str)
+    cycle_type = data.get("cycle_type", "college")  # Nouveau paramètre
 
-      # DEBUG: Afficher les paramètres reçus
-    print(f"🔍 Paramètres reçus - classe_id: {classe_id}, trimestre: {trimestre}, annee_scolaire: {annee_scolaire}")
+    # DEBUG: Afficher les paramètres reçus
+    print(f"🔍 Paramètres reçus - cycle_type: {cycle_type}, trimestre: {trimestre}, annee_scolaire: {annee_scolaire}")
 
-    # Valeurs par défaut
-    if not trimestre or not validate_trimestre(trimestre):
+    # Valeurs par défaut selon le cycle
+    if not validate_periode(cycle_type, trimestre):
         today = date.today()
-        if today.month in [9, 10, 11, 12]:
-            trimestre = 1
-        elif today.month in [1, 2, 3]:
-            trimestre = 2
+        if cycle_type == 'lycee':
+            # Semestre 1: Sept-Déc, Semestre 2: Janv-Juin
+            trimestre = 1 if today.month in [9, 10, 11, 12, 1, 2] else 2
         else:
-            trimestre = 3
+            # Trimestre 1: Sept-Déc, Trimestre 2: Janv-Mars, Trimestre 3: Avril-Juin
+            if today.month in [9, 10, 11, 12]:
+                trimestre = 1
+            elif today.month in [1, 2, 3]:
+                trimestre = 2
+            else:
+                trimestre = 3
 
     if not annee_scolaire or not validate_annee_scolaire(annee_scolaire):
         today = date.today()
@@ -934,7 +944,9 @@ def liste_notes():
         trimestre=trimestre,
         annee_scolaire=annee_scolaire,
         annees_scolaires=annees_scolaires,
-        ecole_id=ecole_id
+        ecole_id=ecole_id,
+        cycle_type=cycle_type,  # Nouveau paramètre
+        cycles=get_ecole_cycles(ecole_id)  # Informations sur les cycles
     )
 
 @notes_bp.route("/add", methods=["POST"])
@@ -955,15 +967,20 @@ def add_note():
             return jsonify({"error": "Format d'année scolaire invalide"}), 400
 
         trimestre_value = data.get("trimestre")
+        cycle_type = data.get("cycle_type", "college")  # Nouveau
+        
         if trimestre_value is None:
-            return jsonify({"error": "Le trimestre est requis"}), 400
+            return jsonify({"error": "Le trimestre/semestre est requis"}), 400
 
         try:
             trimestre_value = int(trimestre_value)
-            if not validate_trimestre(trimestre_value):
-                return jsonify({"error": "Trimestre invalide. Doit être 1, 2 ou 3"}), 400
+            if not validate_trimestre_for_cycle(trimestre_value, cycle_type):
+                if cycle_type == 'lycee':
+                    return jsonify({"error": "Semestre invalide. Doit être 1 ou 2"}), 400
+                else:
+                    return jsonify({"error": "Trimestre invalide. Doit être 1, 2 ou 3"}), 400
         except (ValueError, TypeError):
-            return jsonify({"error": "Format de trimestre invalide"}), 400
+            return jsonify({"error": "Format de trimestre/semestre invalide"}), 400
 
         eleve = get_eleve_secure(data.get("eleve_id"), ecole_id)
         
@@ -1450,19 +1467,26 @@ def cloturer_periode():
     data = request.json
     annee = data.get("annee")
     trimestre = data.get("trimestre")
+    cycle_type = data.get("cycle_type", "college")  # Nouveau
 
     if not annee or not validate_annee_scolaire(annee):
         return jsonify({"error": "Année scolaire invalide"}), 400
 
-    if trimestre and not validate_trimestre(trimestre):
-        return jsonify({"error": "Trimestre invalide"}), 400
+    if trimestre and not validate_trimestre_for_cycle(trimestre, cycle_type):
+        return jsonify({"error": f"{'Semestre' if cycle_type == 'lycee' else 'Trimestre'} invalide"}), 400
 
     today = date.today()
     current_annee = f"{today.year if today.month >= 8 else today.year-1}-{today.year+1 if today.month >= 8 else today.year}"
-    current_trimestre = ((today.month - 8) // 3 + 1) if today.month >= 8 else ((today.month + 4) // 3)
+    
+    # Déterminer la période courante selon le cycle
+    if cycle_type == 'lycee':
+        current_periode = 1 if today.month in [9, 10, 11, 12, 1, 2] else 2
+    else:
+        current_periode = ((today.month - 8) // 3 + 1) if today.month >= 8 else ((today.month + 4) // 3)
 
-    if annee == current_annee and (trimestre is None or trimestre >= current_trimestre):
-        return jsonify({"error": "Impossible de clôturer une période en cours ou future"}), 400
+    if annee == current_annee and (trimestre is None or trimestre >= current_periode):
+        periode_label = "semestre" if cycle_type == 'lycee' else "trimestre"
+        return jsonify({"error": f"Impossible de clôturer une période en cours ou future"}), 400
 
     try:
         if trimestre is None:
@@ -1482,15 +1506,16 @@ def cloturer_periode():
             n.etat = "Clôturé"
         db.session.commit()
         
+        periode_label = "semestre" if cycle_type == 'lycee' else "trimestre"
         log_security_event(
             current_user.id,
             "CLOSE_PERIOD",
             "notes",
             "SUCCESS",
-            {"annee": annee, "trimestre": trimestre, "notes_affected": len(notes)}
+            {"annee": annee, "periode": trimestre, "cycle": cycle_type, "notes_affected": len(notes)}
         )
         
-        return jsonify({"message": f"Période {annee} - Trimestre {trimestre or 'Tous'} clôturée avec succès"}), 200
+        return jsonify({"message": f"Période {annee} - {periode_label.capitalize()} {trimestre or 'Tous'} clôturée avec succès"}), 200
     except Exception as e:
         db.session.rollback()
         log_security_event(
@@ -1498,7 +1523,7 @@ def cloturer_periode():
             "CLOSE_PERIOD",
             "notes",
             "FAILED",
-            {"error": str(e), "annee": annee, "trimestre": trimestre}
+            {"error": str(e), "annee": annee, "trimestre": trimestre, "cycle": cycle_type}
         )
         return jsonify({"error": "Erreur lors de la clôture de la période"}), 500
 
@@ -1524,6 +1549,43 @@ def annees_actives():
         annees = [annees_possibles[0]]
 
     return jsonify(annees)
+
+# ========== FONCTIONS UTILITAIRES POUR LES CYCLES ==========
+def get_ecole_cycles(ecole_id):
+    """Récupère les cycles disponibles pour l'école"""
+    ecole = Ecole.query.get(ecole_id)
+    if not ecole:
+        return {'college': True, 'lycee': False}  # Valeur par défaut
+    
+    cycles = getattr(ecole, 'cycles_disponibles', {})
+    return {
+        'college': cycles.get('college', True),
+        'lycee': cycles.get('lycee', False)
+    }
+
+def get_periodes_for_cycle(cycle_type, trimestre_semestre_value):
+    """Retourne les périodes selon le cycle"""
+    if cycle_type == 'lycee':
+        return {
+            'type': 'semestre',
+            'options': [1, 2],
+            'label': 'Semestre',
+            'value': trimestre_semestre_value
+        }
+    else:  # collège par défaut
+        return {
+            'type': 'trimestre',
+            'options': [1, 2, 3],
+            'label': 'Trimestre',
+            'value': trimestre_semestre_value
+        }
+
+def validate_periode(cycle_type, periode_value):
+    """Validation de la période selon le cycle"""
+    if cycle_type == 'lycee':
+        return periode_value in [1, 2]
+    else:
+        return periode_value in [1, 2, 3]
 
 @notes_bp.route('/export/<format>')
 @login_required

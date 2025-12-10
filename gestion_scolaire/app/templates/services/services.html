@@ -244,7 +244,7 @@
     </div>
 </div>
 
-<!-- Modal d'exportation des notes -->
+<!-- Modal d'exportation des notes - VERSION CORRIGÉE -->
 <div class="modal fade" id="notesExportModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -255,10 +255,24 @@
             <div class="modal-body">
                 <form id="notesExportForm">
                     <div class="row g-3">
+                         <!-- SUPPRIMER le sélecteur "Type de période" -->
+                        <div class="col-md-6">
+                            <label for="export_notes_ecole_type" class="form-label">Type d'établissement</label>
+                            <select class="form-select" id="export_notes_ecole_type" name="ecole_type" onchange="updatePeriodOptions('notes')">
+                                <option value="college">Collège</option>
+                                <option value="lycee">Lycée</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="export_notes_periode" class="form-label">Période</label>
+                            <select class="form-select" id="export_notes_periode" name="periode">
+                                <!-- Les options seront mises à jour dynamiquement -->
+                            </select>
+                        </div>
                         <div class="col-md-6">
                             <label for="export_notes_classe" class="form-label">Classe</label>
                             <select class="form-select" id="export_notes_classe" name="classe_id">
-                                <option value="">Toutes les classes</option>
+                                <option value="toutes">Toutes les classes</option>
                                 <!-- Chargé dynamiquement -->
                             </select>
                         </div>
@@ -269,15 +283,7 @@
                                 <!-- Chargé dynamiquement -->
                             </select>
                         </div>
-                        <div class="col-md-6">
-                            <label for="export_notes_trimestre" class="form-label">Trimestre</label>
-                            <select class="form-select" id="export_notes_trimestre" name="trimestre">
-                                <option value="">Tous les trimestres</option>
-                                <option value="1">Trimestre 1</option>
-                                <option value="2">Trimestre 2</option>
-                                <option value="3">Trimestre 3</option>
-                            </select>
-                        </div>
+                       
                         <div class="col-md-6">
                             <label for="export_notes_annee" class="form-label">Année scolaire</label>
                             <select class="form-select" id="export_notes_annee" name="annee_scolaire">
@@ -292,7 +298,11 @@
                         <h6>Informations de l'export :</h6>
                         <div id="exportInfo" class="small">
                             <div><strong>Colonnes incluses :</strong> Nom & Prénoms, Note 1, Note 2, Note 3, Note Composition, Coefficient</div>
-                            <div><strong>En-tête :</strong> Année scolaire, Trimestre, Matière, Classe, Effectif composant, Date de saisie</div>
+                            <div><strong>En-tête :</strong> Année scolaire, Période, Matière, Classe, Effectif composant, Date de saisie</div>
+                            <div id="notesPeriodeInfo" class="mt-2 text-info">
+                                <span id="notesPeriodType">Trimestre</span> sélectionné(e): 
+                                <span id="notesPeriodValue">1</span>
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -322,9 +332,23 @@
                 <form id="moyennesExportForm">
                     <div class="row g-3">
                         <div class="col-md-6">
+                            <label for="export_moyennes_ecole_type" class="form-label">Type d'établissement</label>
+                            <select class="form-select" id="export_moyennes_ecole_type" name="ecole_type" onchange="updatePeriodOptions('moyennes')">
+                                <option value="college">Collège</option>
+                                <option value="lycee">Lycée</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="export_moyennes_periode" class="form-label">Période</label>
+                            <select class="form-select" id="export_moyennes_periode" name="periode">
+                                <!-- Les options seront mises à jour dynamiquement -->
+                            </select>
+                        </div>
+                        <div class="col-md-6">
                             <label for="export_moyennes_classe" class="form-label">Classe</label>
                             <select class="form-select" id="export_moyennes_classe" name="classe_id">
-                                <option value="">Toutes les classes</option>
+                                <option value="">Sélectionnez une classe</option>
+                                <option value="toutes">Toutes les classes</option>
                                 <!-- Chargé dynamiquement -->
                             </select>
                         </div>
@@ -335,23 +359,15 @@
                                 <!-- Chargé dynamiquement -->
                             </select>
                         </div>
-                        <div class="col-md-6">
-                            <label for="export_moyennes_trimestre" class="form-label">Trimestre</label>
-                            <select class="form-select" id="export_moyennes_trimestre" name="trimestre">
-                                <option value="">Tous les trimestres</option>
-                                <option value="1">Trimestre 1</option>
-                                <option value="2">Trimestre 2</option>
-                                <option value="3">Trimestre 3</option>
-                            </select>
-                        </div>
+                        
                         <div class="col-md-6">
                             <label for="export_moyennes_annee" class="form-label">Année scolaire</label>
                             <select class="form-select" id="export_moyennes_annee" name="annee_scolaire">
-                                <option value="">Toutes les années</option>
+                                <option value="">Sélectionnez une année</option>
                                 <!-- Chargé dynamiquement -->
                             </select>
                         </div>
-                        <div class="col-12">
+                        <div class="col-md-6">
                             <label for="export_moyennes_mention" class="form-label">Mention</label>
                             <select class="form-select" id="export_moyennes_mention" name="mention">
                                 <option value="">Toutes les mentions</option>
@@ -364,9 +380,15 @@
                     <div class="mt-4 p-3 bg-light rounded">
                         <h6>Informations incluses dans l'export :</h6>
                         <div id="moyennesExportInfo" class="small">
-                            <div><strong>En-tête :</strong> Année scolaire, Trimestre, Classe, Matière, Enseignant, Mention</div>
-                            <div><strong>Statistiques :</strong> Plus forte moyenne, Plus faible moyenne, Moyenne de la classe</div>
-                            <div><strong>Colonnes :</strong> N°, Nom & Prénoms, Moyenne Trim, Moyenne Gén, Classement, Appréciation</div>
+                            <div id="moyennesInfoText">
+                                <strong>En-tête :</strong> Année scolaire, Période, Classe, Matière, Enseignant, Mention<br>
+                                <strong>Statistiques :</strong> Plus forte moyenne, Plus faible moyenne, Moyenne de la classe<br>
+                                <strong>Colonnes :</strong> N°, Nom & Prénoms, Moyenne Période, Moyenne Gén, Classement, Appréciation<br>
+                                <div id="moyennesPeriodeInfo" class="mt-2 text-info">
+                                    <span id="moyennesPeriodType">Trimestre</span> sélectionné(e): 
+                                    <span id="moyennesPeriodValue">1</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -384,7 +406,7 @@
     </div>
 </div>
 
-<!-- Modal d'exportation des bulletins -->
+<!-- Modal d'exportation des bulletins - MODIFIÉ -->
 <div class="modal fade" id="bulletinsExportModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -394,6 +416,23 @@
             </div>
             <div class="modal-body">
                 <form id="bulletinsExportForm">
+                    <!-- Type d'établissement et période -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label for="export_bulletins_ecole_type" class="form-label">Type d'établissement</label>
+                            <select class="form-select" id="export_bulletins_ecole_type" name="ecole_type" onchange="updateBulletinsPeriodOptions()">
+                                <option value="college">Collège</option>
+                                <option value="lycee">Lycée</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="export_bulletins_periode" class="form-label">Période</label>
+                            <select class="form-select" id="export_bulletins_periode" name="periode" required>
+                                <!-- Les options seront mises à jour dynamiquement -->
+                            </select>
+                        </div>
+                    </div>
+
                     <!-- Type d'export -->
                     <div class="row mb-4">
                         <div class="col-12">
@@ -450,14 +489,6 @@
                     <!-- Paramètres communs -->
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label for="export_bulletins_trimestre" class="form-label">Trimestre</label>
-                            <select class="form-select" id="export_bulletins_trimestre" name="trimestre" required>
-                                <option value="1">Trimestre 1</option>
-                                <option value="2">Trimestre 2</option>
-                                <option value="3">Trimestre 3</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
                             <label for="export_bulletins_annee" class="form-label">Année scolaire</label>
                             <select class="form-select" id="export_bulletins_annee" name="annee_scolaire" required>
                                 <option value="">Sélectionnez une année</option>
@@ -470,6 +501,7 @@
                     <div class="mt-4 p-3 bg-light rounded">
                         <h6>Contenu du bulletin :</h6>
                         <div id="bulletinsExportInfo" class="small">
+                            <div><strong>Période:</strong> <span id="bulletinPeriodType">Trimestre</span> pour les collèges, <span>Semestre</span> pour les lycées</div>
                             <div><strong>En-tête :</strong> Informations ministère, école, élève, classe</div>
                             <div><strong>Notes :</strong> Matières littéraires, scientifiques, spécialisées avec moyennes</div>
                             <div><strong>Statistiques :</strong> Moyennes fortes/faibles, classement, effectifs</div>

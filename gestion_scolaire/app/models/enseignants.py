@@ -13,14 +13,15 @@ enseignants_matieres = db.Table(
 
 class Enseignant(BaseModel):
     __tablename__ = 'enseignants' 
-    __table_args__ = {"schema": "geslog_schema", 'extend_existing': True} 
+    __table_args__ = {
+        "schema": "geslog_schema", 
+        'extend_existing': True
+    }
 
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, unique=True, nullable=False) 
     
-    # CORRECTION : Utiliser le chemin complet pour la relation
-    utilisateur_id = db.Column(UUID(as_uuid=True), db.ForeignKey("geslog_schema.utilisateurs.id"), nullable=True)  # Changé à nullable=True temporairement
+    utilisateur_id = db.Column(UUID(as_uuid=True), db.ForeignKey("geslog_schema.utilisateurs.id"), nullable=True)
     
-    # CORRECTION : Chemin complet et foreign_keys explicite
     utilisateur = db.relationship(
         "gestion_login.gestion_login.models.Utilisateur", 
         backref="enseignants", 
@@ -35,9 +36,13 @@ class Enseignant(BaseModel):
         lazy="select"
     )
 
-    # Lien avec l'école
     ecole_id = db.Column(UUID(as_uuid=True), db.ForeignKey('geslog_schema.ecoles.id'), nullable=False)
 
     titre = db.Column(db.String(200), nullable=False) 
     date_fonction = db.Column(db.Date, nullable=True) 
     etat = db.Column(db.String(50), default="Inactif")
+    
+    def __repr__(self):
+        if self.utilisateur:
+            return f"<Enseignant: {self.utilisateur.nom} {self.utilisateur.prenoms}>"
+        return f"<Enseignant #{self.id[:8]}>"

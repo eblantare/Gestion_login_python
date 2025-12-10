@@ -7,7 +7,9 @@
     <h2 class="mb-3">📚 Liste des Notes</h2>
 
     <!-- 🔍 Barre de recherche + filtres COMPACTS -->
-    <div class="filter-toolbar">
+<div class="filter-toolbar">
+    <!-- Première ligne : Filtres principaux -->
+    <div class="filter-row">
         <form method="get" class="filter-form">
             <!-- Barre de recherche COMPACTE -->
             <div class="input-group rounded-pill border overflow-hidden search-bar-expanded">
@@ -16,6 +18,12 @@
                     <i class="bi bi-search"></i>
                 </button>
             </div>
+
+            <!-- Filtre cycle -->
+            <select name="cycle_type" class="form-select rounded-pill filter-select" onchange="this.form.submit()">
+                <option value="college" {% if cycle_type == 'college' %}selected{% endif %}>Collège</option>
+                <option value="lycee" {% if cycle_type == 'lycee' %}selected{% endif %}>Lycée</option>
+            </select>
 
             <!-- Filtre élève COMPACT -->
             <select name="eleve_id" class="form-select rounded-pill filter-select" onchange="this.form.submit()">
@@ -38,45 +46,77 @@
             </select>
 
             <!-- Filtre classe SIMPLIFIÉ -->
-<select name="classe_id" class="form-select rounded-pill filter-select" onchange="this.form.submit()">
-    <option value="">Toutes les classes</option>
-    {% for c in classes %}
-    <option value="{{ c.id }}" 
-            {% if classe_id == c.id|string %}selected{% endif %}>
-        {{ c.nom }}
-    </option>
-    {% endfor %}
-</select>
-
-            <!-- Nombre par page COMPACT -->
-            <select name="per_page" class="form-select rounded-pill perpage-select" onchange="this.form.submit()">
-                {% for n in [5,10,20,50,100,250,500,1000] %}
-                <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}/page</option>
+            <select name="classe_id" class="form-select rounded-pill filter-select" onchange="this.form.submit()">
+                <option value="">Toutes les classes</option>
+                {% for c in classes %}
+                <option value="{{ c.id }}" 
+                        {% if classe_id == c.id|string %}selected{% endif %}>
+                    {{ c.nom }}
+                </option>
                 {% endfor %}
             </select>
 
+            <!-- Filtre trimestre/semestre -->
+            <select name="trimestre" class="form-select rounded-pill filter-select" onchange="this.form.submit()">
+                <option value="">Tous</option>
+                {% if cycle_type == 'lycee' %}
+                    <option value="1" {% if trimestre == 1 %}selected{% endif %}>Semestre 1</option>
+                    <option value="2" {% if trimestre == 2 %}selected{% endif %}>Semestre 2</option>
+                {% else %}
+                    <option value="1" {% if trimestre == 1 %}selected{% endif %}>Trimestre 1</option>
+                    <option value="2" {% if trimestre == 2 %}selected{% endif %}>Trimestre 2</option>
+                    <option value="3" {% if trimestre == 3 %}selected{% endif %}>Trimestre 3</option>
+                {% endif %}
+            </select>
+        </form>
+    </div>
+
+    <!-- Deuxième ligne : Boutons d'actions ET sélecteur par page -->
+    <div class="action-row">
+        <div class="action-buttons">
             <!-- Menu déroulant d'exportation -->
             <div class="dropdown">
                 <button class="btn btn-info btn-export-compact dropdown-toggle" type="button" 
                         data-bs-toggle="dropdown" title="Options d'exportation">
-                    <i class="bi bi-download"></i>
+                    <i class="bi bi-download"></i> Exporter
                 </button>
                 <ul class="dropdown-menu">
-                    <li><a class="dropdown-item export-pdf-item" href="{{ url_for('notes.export_notes', format='pdf') }}?search={{ search }}&eleve_id={{ eleve_id }}&matiere_id={{ matiere_id }}&classe_id={{ classe_id }}">
+                    <li><a class="dropdown-item export-pdf-item" href="{{ url_for('notes.export_notes', format='pdf') }}?search={{ search }}&eleve_id={{ eleve_id }}&matiere_id={{ matiere_id }}&classe_id={{ classe_id }}&cycle_type={{ cycle_type }}">
                         <i class="bi bi-file-pdf text-danger me-2"></i> Export PDF
                     </a></li>
-                    <li><a class="dropdown-item export-excel-item" href="{{ url_for('notes.export_notes', format='excel') }}?search={{ search }}&eleve_id={{ eleve_id }}&matiere_id={{ matiere_id }}&classe_id={{ classe_id }}">
+                    <li><a class="dropdown-item export-excel-item" href="{{ url_for('notes.export_notes', format='excel') }}?search={{ search }}&eleve_id={{ eleve_id }}&matiere_id={{ matiere_id }}&classe_id={{ classe_id }}&cycle_type={{ cycle_type }}">
                         <i class="bi bi-file-spreadsheet text-success me-2"></i> Export Excel
                     </a></li>
                 </ul>
             </div>
 
-            <!-- Bouton d'ajout COMPACT - Visible pour tous les utilisateurs -->
-            <button type="button" class="btn btn-success btn-add-compact" data-bs-toggle="modal" data-bs-target="#addNoteModal" title="Ajouter une nouvelle note">
+            <!-- Bouton d'ajout dans un cercle -->
+            <button type="button" class="btn btn-success btn-add-circle" data-bs-toggle="modal" data-bs-target="#addNoteModal" title="Ajouter une nouvelle note">
                 <i class="bi bi-plus"></i>
             </button>
-        </form>
+        </div>
+        
+        <!-- Sélecteur par page sur la même ligne, à droite -->
+        <div class="perpage-container">
+            <form method="get" class="perpage-form">
+                <!-- Conserver tous les paramètres de filtrage -->
+                <input type="hidden" name="search" value="{{ search }}">
+                <input type="hidden" name="cycle_type" value="{{ cycle_type }}">
+                <input type="hidden" name="eleve_id" value="{{ eleve_id }}">
+                <input type="hidden" name="matiere_id" value="{{ matiere_id }}">
+                <input type="hidden" name="classe_id" value="{{ classe_id }}">
+                <input type="hidden" name="trimestre" value="{{ trimestre }}">
+                
+                <!-- Sélecteur par page -->
+                <select name="per_page" class="form-select rounded-pill perpage-select" onchange="this.form.submit()">
+                    {% for n in [5,10,20,50,100,250,500,1000] %}
+                    <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }} / page</option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
     </div>
+</div>
 
     <!-- 📊 Tableau des notes AVEC SCROLL FORCÉ -->
     <div class="table-container">
@@ -92,7 +132,9 @@
                         <th scope="col" data-bs-toggle="tooltip" title="Note de composition">Comp.</th>
                         <th scope="col" data-bs-toggle="tooltip" title="Coefficient de la matière">Coef.</th>
                         <th scope="col" data-bs-toggle="tooltip" title="Enseignant responsable">Enseignant</th>
-                        <th scope="col" data-bs-toggle="tooltip" title="Trimestre (1, 2 ou 3)">Trim.</th>
+                        <th scope="col" data-bs-toggle="tooltip" title="Trimestre/Semestre">
+                            {% if cycle_type == 'lycee' %}Sem.{% else %}Trim.{% endif %}
+                        </th>
                         <th scope="col" data-bs-toggle="tooltip" title="Année scolaire">Année</th>
                         <th scope="col" data-bs-toggle="tooltip" title="Date de saisie">Date</th>
                         <!-- ORDRE CORRIGÉ : Actions d'abord, puis État -->
@@ -120,14 +162,14 @@
         <ul class="pagination justify-content-center">
             {% if pagination.has_prev %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ pagination.prev_num }}&per_page={{ per_page }}&search={{ search }}&eleve_id={{ eleve_id }}&matiere_id={{ matiere_id }}&classe_id={{ classe_id }}">Précédent</a>
+                <a class="page-link" href="?page={{ pagination.prev_num }}&per_page={{ per_page }}&search={{ search }}&eleve_id={{ eleve_id }}&matiere_id={{ matiere_id }}&classe_id={{ classe_id }}&cycle_type={{ cycle_type }}">Précédent</a>
             </li>
             {% endif %}
 
             {% for p in pagination.iter_pages() %}
                 {% if p %}
                     <li class="page-item {% if p == pagination.page %}active{% endif %}">
-                        <a class="page-link" href="?page={{ p }}&per_page={{ per_page }}&search={{ search }}&eleve_id={{ eleve_id }}&matiere_id={{ matiere_id }}&classe_id={{ classe_id }}">{{ p }}</a>
+                        <a class="page-link" href="?page={{ p }}&per_page={{ per_page }}&search={{ search }}&eleve_id={{ eleve_id }}&matiere_id={{ matiere_id }}&classe_id={{ classe_id }}&cycle_type={{ cycle_type }}">{{ p }}</a>
                     </li>
                 {% else %}
                     <li class="page-item disabled"><span class="page-link">…</span></li>
@@ -136,7 +178,7 @@
 
             {% if pagination.has_next %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ pagination.next_num }}&per_page={{ per_page }}&search={{ search }}&eleve_id={{ eleve_id }}&matiere_id={{ matiere_id }}&classe_id={{ classe_id }}">Suivant</a>
+                <a class="page-link" href="?page={{ pagination.next_num }}&per_page={{ per_page }}&search={{ search }}&eleve_id={{ eleve_id }}&matiere_id={{ matiere_id }}&classe_id={{ classe_id }}&cycle_type={{ cycle_type }}">Suivant</a>
             </li>
             {% endif %}
         </ul>

@@ -336,7 +336,7 @@ def changer_etat(id):
         return jsonify({"error": "Erreur lors du changement d'état"}), 500
 
 def generer_code_matiere(libelle, ecole_id):
-    """Génère un code basé sur les 3-4 premières lettres du libellé"""
+    """Génère un code unique POUR UNE ÉCOLE SPÉCIFIQUE"""
     if not libelle:
         base_code = "MAT"
     else:
@@ -345,20 +345,33 @@ def generer_code_matiere(libelle, ecole_id):
         # Nettoyer les caractères non alphabétiques
         base_code = re.sub(r'[^A-Z]', '', base_code)
         # Assurer une longueur minimale
-        if len(base_code) < 3:
+        if len(base_code) < 2:
             base_code = "MAT"
     
-    # Vérifier l'unicité et ajouter un numéro si nécessaire
+    # Vérifier l'unicité DANS CETTE ÉCOLE SEULEMENT
     code_final = base_code
     compteur = 1
     
+    # D'abord, vérifier si le code simple existe déjà DANS CETTE ÉCOLE
     while Matiere.query.filter_by(code=code_final, ecole_id=ecole_id).first():
+        # Si le code existe dans cette école, ajouter un suffixe
         compteur += 1
-        code_final = f"{base_code}{compteur:02d}"
+        if compteur <= 10:
+            code_final = f"{base_code}{compteur}"
+        elif compteur <= 20:
+            code_final = f"{base_code}_{compteur-9}"
+        else:
+            # Dernier recours : UUID court avec préfixe de l'école
+            ecole_prefix = str(ecole_id)[:2].upper()
+            code_final = f"{base_code}_{ecole_prefix}{uuid.uuid4().hex[:3].upper()}"
+            break
         
         # Limite de sécurité
-        if compteur > 99:
-            code_final = f"{base_code}_{uuid.uuid4().hex[:4].upper()}"
+        if compteur > 30:
+            # Code unique garanti avec timestamp
+            import time
+            timestamp = str(int(time.time()))[-4:]
+            code_final = f"{base_code}_{timestamp}"
             break
     
     return code_final
@@ -367,39 +380,15 @@ def generer_code_matiere(libelle, ecole_id):
 @login_required
 @ecole_required
 def add_matiere():
-    """Ajoute une matière - VERSION SÉCURISÉE"""
+    """Ajoute une matière - UNIQUEMENT POUR L'ÉCOLE COURANTE"""
     # Rate limiting
     if not rate_limit_check():
         return jsonify({"error": "Trop de requêtes"}), 429
     
     ecole_id = get_current_ecole_id()
     
-    # GARANTIR qu'on a un ecole_id
-    if not ecole_id:
-        # Méthode 1: Récupérer depuis l'utilisateur
-        if hasattr(current_user, 'ecole_id') and current_user.ecole_id:
-            ecole_id = current_user.ecole_id
-        # Méthode 2: Première école disponible
-        else:
-            from ..models.ecoles import Ecole
-            default_ecole = Ecole.query.first()
-            if not default_ecole:
-                return jsonify({"error": "Aucune école configurée. Veuillez d'abord créer une école."}), 400
-            ecole_id = default_ecole.id
-    
-    # Validation que ecole_id n'est plus None
     if not ecole_id:
         return jsonify({"error": "Impossible de déterminer l'école. Contactez l'administrateur."}), 400
-    
-    # Validation CSRF implicite via Flask-WTF ou vérification du referer
-    if request.referrer and not request.referrer.startswith(request.host_url):
-        log_security_event(
-            "csrf_suspicion", 
-            "add_matiere", 
-            "failed", 
-            {"referrer": request.referrer}
-        )
-        return jsonify({"error": "Requête suspecte"}), 400
     
     data = request.form
     code = sanitize_input(data.get("code"), max_length=20, allowed_pattern=r'^[A-Z0-9\-_]{1,20}$')
@@ -415,25 +404,36 @@ def add_matiere():
     if not is_valid:
         return jsonify({"error": error_msg}), 400
 
-    # Générer un code si non fourni
+    # IMPORTANT: Toujours générer un code spécifique à cette école
     if not code:
         code = generer_code_matiere(libelle, ecole_id)
+    else:
+        # Vérifier l'unicité du code DANS CETTE ÉCOLE
+        existing_code = Matiere.query.filter_by(code=code, ecole_id=ecole_id).first()
+        if existing_code:
+            # Proposer un code alternatif POUR CETTE ÉCOLE
+            suggested_code = generer_code_matiere(libelle, ecole_id)
+            return jsonify({
+                "error": f"Le code '{code}' existe déjà dans votre école. Code suggéré : {suggested_code}",
+                "suggested_code": suggested_code,
+                "can_use_suggested": True
+            }), 400
 
-    # Vérifier l'unicité du code dans l'école
-    if Matiere.query.filter_by(code=code, ecole_id=ecole_id).first():
-        return jsonify({"error": f"Une matière existe déjà avec le code '{code}' dans cette école"}), 400
-
-    # Vérifier l'unicité du libellé dans l'école
-    if Matiere.query.filter_by(libelle=libelle, ecole_id=ecole_id).first():
-        return jsonify({"error": f"Une matière avec le libellé '{libelle}' existe déjà dans cette école"}), 400
+    # Vérifier l'unicité du libellé DANS CETTE ÉCOLE
+    existing_libelle = Matiere.query.filter_by(libelle=libelle, ecole_id=ecole_id).first()
+    if existing_libelle:
+        return jsonify({
+            "error": f"Une matière avec le libellé '{libelle}' existe déjà dans votre école (code : {existing_libelle.code})"
+        }), 400
 
     try:
+        # Créer la matière POUR CETTE ÉCOLE
         matiere = Matiere(
             code=code, 
             libelle=libelle, 
             type=type_, 
             etat="Inactif",
-            ecole_id=ecole_id
+            ecole_id=ecole_id  # IMPORTANT: Lier à l'école courante
         )
         db.session.add(matiere)
         db.session.commit()
@@ -441,33 +441,58 @@ def add_matiere():
         # Journalisation
         current_app.logger.info(
             f"Matière créée - ID: {matiere.id}, Code: {code}, "
-            f"Libellé: {libelle}, Par utilisateur: {current_user.id}"
+            f"Libellé: {libelle}, École: {ecole_id}, Par utilisateur: {current_user.id}"
         )
         
         log_security_event(
             "matiere_creation", 
             f"matiere_{matiere.id}", 
             "success", 
-            {"code": code, "libelle": libelle}
+            {"code": code, "libelle": libelle, "ecole_id": str(ecole_id)}
         )
         
         return jsonify({
             "message": "Matière ajoutée avec succès", 
             "code": code, 
-            "id": str(matiere.id)
+            "id": str(matiere.id),
+            "ecole_id": str(ecole_id)
         }), 200
         
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(
-            f"Erreur création matière - Utilisateur: {current_user.id}, Erreur: {str(e)}"
+            f"Erreur création matière - École: {ecole_id}, Utilisateur: {current_user.id}, Erreur: {str(e)}"
         )
-        log_security_event(
-            "matiere_creation", 
-            "database", 
-            "failed", 
-            {"error": str(e)}
-        )
+        
+        # Gestion spécifique des erreurs d'unicité
+        if "unique" in str(e).lower() and "code" in str(e).lower():
+            # Le code existe probablement globalement, générer un nouveau code POUR CETTE ÉCOLE
+            new_code = generer_code_matiere(libelle + "_" + str(ecole_id)[:4], ecole_id)
+            
+            try:
+                matiere = Matiere(
+                    code=new_code, 
+                    libelle=libelle, 
+                    type=type_, 
+                    etat="Inactif",
+                    ecole_id=ecole_id
+                )
+                db.session.add(matiere)
+                db.session.commit()
+                
+                return jsonify({
+                    "message": f"Matière ajoutée avec succès. Code modifié pour être unique dans votre école : {new_code}", 
+                    "code": new_code, 
+                    "id": str(matiere.id),
+                    "original_code": code,
+                    "recovery": True
+                }), 200
+                
+            except Exception as retry_error:
+                return jsonify({
+                    "error": f"Erreur après tentative de récupération : {str(retry_error)}"
+                }), 500
+        
         return jsonify({"error": "Erreur lors de l'ajout de la matière"}), 500
 
 def check_matiere_dependencies_detailed(matiere):

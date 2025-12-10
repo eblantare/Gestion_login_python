@@ -62,55 +62,41 @@ FILTER_DIC = {
 @enseignants_bp.route("/")
 @login_required
 def liste_enseignants():
-    """Liste des enseignants - VERSION CORRIGÉE URGENCE"""
+    """Liste des enseignants - VERSION CORRIGÉE SANS DOUBLONS"""
     data = request.args
     search = data.get("search", "", type=str)
-    per_page = data.get("per_page", 5, type=int)
+    per_page = data.get("per_page", 10, type=int)
     page = data.get("page", 1, type=int)
 
-    # CORRECTION URGENTE : Priorité ABSOLUE au paramètre URL
-    ecole_url = data.get("ecole", "", type=str)
+    # Détection admin système
     user_is_system_admin = is_system_admin_enhanced()
     
-    # DÉTERMINATION CRITIQUE DE L'ÉCOLE
+    # Détection cohérente de l'école
+    ecole_id = get_current_ecole_id()
+    
+    # Admin système peut surcharger avec le paramètre URL
     if user_is_system_admin:
-        # ADMIN SYSTÈME : Le paramètre URL a la PRIORITÉ ABSOLUE
-        if ecole_url:
+        ecole_url = data.get("ecole", "", type=str)
+        if ecole_url and ecole_url != str(ecole_id):
             ecole_id = ecole_url
-            current_app.logger.info(f"🚀 ADMIN - Utilisation école URL: {ecole_id}")
-        else:
-            # Si pas de paramètre URL, on utilise l'école de session
-            ecole_id = get_current_ecole_id()
-            current_app.logger.info(f"ℹ️ ADMIN - Utilisation école session: {ecole_id}")
-    else:
-        # Non-admin : toujours l'école courante
-        ecole_id = get_current_ecole_id()
-        current_app.logger.info(f"👤 NON-ADMIN - Utilisation école session: {ecole_id}")
-
+    
     # Récupérer l'école sélectionnée pour affichage
     ecole_selectionnee = None
     if ecole_id:
         ecole_selectionnee = Ecole.query.get(ecole_id)
-        if ecole_selectionnee:
-            current_app.logger.info(f"🏫 ÉCOLE SÉLECTIONNÉE: {ecole_selectionnee.nom}")
 
-    # Logique de requête
-    if user_is_system_admin:
-        if ecole_id:  # Une école spécifique est sélectionnée
-            query = Enseignant.query.filter_by(ecole_id=ecole_id)
-            matieres = Matiere.query.filter_by(ecole_id=ecole_id).with_entities(Matiere.id, Matiere.libelle).all()
-            annees_query = db.session.query(extract("year", Enseignant.date_fonction).label("annee")).filter(Enseignant.ecole_id == ecole_id).distinct().order_by("annee").all()
-        else:  # Aucune école spécifique = toutes les écoles
-            query = Enseignant.query
-            matieres = Matiere.query.with_entities(Matiere.id, Matiere.libelle).all()
-            annees_query = db.session.query(extract("year", Enseignant.date_fonction).label("annee")).distinct().order_by("annee").all()
+    # CORRECTION : Construire la requête sans DISTINCT ON pour PostgreSQL
+    if user_is_system_admin and ecole_id:
+        # Admin système avec école spécifique
+        query = Enseignant.query.filter_by(ecole_id=ecole_id)
+    elif user_is_system_admin and not ecole_id:
+        # Admin système sans école spécifique = toutes les écoles
+        query = Enseignant.query
     else:
         # Utilisateurs normaux : seulement leur école
         if not ecole_id:
             return render_template("error.html", message="Aucune école sélectionnée"), 400
         query = Enseignant.query.filter_by(ecole_id=ecole_id)
-        matieres = Matiere.query.filter_by(ecole_id=ecole_id).with_entities(Matiere.id, Matiere.libelle).all()
-        annees_query = db.session.query(extract("year", Enseignant.date_fonction).label("annee")).filter(Enseignant.ecole_id == ecole_id).distinct().order_by("annee").all()
 
     # Charger les relations
     query = query.options(
@@ -118,56 +104,94 @@ def liste_enseignants():
         joinedload(Enseignant.matieres)
     )
 
-    annees = [int(a.annee) for a in annees_query if a.annee is not None]
-
+    # Collecte des données pour filtres
+    matieres = []
+    annees = []
+    
+    if ecole_id:
+        # Matières de cette école
+        matieres = Matiere.query.filter_by(ecole_id=ecole_id).with_entities(Matiere.id, Matiere.libelle).all()
+        # Années pour cette école
+        annees_query = db.session.query(extract("year", Enseignant.date_fonction).label("annee")).filter(Enseignant.ecole_id == ecole_id).distinct().order_by("annee").all()
+        annees = [int(a.annee) for a in annees_query if a.annee is not None]
+    
     # Recherche
     if search:
-        query = (
-            query.join(Utilisateur, Enseignant.utilisateur)
-            .filter(
-                (Utilisateur.nom.ilike(f"%{search}%")) |
-                (Utilisateur.prenoms.ilike(f"%{search}%")) |
-                (cast(Enseignant.date_fonction, String).ilike(f"%{search}%")) |
-                (Utilisateur.sexe.ilike(f"%{search}%")) |
-                (Utilisateur.email.ilike(f"%{search}%")) |
-                (Utilisateur.telephone.ilike(f"%{search}%")) |
-                (Enseignant.titre.ilike(f"%{search}%")) |
-                (Enseignant.matieres.any(Matiere.libelle.ilike(f"%{search}%")))
+        search_like = f"%{search}%"
+        query = query.join(Utilisateur, Enseignant.utilisateur)
+        
+        query = query.filter(
+            db.or_(
+                Utilisateur.nom.ilike(search_like),
+                Utilisateur.prenoms.ilike(search_like),
+                cast(Enseignant.date_fonction, String).ilike(search_like),
+                Utilisateur.sexe.ilike(search_like),
+                Utilisateur.email.ilike(search_like),
+                Utilisateur.telephone.ilike(search_like),
+                Enseignant.titre.ilike(search_like)
             )
         )
 
     # Filtrage
     filter_value = data.get("filter", "", type=str)
     if filter_value:
-       key, val = filter_value.split(":", 1)
-       if key == "sexe":
-          query = query.join(Utilisateur).filter(Utilisateur.sexe == val)
-       elif key == "date_fonction":
-           try:
-              query = query.filter(extract("year", Enseignant.date_fonction) == int(val))
-           except ValueError:
-            # Si la conversion échoue, ignorer ce filtre
-            current_app.logger.warning(f"⚠️ Valeur de date invalide: {val}")
-       elif key == "matiere" and val:
-             try:
-                query = query.join(Enseignant.matieres).filter(Matiere.id == val)
-             except ValueError:
-            # Si la conversion échoue, ignorer ce filtre
-               current_app.logger.warning(f"⚠️ ID matière invalide: {val}")
-       elif key in FILTER_DIC and val in FILTER_DIC[key]:
-             query = query.filter(getattr(Enseignant, key).in_(FILTER_DIC[key][val]))
-       else:
+        key, val = filter_value.split(":", 1)
+        
+        if key == "sexe":
+            query = query.join(Utilisateur).filter(Utilisateur.sexe == val)
+        elif key == "date_fonction":
+            try:
+                year_val = int(val)
+                query = query.filter(extract("year", Enseignant.date_fonction) == year_val)
+            except ValueError:
+                pass
+        elif key == "matiere" and val:
+            try:
+                query = query.filter(Enseignant.matieres.any(Matiere.id == val))
+            except ValueError:
+                pass
+        elif key in FILTER_DIC and val in FILTER_DIC[key]:
+            if key == "titre" and val in ["Enseignant", "Enseignante"]:
+                query = query.filter(Enseignant.titre.in_(FILTER_DIC[key][val]))
+            else:
+                query = query.filter(getattr(Enseignant, key) == val)
+        else:
             query = query.filter(getattr(Enseignant, key) == val)
+
+    # CORRECTION CRITIQUE : Pour éviter les doublons avec PostgreSQL, utiliser group_by au lieu de distinct
+    # D'abord, appliquer le group_by pour éliminer les doublons
+    query = query.group_by(Enseignant.id)
     
+    # Puis trier
+    query = query.order_by(
+        Enseignant.date_fonction.desc(),
+        Enseignant.utilisateur_id
+    )
 
     # Pagination
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-    enseignants = pagination.items
+    try:
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        enseignants = pagination.items
+        
+        # Vérification des doublons (débogage)
+        seen_ids = set()
+        duplicates = []
+        for ens in enseignants:
+            if ens.id in seen_ids:
+                duplicates.append(ens.id)
+            seen_ids.add(ens.id)
+        
+        if duplicates:
+            current_app.logger.warning(f"⚠️ DOUBLONS détectés dans la page: {duplicates}")
+            
+    except Exception as e:
+        current_app.logger.error(f"❌ Erreur pagination: {str(e)}")
+        return render_template("enseignants/error.html", message="Erreur lors du chargement des enseignants"), 500
 
     # Récupération des données pour le template
     user_role = (getattr(current_user, "role", "guest") or "guest").lower()
     
-    # CORRECTION CRITIQUE : Variables cohérentes pour le template
+    # Variables cohérentes
     ecoles_list = get_user_accessible_ecoles() if user_is_system_admin else [ecole_selectionnee] if ecole_selectionnee else []
     
     return render_template("enseignants/ens_liste.html",
@@ -180,7 +204,7 @@ def liste_enseignants():
                           matieres=matieres,
                           annees=annees,
                           current_ecole_id=ecole_id,
-                          selected_ecole_id=ecole_id,  # Uniformisation
+                          selected_ecole_id=ecole_id,
                           is_system_admin=user_is_system_admin,
                           selected_ecole=ecole_selectionnee,
                           ecoles=ecoles_list)

@@ -17,7 +17,13 @@
             N/A
         {% endif %}
     </td>
-    <td>{{ note.trimestre }}</td>
+    <td>
+        {% if cycle_type == 'lycee' %}
+            Sem. {{ note.trimestre }}
+        {% else %}
+            Trim. {{ note.trimestre }}
+        {% endif %}
+    </td>
     <td>{{ note.annee_scolaire }}</td>
     <td>{{ note.date_saisie.strftime('%d/%m/%Y') if note.date_saisie else '' }}</td>
     
@@ -31,6 +37,7 @@
         </button>
         
         <!-- Boutons modification et suppression - seulement pour admin système et admin_ecole -->
+        {% if user_role in ['admin', 'admin_ecole'] %}
             <button class="btn btn-sm btn-warning btn-edit-note" 
                     data-note-id="{{ note.id }}"
                     title="Modifier la note">
@@ -43,6 +50,7 @@
                     title="Supprimer la note">
                 <i class="bi bi-trash"></i>
             </button>
+        {% endif %}
     </td>
     
     <!-- État -->

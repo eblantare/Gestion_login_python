@@ -1,10 +1,15 @@
-// moyennes.js - Version COMPLÈTE avec notifications élégantes
+// static/js/moyennes.js - VERSION COMPLÈTE CORRIGÉE
 document.addEventListener('DOMContentLoaded', function() {
     console.log('✅ Module moyennes chargé');
-    initializeNotifications();
-    initializeExports();
-    initializeBatchButton();
-    setupButtonStates();
+    
+    // Initialiser seulement si ce n'est pas déjà fait
+    if (!window.moyennesInitialized) {
+        initializeNotifications();
+        initializeExports();
+        initializeBatchButton();
+        setupButtonStates();
+        window.moyennesInitialized = true;
+    }
 });
 
 // ==================== SYSTÈME DE NOTIFICATIONS ====================
@@ -24,6 +29,34 @@ function initializeNotifications() {
             max-width: 400px;
         `;
         document.body.appendChild(notificationContainer);
+        
+        // Ajouter le style CSS une seule fois
+        if (!document.getElementById('notification-styles')) {
+            const style = document.createElement('style');
+            style.id = 'notification-styles';
+            style.textContent = `
+                @keyframes slideInRight {
+                    from {
+                        transform: translateX(100%);
+                        opacity: 0;
+                    }
+                    to {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                }
+                
+                .notification {
+                    transition: all 0.3s ease;
+                }
+                
+                .notification.fade:not(.show) {
+                    opacity: 0;
+                    transform: translateX(100%);
+                }
+            `;
+            document.head.appendChild(style);
+        }
     }
 }
 
@@ -86,31 +119,6 @@ function getNotificationIcon(type) {
     return icons[type] || 'ℹ️';
 }
 
-// Animation CSS pour les notifications
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideInRight {
-        from {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
-    }
-    
-    .notification {
-        transition: all 0.3s ease;
-    }
-    
-    .notification.fade:not(.show) {
-        opacity: 0;
-        transform: translateX(100%);
-    }
-`;
-document.head.appendChild(style);
-
 // ==================== FONCTIONS PRINCIPALES ====================
 
 function initializeExports() {
@@ -143,31 +151,99 @@ function initializeBatchButton() {
         return;
     }
     
+    let isProcessing = false; // 🔥 CORRECTION : Variable pour suivre l'état du traitement
+    
     batchForm.addEventListener('submit', function(e) {
         e.preventDefault();
         
+        // 🔥 CORRECTION : Empêcher les clics multiples
+        if (isProcessing) {
+            console.log('⚠️ Batch déjà en cours, ignore la requête');
+            showNotification('⚠️ Calcul déjà en cours, veuillez patienter...', 'warning', 3000);
+            return;
+        }
+        
+        console.log('🎯 Soumission du formulaire batch détectée');
+        
+        // Récupérer les éléments du formulaire
         const classeSelect = document.getElementById('classeSelect');
         const anneeSelect = document.getElementById('anneeSelect');
+        const periodeSelect = document.querySelector('select[name="periode"]');
         const batchBtn = document.getElementById('batchBtn');
         const batchSpinner = document.getElementById('batchSpinner');
         const batchBtnText = document.getElementById('batchBtnText');
         
-        if (!classeSelect?.value || !anneeSelect?.value) {
-            showNotification('Veuillez sélectionner une classe et une année scolaire', 'warning', 4000);
+        console.log('📋 Éléments trouvés:', {
+            classeSelect: !!classeSelect,
+            anneeSelect: !!anneeSelect,
+            periodeSelect: !!periodeSelect,
+            batchBtn: !!batchBtn,
+            batchSpinner: !!batchSpinner,
+            batchBtnText: !!batchBtnText
+        });
+        
+        // Validation des champs obligatoires
+        if (!classeSelect || !classeSelect.value) {
+            showNotification('❌ Veuillez sélectionner une classe', 'warning', 4000);
+            return;
+        }
+        
+        if (!anneeSelect || !anneeSelect.value) {
+            showNotification('❌ Veuillez sélectionner une année scolaire', 'warning', 4000);
             return;
         }
 
-        // UI feedback
-        batchBtn.disabled = true;
-        if (batchSpinner) batchSpinner.classList.remove('d-none');
-        if (batchBtnText) batchBtnText.textContent = 'Calcul en cours...';
+        // 🔥 CORRECTION : Marquer comme en cours de traitement
+        isProcessing = true;
         
-        const formData = new FormData();
-        formData.append('classe_id', classeSelect.value);
-        formData.append('annee_scolaire', anneeSelect.value);
-        formData.append('trimestre', document.querySelector('select[name="trimestre"]').value);
+        // UI feedback
+        if (batchBtn) {
+            batchBtn.disabled = true;
+            if (batchSpinner) batchSpinner.classList.remove('d-none');
+            if (batchBtnText) batchBtnText.textContent = 'Calcul en cours...';
+        }
+        
+        // Préparer les données du formulaire
+        const formData = new FormData(batchForm);
+        
+        // Ajouter les valeurs manquantes si nécessaire
+        if (!formData.has('classe_id')) {
+            formData.append('classe_id', classeSelect.value);
+        }
+        
+        if (!formData.has('annee_scolaire')) {
+            formData.append('annee_scolaire', anneeSelect.value);
+        }
+        
+        if (!formData.has('periode') && periodeSelect) {
+            formData.append('periode', periodeSelect.value);
+        } else if (!formData.has('periode')) {
+            formData.append('periode', '1'); // Valeur par défaut
+        }
+        
+        // Déterminer le type de système
+        let typeSysteme = 'trimestriel';
+        const typeSystemeInput = document.querySelector('input[name="type_systeme"]');
+        if (typeSystemeInput) {
+            formData.append('type_systeme', typeSystemeInput.value);
+            typeSysteme = typeSystemeInput.value;
+        } else {
+            // Détecter automatiquement
+            if (periodeSelect && periodeSelect.options.length <= 2) {
+                formData.append('type_systeme', 'semestriel');
+                typeSysteme = 'semestriel';
+            } else {
+                formData.append('type_systeme', 'trimestriel');
+            }
+        }
 
         console.log('🚀 Lancement du calcul batch...');
+        console.log('📤 Données envoyées:', {
+            classe_id: classeSelect.value,
+            annee_scolaire: anneeSelect.value,
+            periode: formData.get('periode'),
+            type_systeme: typeSysteme
+        });
         
         // Notification de démarrage
         const progressNotification = showNotification(
@@ -176,13 +252,32 @@ function initializeBatchButton() {
             0 // Ne pas auto-fermer
         );
         
+        // Envoyer la requête
         fetch(batchForm.action, {
             method: "POST",
             body: formData,
         })
         .then(resp => {
+            console.log('📨 Réponse du serveur:', resp.status, resp.statusText);
+            
+            // Si la réponse n'est pas OK, essayer de lire le message d'erreur
             if (!resp.ok) {
-                throw new Error(`HTTP error! status: ${resp.status}`);
+                return resp.text().then(text => {
+                    let errorMessage = `HTTP error! status: ${resp.status}`;
+                    
+                    // Essayer de parser le JSON d'erreur
+                    try {
+                        const errorData = JSON.parse(text);
+                        errorMessage = errorData.message || errorMessage;
+                    } catch (e) {
+                        // Si ce n'est pas du JSON, utiliser le texte brut
+                        if (text) {
+                            errorMessage += ` - ${text.substring(0, 100)}`;
+                        }
+                    }
+                    
+                    throw new Error(errorMessage);
+                });
             }
             return resp.json();
         })
@@ -195,12 +290,16 @@ function initializeBatchButton() {
                 setTimeout(() => progressNotification.remove(), 300);
             }
             
+            // Restaurer le bouton
             if (batchSpinner) batchSpinner.classList.add('d-none');
-            if (batchBtnText) batchBtnText.textContent = 'Calculer moyenne';
+            if (batchBtnText) batchBtnText.textContent = 'Calculer moyennes';
             
-            if (data.status === "ok") {
+            // 🔥 CORRECTION : Réactiver le bouton après succès
+            isProcessing = false;
+            
+            if (data.status === "ok" || data.status === "success") {
                 showNotification(
-                    `✅ Calcul terminé avec succès !<br><small>${data.created || 0} nouvelles moyennes créées, ${data.updated || 0} mises à jour.</small>`,
+                    `✅ ${data.message || 'Calcul terminé avec succès !'}<br><small>${data.details?.created || 0} nouvelles moyennes créées, ${data.details?.updated || 0} mises à jour.</small>`,
                     'success',
                     5000
                 );
@@ -212,11 +311,15 @@ function initializeBatchButton() {
                 
             } else {
                 showNotification(
-                    `❌ Erreur lors du calcul: ${data.message || 'Erreur inconnue'}`,
+                    `❌ ${data.message || 'Erreur lors du calcul'}`,
                     'error',
                     6000
                 );
-                batchBtn.disabled = false;
+                if (batchBtn) {
+                    setTimeout(() => {
+                        batchBtn.disabled = false;
+                    }, 3000); // 🔥 Désactiver pendant 3 secondes
+                }
             }
         })
         .catch(err => {
@@ -228,15 +331,29 @@ function initializeBatchButton() {
                 setTimeout(() => progressNotification.remove(), 300);
             }
             
-            if (batchSpinner) batchSpinner.classList.add('d-none');
-            if (batchBtnText) batchBtnText.textContent = 'Calculer moyenne';
-            batchBtn.disabled = false;
+            // 🔥 CORRECTION : Réactiver le bouton en cas d'erreur
+            isProcessing = false;
             
-            showNotification(
-                '❌ Erreur réseau ou serveur. Veuillez réessayer.',
-                'error',
-                5000
-            );
+            // Restaurer le bouton
+            if (batchSpinner) batchSpinner.classList.add('d-none');
+            if (batchBtnText) batchBtnText.textContent = 'Calculer moyennes';
+            if (batchBtn) {
+                setTimeout(() => {
+                    batchBtn.disabled = false;
+                }, 2000); // 🔥 Désactiver pendant 2 secondes après erreur
+            }
+            
+            // Afficher un message d'erreur approprié
+            let errorMessage = 'Erreur réseau ou serveur. Veuillez réessayer.';
+            if (err.message.includes('500')) {
+                errorMessage = 'Erreur interne du serveur (500). Contactez l\'administrateur.';
+            } else if (err.message.includes('Failed to fetch')) {
+                errorMessage = 'Erreur de connexion au serveur. Vérifiez votre réseau.';
+            } else if (err.message) {
+                errorMessage = err.message;
+            }
+            
+            showNotification(`❌ ${errorMessage}`, 'error', 5000);
         });
     });
     
@@ -300,7 +417,7 @@ function handleExport(format) {
     // Validation des sélections
     const classeSelect = document.getElementById('classeSelect');
     const anneeSelect = document.getElementById('anneeSelect');
-    const trimestreSelect = document.querySelector('select[name="trimestre"]');
+    const periodeSelect = document.querySelector('select[name="periode"]');
     
     if (!classeSelect || !classeSelect.value) {
         showNotification('❌ Veuillez sélectionner une classe', 'warning', 4000);
@@ -314,9 +431,9 @@ function handleExport(format) {
     
     const classeId = classeSelect.value;
     const annee = anneeSelect.value;
-    const trimestre = trimestreSelect ? trimestreSelect.value : '1';
+    const periode = periodeSelect ? periodeSelect.value : '1';
     
-    console.log('📤 Paramètres export:', { classeId, annee, trimestre, format });
+    console.log('📤 Paramètres export:', { classeId, annee, periode, format });
     
     // Notification de démarrage d'export
     showNotification(
@@ -325,37 +442,66 @@ function handleExport(format) {
         3000
     );
     
-    triggerExportDirect(classeId, annee, trimestre, format);
+    triggerExportDirect(classeId, annee, periode, format);
 }
 
-function triggerExportDirect(classeId, annee, trimestre, format) {
-    const url = `/moyennes/export?classe_id=${encodeURIComponent(classeId)}&annee_scolaire=${encodeURIComponent(annee)}&trimestre=${encodeURIComponent(trimestre)}&format=${format}`;
+function triggerExportDirect(classeId, annee, periode, format) {
+    // Récupérer le type système
+    let typeSysteme = 'trimestriel';
+    const typeSystemeInput = document.querySelector('input[name="type_systeme"]');
+    if (typeSystemeInput) {
+        typeSysteme = typeSystemeInput.value;
+    } else if (periode && parseInt(periode) <= 2) {
+        // Si seulement 2 périodes, c'est probablement semestriel
+        typeSysteme = 'semestriel';
+    }
+    
+    // 🔥 CORRECTION : Utiliser encodeURIComponent pour tous les paramètres
+    const url = `/moyennes/export?` + new URLSearchParams({
+        classe_id: classeId,
+        annee_scolaire: annee,
+        periode: periode,
+        type_systeme: typeSysteme,
+        format: format
+    }).toString();
     
     console.log('🔗 URL d\'export:', url);
     
-    // Méthode 1 : Ouverture dans un nouvel onglet (le plus fiable)
-    const newWindow = window.open(url, '_blank');
-    
-    if (newWindow) {
-        console.log('✅ Export ouvert dans un nouvel onglet');
+    // 🔥 CORRECTION : Méthode améliorée pour l'export
+    try {
+        // Créer un iframe invisible pour le téléchargement
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = url;
+        document.body.appendChild(iframe);
+        
+        // Supprimer l'iframe après un délai
+        setTimeout(() => {
+            if (iframe.parentNode) {
+                document.body.removeChild(iframe);
+            }
+        }, 5000);
+        
         showNotification(
             `✅ Export ${format.toUpperCase()} lancé avec succès !<br><small>Le téléchargement devrait commencer automatiquement.</small>`,
             'success',
             5000
         );
-    } else {
-        console.log('⚠️ Nouvel onglet bloqué, utilisation de la méthode alternative');
-        showNotification(
-            '⚠️ Le nouvel onglet a été bloqué. Utilisation de la méthode alternative...',
-            'warning',
-            3000
-        );
+        
+    } catch (error) {
+        console.error('⚠️ Erreur lors de l\'export:', error);
         
         // Méthode alternative : Téléchargement direct
+        showNotification(
+            '⚠️ Méthode alternative d\'export utilisée...',
+            'warning',
+            2000
+        );
+        
         setTimeout(() => {
             const link = document.createElement('a');
             link.href = url;
-            link.download = `moyennes_${classeId}_${annee}_T${trimestre}.${format}`;
+            link.download = `moyennes_${classeId}_${annee}_${typeSysteme === 'semestriel' ? 'S' : 'T'}${periode}.${format}`;
             link.style.display = 'none';
             document.body.appendChild(link);
             link.click();
@@ -391,3 +537,50 @@ window.addEventListener('unhandledrejection', function(e) {
         5000
     );
 });
+
+// 🔥 NOUVEAU : Fonction pour détecter le changement de système
+function detectSystemChange() {
+    const periodeSelect = document.querySelector('select[name="periode"]');
+    if (periodeSelect) {
+        const oldOptionsLength = periodeSelect.options.length;
+        
+        periodeSelect.addEventListener('change', function() {
+            // Si le nombre d'options change, recharger la page
+            if (periodeSelect.options.length !== oldOptionsLength) {
+                console.log('🔄 Changement de système détecté, rechargement de la page');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            }
+        });
+    }
+}
+
+// 🔥 NOUVEAU : Initialiser la détection de changement de système
+if (document.querySelector('select[name="periode"]')) {
+    detectSystemChange();
+}
+
+// 🔥 NOUVEAU : Gestion des sessions expirées
+function checkSessionValidity() {
+    const currentTime = new Date().getTime();
+    const lastActivity = localStorage.getItem('lastActivity') || currentTime;
+    
+    // Si plus de 30 minutes d'inactivité
+    if (currentTime - lastActivity > 30 * 60 * 1000) {
+        showNotification('⚠️ Session expirée, veuillez vous reconnecter', 'warning', 10000);
+        setTimeout(() => {
+            window.location.href = '/auth/login';
+        }, 5000);
+    }
+    
+    localStorage.setItem('lastActivity', currentTime);
+}
+
+// 🔥 NOUVEAU : Mettre à jour l'activité utilisateur
+document.addEventListener('click', function() {
+    localStorage.setItem('lastActivity', new Date().getTime());
+});
+
+// 🔥 NOUVEAU : Vérifier la session toutes les 5 minutes
+setInterval(checkSessionValidity, 5 * 60 * 1000);

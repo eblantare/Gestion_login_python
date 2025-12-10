@@ -19,6 +19,18 @@ from ..utils import get_current_ecole_id
 bulletins_export_bp = Blueprint('bulletins_export', __name__)
 
 
+def get_effectif_classe(classe_id):
+    """Récupère l'effectif d'une classe depuis la base de données"""
+    try:
+        classe = Classe.query.get(classe_id)
+        if classe and hasattr(classe, 'effectif') and classe.effectif:
+            return classe.effectif
+        else:
+            # Fallback: compter les élèves
+            return Eleve.query.filter_by(classe_id=classe_id).count()
+    except Exception as e:
+        print(f"❌ Erreur récupération effectif classe {classe_id}: {str(e)}")
+        return 0
 # ==================== FONCTIONS DE LOGO DYNAMIQUE ====================
 
 def get_logo_path(ecole_id=None):
@@ -692,10 +704,8 @@ def calculer_moyenne_trimestre(moyennes_par_type):
 
 # ==================== FONCTION get_moyennes_par_trimestre CORRIGÉE ====================
 
-# ==================== REMPLACEZ LA FONCTION get_moyennes_par_trimestre DÉFAILLANTE ====================
-
 def get_moyennes_par_trimestre(eleve_id, annee_scolaire):
-    """Récupère les moyennes de l'élève pour tous les trimestres - VERSION ROBUSTE"""
+    """Récupère les moyennes de l'élève pour tous les trimestres - VERSION CORRIGÉE POUR EFFECTIF"""
     moyennes_trimestres = {}
     
     for trim in [1, 2, 3]:
@@ -709,8 +719,29 @@ def get_moyennes_par_trimestre(eleve_id, annee_scolaire):
         if moyenne_data and moyenne_data.moy_trim is not None:
             eleve = Eleve.query.get(eleve_id)
             if eleve:
-                # Calculer l'effectif total de la classe
-                effectif_total = Eleve.query.filter_by(classe_id=eleve.classe_id).count()
+                # CORRECTION CRITIQUE : Calculer effectif_composant (élèves ayant une moyenne)
+                effectif_composant = 0
+                
+                # Méthode : compter les élèves ayant des notes dans ce trimestre
+                effectif_composant = db.session.query(Eleve).join(Note).filter(
+                    Eleve.classe_id == eleve.classe_id,
+                    Note.trimestre == trim,
+                    Note.annee_scolaire == annee_scolaire,
+                    Note.note_comp.isnot(None)  # Uniquement ceux qui ont une note de composition
+                ).distinct().count()
+                
+                # Fallback : si aucun élève n'a de note_comp, compter ceux qui ont au moins une note
+                if effectif_composant == 0:
+                    effectif_composant = db.session.query(Eleve).join(Note).filter(
+                        Eleve.classe_id == eleve.classe_id,
+                        Note.trimestre == trim,
+                        Note.annee_scolaire == annee_scolaire,
+                        db.or_(
+                            Note.note1.isnot(None),
+                            Note.note2.isnot(None),
+                            Note.note3.isnot(None)
+                        )
+                    ).distinct().count()
                 
                 # Calculer le rang
                 rang = calculer_rang_simple_ameliore(
@@ -724,13 +755,13 @@ def get_moyennes_par_trimestre(eleve_id, annee_scolaire):
                 moyennes_trimestres[trim] = {
                     'moyenne': round(moyenne_data.moy_trim, 2),
                     'rang': rang,
-                    'effectif_composant': effectif_total
+                    'effectif_composant': effectif_composant  # CORRECTION ICI
                 }
             else:
                 moyennes_trimestres[trim] = {
                     'moyenne': round(moyenne_data.moy_trim, 2) if moyenne_data.moy_trim else 0,
                     'rang': 'N/A',
-                    'effectif_composant': 0
+                    'effectif_composant': 0  # CORRECTION ICI
                 }
         else:
             # Si pas de moyenne en base, essayer de calculer à partir des notes
@@ -760,7 +791,20 @@ def get_moyennes_par_trimestre(eleve_id, annee_scolaire):
                     
                     if has_notes_valides and total_coeff > 0:
                         moyenne_calculee = total_moy_coef / total_coeff
-                        effectif_total = Eleve.query.filter_by(classe_id=eleve.classe_id).count()
+                        
+                        # CORRECTION : Calculer effectif_composant pour ce trimestre
+                        effectif_composant = db.session.query(Eleve).join(Note).filter(
+                            Eleve.classe_id == eleve.classe_id,
+                            Note.trimestre == trim,
+                            Note.annee_scolaire == annee_scolaire,
+                            db.or_(
+                                Note.note1.isnot(None),
+                                Note.note2.isnot(None),
+                                Note.note3.isnot(None),
+                                Note.note_comp.isnot(None)
+                            )
+                        ).distinct().count()
+                        
                         rang = calculer_rang_simple_ameliore(
                             eleve_id, 
                             eleve.classe_id, 
@@ -772,25 +816,25 @@ def get_moyennes_par_trimestre(eleve_id, annee_scolaire):
                         moyennes_trimestres[trim] = {
                             'moyenne': round(moyenne_calculee, 2),
                             'rang': rang,
-                            'effectif_composant': effectif_total
+                            'effectif_composant': effectif_composant  # CORRECTION ICI
                         }
                     else:
                         moyennes_trimestres[trim] = {
                             'moyenne': 0, 
                             'rang': 'N/A', 
-                            'effectif_composant': 0
+                            'effectif_composant': 0  # CORRECTION ICI
                         }
                 else:
                     moyennes_trimestres[trim] = {
                         'moyenne': 0, 
                         'rang': 'N/A', 
-                        'effectif_composant': 0
+                        'effectif_composant': 0  # CORRECTION ICI
                     }
             else:
                 moyennes_trimestres[trim] = {
                     'moyenne': 0, 
                     'rang': 'N/A', 
-                    'effectif_composant': 0
+                    'effectif_composant': 0  # CORRECTION ICI
                 }
     
     return moyennes_trimestres
@@ -1425,10 +1469,8 @@ def calculer_moyenne_annuelle(moyennes_trimestres):
     return round(sum(moyennes_valides) / len(moyennes_valides), 2)
 
 
-# ========== FONCTIONS DE GÉNÉRATION PDF UNIFORMISÉES ==========
-
-def create_signatures_section(doc_width, eleve_data, include_titulaire=True):
-    """Crée la section des signatures avec alignement gauche/droite - VERSION CORRIGÉE"""
+def create_signatures_section(doc_width, eleve_data, include_titulaire=True, ecole_id=None):
+    """Crée la section des signatures avec alignement gauche/droite - VERSION CORRIGÉE AVEC CIVILITÉ ADAPTÉE"""
     
     # Style pour les noms - alignement selon colonne
     nom_gauche_style = ParagraphStyle(
@@ -1470,28 +1512,71 @@ def create_signatures_section(doc_width, eleve_data, include_titulaire=True):
     try:
         classe = eleve_data['eleve'].classe
         
-        # ✅ CORRECTION CRITIQUE : Récupérer l'école via la classe de l'élève
-        ecole = classe.ecole if classe.ecole else Ecole.query.first()
+        # ✅ CORRECTION CRITIQUE : Récupération de l'école avec fallbacks multiples
+        ecole = None
+        
+        # 1. Via l'ID d'école fourni en paramètre
+        if ecole_id:
+            ecole = Ecole.query.get(ecole_id)
+        
+        # 2. Via la relation classe.ecole (si elle existe)
+        if not ecole and hasattr(classe, 'ecole') and classe.ecole:
+            ecole = classe.ecole
+        
+        # 3. Via l'ID d'école de la classe
+        if not ecole and hasattr(classe, 'ecole_id') and classe.ecole_id:
+            ecole = Ecole.query.get(classe.ecole_id)
+        
+        # 4. Via l'utilisateur courant
+        if not ecole and current_user and hasattr(current_user, 'ecole_id') and current_user.ecole_id:
+            ecole = Ecole.query.get(current_user.ecole_id)
+        
+        # 5. Fallback: première école
+        if not ecole:
+            ecole = Ecole.query.first()
         
         print(f"🔍 Récupération signatures - École: {ecole.nom if ecole else 'NON TROUVÉE'}")
-        print(f"🔍 Chef d'établissement en base: {ecole.chef_etablissement_nom if ecole else 'N/A'}")
         
-        # Nom du titulaire avec gestion d'erreur
+        # ✅ CORRECTION : Nom du titulaire avec civilité adaptée au sexe
         nom_titulaire = "NON ASSIGNÉ"
-        if classe.titulaire and hasattr(classe.titulaire, 'utilisateur') and classe.titulaire.utilisateur:
-            civilite = getattr(classe.titulaire, 'civilite', 'M.')
-            nom_titulaire = f"{civilite} {classe.titulaire.utilisateur.nom} {classe.titulaire.utilisateur.prenoms}".strip()
-        elif classe.titulaire and hasattr(classe.titulaire, 'nom'):
-            # Fallback si pas de relation utilisateur
-            civilite = getattr(classe.titulaire, 'civilite', 'M.')
-            nom_titulaire = f"{civilite} {classe.titulaire.nom}".strip()
+        if classe.titulaire:
+            try:
+                if hasattr(classe.titulaire, 'utilisateur') and classe.titulaire.utilisateur:
+                    # ✅ CORRECTION : Détecter la civilité en fonction du sexe
+                    sexe_enseignant = getattr(classe.titulaire.utilisateur, 'sexe', None)
+                    
+                    # Logique de détermination de la civilité
+                    if sexe_enseignant:
+                        sexe_lower = sexe_enseignant.lower()
+                        if sexe_lower in ['f', 'femme', 'féminin']:
+                            civilite = 'Mme'
+                        elif sexe_lower in ['m', 'homme', 'masculin']:
+                            civilite = 'M.'
+                        else:
+                            civilite = getattr(classe.titulaire, 'civilite', 'M.')
+                    else:
+                        # Fallback sur la civilité en base ou "M." par défaut
+                        civilite = getattr(classe.titulaire, 'civilite', 'M.')
+                    
+                    print(f"📋 Titulaire détecté - Sexe: {sexe_enseignant}, Civilité: {civilite}")
+                    nom_titulaire = f"{civilite} {classe.titulaire.utilisateur.nom} {classe.titulaire.utilisateur.prenoms}".strip()
+                elif hasattr(classe.titulaire, 'nom'):
+                    # Fallback si pas de relation utilisateur
+                    civilite = getattr(classe.titulaire, 'civilite', 'M.')
+                    nom_titulaire = f"{civilite} {classe.titulaire.nom}".strip()
+            except Exception as e:
+                print(f"⚠️ Erreur récupération titulaire: {str(e)}")
+                nom_titulaire = "NON ASSIGNÉ"
         
-        # Nom du chef d'établissement avec gestion d'erreur AMÉLIORÉE
+        # ✅ CORRECTION : Nom du chef d'établissement avec civilité adaptée
+        nom_complet_chef = "NON DÉFINI"
+        titre_chef = "LE CHEF D'ÉTABLISSEMENT"
+        
         if ecole:
             # Vérifier chaque champ individuellement avec des valeurs par défaut appropriées
-            nom_chef = ecole.chef_etablissement_nom 
-            titre_chef = ecole.chef_etablissement_titre 
-            civilite_chef = ecole.chef_etablissement_civilite 
+            nom_chef = getattr(ecole, 'chef_etablissement_nom', '')
+            titre_chef = getattr(ecole, 'chef_etablissement_titre', "LE CHEF D'ÉTABLISSEMENT")
+            civilite_chef = getattr(ecole, 'chef_etablissement_civilite', 'M.')
             
             print(f"📋 Données chef en base - Nom: '{nom_chef}', Titre: '{titre_chef}', Civilité: '{civilite_chef}'")
             
@@ -1502,6 +1587,22 @@ def create_signatures_section(doc_width, eleve_data, include_titulaire=True):
             else:
                 print(f"✅ Chef d'établissement trouvé: {nom_chef}")
             
+            # ✅ CORRECTION : Détecter la civilité automatiquement si possible
+            if civilite_chef == 'M.' and nom_chef != "NON DÉFINI":
+                # Essayer de détecter le sexe à partir du nom (règle simple)
+                # Note: Cette logique peut être améliorée selon vos besoins
+                nom_lower = nom_chef.lower()
+                
+                # Mots indiquant potentiellement une femme (à adapter selon vos conventions locales)
+                mots_femme = ['marie', 'fatou', 'aminata', 'adjo', 'viviane', 'édé', 'essi', 'fernande', 'dominique', 'adjo']
+                
+                if any(mot in nom_lower for mot in mots_femme):
+                    civilite_chef = 'Mme'
+                    print(f"🔍 Civilité automatiquement détectée: Mme (basé sur le nom)")
+                else:
+                    # Par défaut, utiliser M. (ou laisser la valeur existante)
+                    pass
+            
             # Valeurs par défaut si non définies
             if not titre_chef or titre_chef.strip() == '':
                 titre_chef = "LE CHEF D'ÉTABLISSEMENT"
@@ -1511,8 +1612,6 @@ def create_signatures_section(doc_width, eleve_data, include_titulaire=True):
             
             nom_complet_chef = f"{civilite_chef} {nom_chef}".strip()
         else:
-            nom_complet_chef = "NON DÉFINI"
-            titre_chef = "LE CHEF D'ÉTABLISSEMENT"
             print("❌ Aucune école trouvée pour la classe")
         
     except Exception as e:
@@ -1559,6 +1658,47 @@ def create_signatures_section(doc_width, eleve_data, include_titulaire=True):
     ]))
     
     return signatures_table
+
+def detecter_type_etablissement(ecole):
+    """Détecte le type d'établissement (lycée ou collège) - NOUVELLE FONCTION"""
+    if not ecole or not ecole.nom:
+        return "college"  # Par défaut
+    
+    nom_lower = ecole.nom.lower()
+    
+    # Mots-clés pour les lycées
+    mots_lycee = [
+        'lycée', 'lycee', 'lyce', 
+        'second cycle', 'secondaire', 
+        'lycée technique', 'lycee technique',
+        'enseignement secondaire', 'enseignement général',
+        'lycée d\'enseignement', 'lycée privé',
+        'lycée public', 'lycée moderne',
+        'technique', 'professionnel', 'lycée professionnel',
+        'l.p.', 'l.t.', 'lycée d\'état'
+    ]
+    
+    # Mots-clés pour les collèges
+    mots_college = [
+        'collège', 'college', 'c.e.g',
+        'enseignement général', 'collège d\'enseignement',
+        'premier cycle', 'collège privé',
+        'collège public', 'collège moderne',
+        'c.e.s.', 'c.e.g.'
+    ]
+    
+    # Vérifier d'abord si c'est un lycée
+    for mot in mots_lycee:
+        if mot in nom_lower:
+            return "lycee"
+    
+    # Sinon vérifier si c'est un collège
+    for mot in mots_college:
+        if mot in nom_lower:
+            return "college"
+    
+    # Par défaut
+    return "college"
 
 def create_unified_bulletin_pdf(eleve_data, trimestre, annee_scolaire, mode='normal', ecole_id=None):
     """Crée un bulletin PDF avec structure unifiée et logo dynamique"""
@@ -1610,8 +1750,19 @@ def create_text_logo(ecole_nom):
     except:
         return None
 
+def format_avec_espaces(mot_cle, valeur, unite=''):
+    """Formate avec des espaces appropriés"""
+    if unite:
+        return f"{mot_cle}: {valeur}{unite}"
+    return f"{mot_cle}: {valeur}"
+
+def ajouter_espace_html(valeur1, valeur2, largeur_espace=3):
+    """Ajoute un espace HTML entre deux valeurs"""
+    espace = '&nbsp;' * largeur_espace
+    return f"{valeur1}{espace}{valeur2}"
+
 def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, ecole_id=None):
-    """Crée le contenu du bulletin normal - AVEC LOGO ET NOM D'ÉCOLE DYNAMIQUES"""
+    """Crée le contenu du bulletin normal - AVEC GESTION DES SEMESTRES/TRIMESTRES CORRIGÉE"""
     if doc is None:
         from reportlab.lib.pagesizes import A4
         temp_doc = SimpleDocTemplate(None, pagesize=A4)
@@ -1627,7 +1778,7 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
                                 textColor=colors.HexColor('#2C3E50'), spaceAfter=2, fontName='Helvetica-Bold')
     subtitle_style = ParagraphStyle('SubtitleStyle', parent=styles['Heading2'], fontSize=8, alignment=1,
                                    textColor=colors.HexColor('#34495E'), spaceAfter=0.5, fontName='Helvetica-Bold')
-    small_text_style = ParagraphStyle('SmallText', parent=styles['Normal'], fontSize=6, leading=7, spaceAfter=0.5)
+    small_text_style = ParagraphStyle('SmallText', parent=styles['Normal'], fontSize=6, leading=7, spaceAfter=0.5, backColor=None)
     
     # ✅✅✅ CORRECTION : NOUVEAUX STYLES OPTIMISÉS POUR L'IDENTITÉ DE L'ÉLÈVE
     identite_title_style = ParagraphStyle('IdentiteTitle', parent=styles['Heading2'], fontSize=10, alignment=1, 
@@ -1643,23 +1794,35 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
                                          fontName='Helvetica-Bold', textColor=colors.black,
                                          leftIndent=0, spaceAfter=0, wordWrap='LTR')
 
-    # ✅ CORRECTION : Récupération DYNAMIQUE de l'école
+    # ✅ CORRECTION : Récupération DYNAMIQUE de l'école avec détection du type
     ecole = None
+    is_lycee = False
+    
     if ecole_id:
         ecole = Ecole.query.get(ecole_id)
         print(f"🎯 École depuis ecole_id: {ecole_id} -> {ecole.nom if ecole else 'NON TROUVÉE'}")
     else:
-        # Fallback : utiliser l'école de l'utilisateur connecté
-        if current_user and hasattr(current_user, 'ecole_id') and current_user.ecole_id:
-            ecole = Ecole.query.get(current_user.ecole_id)
-            print(f"🎯 École depuis current_user: {current_user.ecole_id} -> {ecole.nom if ecole else 'NON TROUVÉE'}")
+        # Fallback : utiliser l'école de l'élève
+        eleve = eleve_data['eleve']
+        if eleve.classe and eleve.classe.ecole:
+            ecole = eleve.classe.ecole
+            print(f"🎯 École depuis classe élève: {ecole.nom}")
         else:
             # Dernier fallback : première école
             ecole = Ecole.query.first()
             print(f"🎯 École par défaut (première): {ecole.nom if ecole else 'AUCUNE ÉCOLE'}")
     
-    # ✅ CORRECTION : Vérification que l'école est bien récupérée
-    if not ecole:
+    # ✅ CORRECTION : Détection du type d'établissement (Lycée ou Collège)
+    if ecole:
+        # Utiliser la nouvelle fonction de détection
+        type_etablissement = detecter_type_etablissement(ecole)
+        is_lycee = (type_etablissement == "lycee")
+        
+        if is_lycee:
+            print(f"🏫 Type établissement détecté: LYCÉE (Semestres)")
+        else:
+            print(f"🏫 Type établissement détecté: COLLÈGE (Trimestres)")
+    else:
         print("❌ ERREUR CRITIQUE: Aucune école trouvée!")
         # Créer une école par défaut pour éviter les erreurs
         ecole_nom = "ÉCOLE NON DÉFINIE"
@@ -1667,13 +1830,22 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
         ecole_boite_postale = ""
         ecole_telephone = ""
         ecole_devise = "Travail - Liberté - Patrie"
-    else:
+        is_lycee = False  # Par défaut, collège
+    
+    # Variables dynamiques
+    if ecole:
         ecole_nom = ecole.nom
         ecole_localite = ecole.localite or ""
         ecole_boite_postale = ecole.boite_postale or ""
         ecole_telephone = ecole.telephone1 or ""
         ecole_devise = ecole.devise or "Travail - Liberté - Patrie"
-        print(f"✅ École sélectionnée: {ecole_nom} (ID: {ecole.id})")
+        print(f"✅ École sélectionnée: {ecole_nom} (ID: {ecole.id}, Type: {'Lycée' if is_lycee else 'Collège'})")
+    else:
+        ecole_nom = "ÉCOLE NON DÉFINIE"
+        ecole_localite = ""
+        ecole_boite_postale = ""
+        ecole_telephone = ""
+        ecole_devise = "Travail - Liberté - Patrie"
 
     # Récupération du logo dynamique
     logo_path = get_logo_path(ecole_id if ecole_id else (ecole.id if ecole else None))
@@ -1752,8 +1924,21 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
     elements.append(header_table)
     elements.append(Spacer(1, 2*mm))
     
-    # ✅ CORRECTION : Utilisation de la variable title_style DÉFINIE
-    title = Paragraph(f"<b>BULLETIN DU TRIMESTRE {trimestre} - {annee_scolaire}</b>", title_style)
+        # ✅✅✅ CORRECTION : Titre adapté selon le type d'établissement avec effectif
+    # Récupérer l'effectif depuis la classe elle-même
+    classe_id = eleve_data['eleve'].classe_id
+    classe = Classe.query.get(classe_id)
+    effectif_total = classe.effectif if classe and hasattr(classe, 'effectif') else Eleve.query.filter_by(classe_id=classe_id).count()
+    
+    # Formatage du titre avec Année scolaire et Effectif sur la même ligne
+    if is_lycee:
+        title_text = f"<b>BULLETIN DU SEMESTRE {trimestre}</b><br/><font size='8'>Année scolaire: {annee_scolaire}   •   Effectif: {effectif_total} élèves</font>"
+        print(f"📋 Titre bulletin: Semestre {trimestre} (Lycée), Effectif: {effectif_total}")
+    else:
+        title_text = f"<b>BULLETIN DU TRIMESTRE {trimestre}</b><br/><font size='8'>Année scolaire: {annee_scolaire}   •   Effectif: {effectif_total} élèves</font>"
+        print(f"📋 Titre bulletin: Trimestre {trimestre} (Collège), Effectif: {effectif_total}")
+
+    title = Paragraph(title_text, title_style)
     elements.append(title)
     elements.append(Spacer(1, 2*mm))
     
@@ -1927,7 +2112,14 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
     moyenne_generale_val = eleve_data['moyenne_generale'] or 0
     moyenne_generale_arrondie = arrondir_moyenne_metier(moyenne_generale_val)
 
-    # ✅ CORRECTION : Tableau TOTAUX avec EXACTEMENT les mêmes largeurs que les sous-tableaux
+    # ✅✅✅ CORRECTION : Préfixe adapté selon le type d'établissement
+    if is_lycee:
+        prefixe_moyenne = "MOY.S"  # Semestre
+        print(f"📊 Préfixe moyenne: {prefixe_moyenne} (Lycée)")
+    else:
+        prefixe_moyenne = "MOY.T"  # Trimestre
+        print(f"📊 Préfixe moyenne: {prefixe_moyenne} (Collège)")
+    
     totaux_data = [[
         Paragraph("<b>TOTAUX</b>", small_text_style), 
         '', 
@@ -1937,7 +2129,7 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
         Paragraph(f"<b>{total_moy_coef_val:.1f}</b>", small_text_style), 
         '', 
         '',
-        Paragraph(f"<b>MOY.T{trimestre}: {moyenne_generale_arrondie:.1f}</b>", small_text_style),
+        Paragraph(f"<b>{prefixe_moyenne}{trimestre}: {moyenne_generale_arrondie:.1f}</b>", small_text_style),
         Paragraph(f"<b>{format_classement(eleve_data.get('rang_general', 'N/A'))}</b>", small_text_style)
     ]]
     
@@ -1985,52 +2177,89 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
     moy_faible_arrondie = arrondir_moyenne_metier(moy_faible)
     moy_class_arrondie = arrondir_moyenne_metier(moy_class)
 
+     # Récupérer l'effectif de la classe directement depuis la table Classe
+    classe_id = eleve_data['eleve'].classe_id
+    classe = Classe.query.get(classe_id)
+    effectif_total = classe.effectif if classe and hasattr(classe, 'effectif') else Eleve.query.filter_by(classe_id=classe_id).count()
+
+    # Utiliser Paragraph pour interpréter le HTML
+   # CORRECTION : Utiliser des espaces HTML
     stats_classe_lines = [
-         f"Moy.forte: {moy_forte_arrondie:.1f}   Moy.faible: {moy_faible_arrondie:.1f}",
-         f"Moy.classe: {moy_class_arrondie:.1f}"
-     ]
+       Paragraph(f"<b>Moy.forte:</b> {moy_forte_arrondie:.1f}&nbsp;&nbsp;&nbsp;<b>Moy.faible:</b> {moy_faible_arrondie:.1f}", small_text_style),
+       Paragraph(f"<b>Moy.classe:</b> {moy_class_arrondie:.1f}", small_text_style)
+    ]
 
-    # 2. MOYENNES - Structure en tableau interne avec arrondi métier
+    # ✅ CORRECTION : Gestion des périodes selon le type d'établissement
     moyennes_lines = []
-    for trim in [1, 2, 3]:
-          if trim <= trimestre and moyennes_trimestres[trim]['moyenne'] > 0:
-             moy = moyennes_trimestres[trim]['moyenne']
-             moy_arrondie = arrondir_moyenne_metier(moy)
-             rang = format_classement(moyennes_trimestres[trim]['rang'])
-             effectif_total = Eleve.query.filter_by(classe_id=eleve_data['eleve'].classe_id).count()
-             moyennes_lines.append(f"Trim.{trim}: {moy_arrondie:.1f}     {rang} sur {effectif_total}")
+    max_periodes = 2 if is_lycee else 3  # Lycée: 2 semestres, Collège: 3 trimestres
 
-    # Moyenne annuelle avec arrondi métier
-    if trimestre == 3:
+    for periode_num in range(1, max_periodes + 1):
+        if periode_num <= trimestre and moyennes_trimestres.get(periode_num, {}).get('moyenne', 0) > 0:
+           moy = moyennes_trimestres[periode_num]['moyenne']
+           moy_arrondie = arrondir_moyenne_metier(moy)
+           rang = format_classement(moyennes_trimestres[periode_num]['rang'])
+        
+        # CORRECTION CRITIQUE : Utiliser effectif_composant au lieu de effectif_total
+           effectif_composant = moyennes_trimestres[periode_num].get('effectif_composant', 0)
+        
+        # Fallback si effectif_composant n'est pas défini
+           if effectif_composant == 0:
+            # Calculer effectif_composant directement
+             classe_id = eleve_data['eleve'].classe_id
+             effectif_composant = db.session.query(Eleve).join(Note).filter(
+                Eleve.classe_id == classe_id,
+                Note.trimestre == periode_num,
+                Note.annee_scolaire == annee_scolaire,
+                db.or_(
+                    Note.note1.isnot(None),
+                    Note.note2.isnot(None),
+                    Note.note3.isnot(None),
+                    Note.note_comp.isnot(None)
+                )
+            ).distinct().count()
+        
+        # ✅ CORRECTION : Label adapté selon le type
+           if is_lycee:
+             prefixe = "Sem."
+           else:
+             prefixe = "Trim."
+        
+        # Utiliser Paragraph pour interpréter le HTML
+           moyennes_lines.append(Paragraph(
+              f"{prefixe}{periode_num}: <b>{moy_arrondie:.1f}</b>&nbsp;&nbsp;&nbsp;<b>{rang}</b> sur <b>{effectif_composant}</b>", 
+              small_text_style
+        ))
+
+
+    # ✅ CORRECTION : Moyenne annuelle adaptée au type d'établissement
+    if (is_lycee and trimestre == 2) or (not is_lycee and trimestre == 3):
         moyennes_valides = []
-        for trim in [1, 2, 3]:
-           if trim in moyennes_trimestres and moyennes_trimestres[trim]['moyenne'] > 0:
-               moyennes_valides.append(moyennes_trimestres[trim]['moyenne'])
+        
+        for periode_num in range(1, max_periodes + 1):
+            if periode_num in moyennes_trimestres and moyennes_trimestres[periode_num]['moyenne'] > 0:
+                moyennes_valides.append(moyennes_trimestres[periode_num]['moyenne'])
     
         if moyennes_valides:
-           moyenne_annuelle = sum(moyennes_valides) / len(moyennes_valides)
-           moyenne_annuelle_arrondie = arrondir_moyenne_metier(moyenne_annuelle)
-           effectif_total = Eleve.query.filter_by(classe_id=eleve_data['eleve'].classe_id).count()
-           moyennes_lines.append(f"Moy.ann: {moyenne_annuelle_arrondie:.1f}")
+            moyenne_annuelle = sum(moyennes_valides) / len(moyennes_valides)
+            moyenne_annuelle_arrondie = arrondir_moyenne_metier(moyenne_annuelle)
+            moyennes_lines.append(f"Moy.ann: {moyenne_annuelle_arrondie:.1f}")
 
     # Observation des moyennes
     moyenne_generale = eleve_data.get('moyenne_generale', 0)
     observation_auto = get_observation_for_trimestre(moyenne_generale)
 
-    # 3. Tableau principal avec structure optimisée
     stats_decision_data = [
         # En-tête
         ['STATISTIQUES CLASSE', 'MOYENNES', 'OBSERVATION', 'DÉCISION DU CONSEIL'],
         
-        # Première ligne avec toutes les données
+        # Première ligne avec toutes les données - Chaque élément est maintenant un tableau de Paragraph
         [
-            "\n".join(stats_classe_lines),
-            "\n".join(moyennes_lines),
-             observation_auto,
+            [stats_classe_lines[0], stats_classe_lines[1]],  # Tableau de Paragraphs
+            moyennes_lines,  # Liste de Paragraphs
+            observation_auto,
             "[DÉCISION]\n[À COMPLÉTER]"
         ]
     ]
-    
     stats_decision_table = Table(stats_decision_data, colWidths=[doc_width*0.25, doc_width*0.25, doc_width*0.25, doc_width*0.25])
     stats_decision_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#34495E')),
@@ -2071,10 +2300,24 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
     
     elements.append(appreciations_table)
 
-    # Pied de page ultra-compact
-    elements.append(Spacer(1, 1*mm))
+    # Pied de page avec signatures
+    elements.append(Spacer(1, 2*mm))
 
-    elements.append(create_signatures_section(doc_width, eleve_data, include_titulaire=True))
+    # ✅✅✅ CORRECTION CRITIQUE : Utilisation de la fonction améliorée create_signatures_section
+    try:
+        # Passer explicitement l'ID de l'école
+        ecole_id_to_pass = ecole_id if ecole_id else (ecole.id if ecole else None)
+        signatures_table = create_signatures_section(doc_width, eleve_data, include_titulaire=True, ecole_id=ecole_id_to_pass)
+        elements.append(signatures_table)
+        print(f"✅ Section signatures générée avec succès")
+    except Exception as e:
+        print(f"❌ Erreur génération signatures: {str(e)}")
+        # Section signatures de secours
+        error_style = ParagraphStyle('ErrorStyle', parent=styles['Normal'], fontSize=8, alignment=1, 
+                                    textColor=colors.red, spaceAfter=5)
+        elements.append(Paragraph("⚠️ Erreur génération signatures", error_style))
+        elements.append(Spacer(1, 10*mm))
+    
     elements.append(Spacer(1, 2*mm))
 
     note_bas = Paragraph("<b><font size='6'>NB: Original unique - Copies autorisées</font></b>",
@@ -2083,6 +2326,7 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
     elements.append(note_bas)
 
     return elements
+
 
 def create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc=None, ecole_id=None):
     """Version compacte du bulletin - AVEC STRUCTURE D'ENTÊTE CORRIGÉE"""
@@ -2122,7 +2366,8 @@ def create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc=N
         parent=styles['Normal'], 
         fontSize=6, 
         leading=7, 
-        spaceAfter=0.5
+        spaceAfter=0.5,
+        backColor=None
     )
     
     # ✅✅✅ CORRECTION : STYLES OPTIMISÉS POUR LA VERSION COMPACTE
@@ -2141,6 +2386,8 @@ def create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc=N
     
     # Récupération de l'école
     ecole = None
+    is_lycee = False
+    
     if ecole_id:
         ecole = Ecole.query.get(ecole_id)
     else:
@@ -2148,6 +2395,19 @@ def create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc=N
             ecole = Ecole.query.get(current_user.ecole_id)
         else:
             ecole = Ecole.query.first()
+    
+    # ✅ CORRECTION : Détection du type d'établissement
+    if ecole:
+        type_etablissement = detecter_type_etablissement(ecole)
+        is_lycee = (type_etablissement == "lycee")
+        
+        if is_lycee:
+            print(f"🏫 Type établissement détecté (compact): LYCÉE (Semestres)")
+        else:
+            print(f"🏫 Type établissement détecté (compact): COLLÈGE (Trimestres)")
+    else:
+        is_lycee = False
+        print("❌ École non trouvée, type par défaut: COLLÈGE")
     
     # Variables dynamiques
     ecole_nom = ecole.nom if ecole else "ÉCOLE SECONDAIRE"
@@ -2227,8 +2487,21 @@ def create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc=N
     elements.append(header_table)
     elements.append(Spacer(1, 1*mm))  # Espace réduit
     
-    # Titre principal compact
-    title = Paragraph(f"<b>BULLETIN TRIM.{trimestre} - {annee_scolaire}</b>", title_style)
+      # ✅ CORRECTION : Titre adapté selon le type d'établissement avec effectif
+    # Récupérer l'effectif depuis la classe elle-même
+    classe_id = eleve_data['eleve'].classe_id
+    classe = Classe.query.get(classe_id)
+    effectif_total = classe.effectif if classe and hasattr(classe, 'effectif') else Eleve.query.filter_by(classe_id=classe_id).count()
+    
+    # Formatage compact avec les infos sur la même ligne
+    if is_lycee:
+        title_text = f"<b>BULLETIN SEM.{trimestre}</b><br/><font size='7'>Année: {annee_scolaire} • Eff: {effectif_total}</font>"
+        print(f"📋 Titre compact: Semestre {trimestre} (Lycée), Effectif: {effectif_total}")
+    else:
+        title_text = f"<b>BULLETIN TRIM.{trimestre}</b><br/><font size='7'>Année: {annee_scolaire} • Eff: {effectif_total}</font>"
+        print(f"📋 Titre compact: Trimestre {trimestre} (Collège), Effectif: {effectif_total}")
+    
+    title = Paragraph(title_text, title_style)
     elements.append(title)
     elements.append(Spacer(1, 1*mm))
     
@@ -2384,13 +2657,21 @@ def create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc=N
     moyenne_generale_val = eleve_data['moyenne_generale'] or 0
     moyenne_generale_arrondie = arrondir_moyenne_metier(moyenne_generale_val)
 
+    # ✅ CORRECTION : Préfixe adapté selon le type d'établissement
+    if is_lycee:
+        prefixe_moyenne = f"MOY.S{trimestre}"
+        print(f"📊 Préfixe moyenne compacte: {prefixe_moyenne} (Lycée)")
+    else:
+        prefixe_moyenne = f"MOY.T{trimestre}"
+        print(f"📊 Préfixe moyenne compacte: {prefixe_moyenne} (Collège)")
+    
     # Tableau TOTAUX compact
     totaux_data = [[
         Paragraph("<b>TOTAUX</b>", small_text_style), 
         '', 
         Paragraph(f"<b>{total_coeff_val}</b>", small_text_style),
         Paragraph(f"<b>{total_moy_coef_val:.1f}</b>", small_text_style), 
-        Paragraph(f"<b>MOY.T{trimestre}: {moyenne_generale_arrondie:.1f}</b>", small_text_style),
+        Paragraph(f"<b>{prefixe_moyenne}: {moyenne_generale_arrondie:.1f}</b>", small_text_style),
         Paragraph(f"<b>{format_classement(eleve_data.get('rang_general', 'N/A'))}</b>", small_text_style)
     ]]
     
@@ -2433,44 +2714,81 @@ def create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc=N
     moy_faible_arrondie = arrondir_moyenne_metier(moy_faible)
     moy_class_arrondie = arrondir_moyenne_metier(moy_class)
 
+       # Récupérer l'effectif de la classe directement depuis la table Classe
+    classe_id = eleve_data['eleve'].classe_id
+    classe = Classe.query.get(classe_id)
+    effectif_total = classe.effectif if classe and hasattr(classe, 'effectif') else Eleve.query.filter_by(classe_id=classe_id).count()
+
+    # Utiliser Paragraph pour interpréter le HTML
     stats_classe_lines = [
-         f"M.forte: {moy_forte_arrondie:.1f} M.faible: {moy_faible_arrondie:.1f}",
-         f"M.classe: {moy_class_arrondie:.1f}"
-     ]
+       Paragraph(f"<b>Moy.forte:</b> {moy_forte_arrondie:.1f}  <b>Moy.faible:</b> {moy_faible_arrondie:.1f}", small_text_style),
+       Paragraph(f"<b>Moy.classe:</b> {moy_class_arrondie:.1f}", small_text_style)  # SUPPRIMER EFFECTIF ICI
+    ]
 
-    # Moyennes trimestrielles compactes
+       # ✅ CORRECTION : Gestion correcte du nombre de périodes
     moyennes_lines = []
-    for trim in [1, 2, 3]:
-          if trim <= trimestre and moyennes_trimestres[trim]['moyenne'] > 0:
-             moy = moyennes_trimestres[trim]['moyenne']
-             moy_arrondie = arrondir_moyenne_metier(moy)
-             rang = format_classement(moyennes_trimestres[trim]['rang'])
-             effectif_total = Eleve.query.filter_by(classe_id=eleve_data['eleve'].classe_id).count()
-             moyennes_lines.append(f"T{trim}: {moy_arrondie:.1f} R:{rang}")
+    max_periodes = 2 if is_lycee else 3
+    
+    for periode_num in range(1, max_periodes + 1):
+        if periode_num <= trimestre and moyennes_trimestres.get(periode_num, {}).get('moyenne', 0) > 0:
+            moy = moyennes_trimestres[periode_num]['moyenne']
+            moy_arrondie = arrondir_moyenne_metier(moy)
+            rang = format_classement(moyennes_trimestres[periode_num]['rang'])
+            
+            # CORRECTION CRITIQUE : Utiliser effectif_composant au lieu de effectif_total
+            effectif_composant = moyennes_trimestres[periode_num].get('effectif_composant', 0)
+            
+            # Fallback si effectif_composant n'est pas défini
+            if effectif_composant == 0:
+                # Calculer effectif_composant directement
+                classe_id = eleve_data['eleve'].classe_id
+                effectif_composant = db.session.query(Eleve).join(Note).filter(
+                    Eleve.classe_id == classe_id,
+                    Note.trimestre == periode_num,
+                    Note.annee_scolaire == annee_scolaire,
+                    db.or_(
+                        Note.note1.isnot(None),
+                        Note.note2.isnot(None),
+                        Note.note3.isnot(None),
+                        Note.note_comp.isnot(None)
+                    )
+                ).distinct().count()
+            
+            # ✅ CORRECTION : Labels adaptés
+            if is_lycee:
+                prefixe = "S"
+            else:
+                prefixe = "T"
+            
+            # CORRECTION : Utiliser effectif_composant et corriger les espaces
+            moyennes_lines.append(Paragraph(
+                f"{prefixe}{periode_num}: <b>{moy_arrondie:.1f}</b>&nbsp;&nbsp;&nbsp;<b>{rang}</b> sur <b>{effectif_composant}</b>", 
+                small_text_style
+            ))
 
-    # Moyenne annuelle
-    if trimestre == 3:
+    # ✅ CORRECTION : Moyenne annuelle adaptée
+    if (is_lycee and trimestre == 2) or (not is_lycee and trimestre == 3):
         moyennes_valides = []
-        for trim in [1, 2, 3]:
-           if trim in moyennes_trimestres and moyennes_trimestres[trim]['moyenne'] > 0:
-               moyennes_valides.append(moyennes_trimestres[trim]['moyenne'])
+        
+        for periode_num in range(1, max_periodes + 1):
+            if periode_num in moyennes_trimestres and moyennes_trimestres[periode_num]['moyenne'] > 0:
+                moyennes_valides.append(moyennes_trimestres[periode_num]['moyenne'])
     
         if moyennes_valides:
-           moyenne_annuelle = sum(moyennes_valides) / len(moyennes_valides)
-           moyenne_annuelle_arrondie = arrondir_moyenne_metier(moyenne_annuelle)
-           moyennes_lines.append(f"M.Ann: {moyenne_annuelle_arrondie:.1f}")
+            moyenne_annuelle = sum(moyennes_valides) / len(moyennes_valides)
+            moyenne_annuelle_arrondie = arrondir_moyenne_metier(moyenne_annuelle)
+            moyennes_lines.append(Paragraph(f"M.Ann: {moyenne_annuelle_arrondie:.1f}", small_text_style))
 
     # Observation
     moyenne_generale = eleve_data.get('moyenne_generale', 0)
     observation_auto = get_observation_for_trimestre(moyenne_generale)
 
-    # Tableau récapitulatif ultra-compact
     stats_decision_data = [
         ['STATS CLASSE', 'MOYENNES', 'OBSERVATION', 'DÉCISION'],
         
         [
-            "\n".join(stats_classe_lines),
-            "\n".join(moyennes_lines),
+            [stats_classe_lines[0], stats_classe_lines[1]],  # Tableau de Paragraphs
+            moyennes_lines,  # Liste de Paragraphs
              observation_auto,
             "[À COMPLÉTER]"
         ]
@@ -2511,11 +2829,20 @@ def create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc=N
     
     elements.append(appreciations_table)
 
-    # Pied de page ultra-compact - UTILISATION DE LA FONCTION EXISTANTE
+    # Pied de page ultra-compact
     elements.append(Spacer(1, 0.5*mm))
 
-    # ✅ CORRECTION : Utilisation de la fonction existante create_signatures_section
-    elements.append(create_signatures_section(doc_width, eleve_data, include_titulaire=True))
+    # ✅ CORRECTION : Utilisation de la fonction corrigée create_signatures_section
+    try:
+        ecole_id_to_pass = ecole_id if ecole_id else (ecole.id if ecole else None)
+        signatures_table = create_signatures_section(doc_width, eleve_data, include_titulaire=True, ecole_id=ecole_id_to_pass)
+        elements.append(signatures_table)
+    except Exception as e:
+        print(f"❌ Erreur génération signatures compact: {str(e)}")
+        error_style = ParagraphStyle('ErrorStyle', parent=styles['Normal'], fontSize=7, alignment=1, 
+                                    textColor=colors.red, spaceAfter=3)
+        elements.append(Paragraph("⚠️ Erreur signatures", error_style))
+    
     elements.append(Spacer(1, 1*mm))
 
     note_bas = Paragraph("<b><font size='5'>NB: Original unique - Copies autorisées</font></b>",
@@ -2525,64 +2852,117 @@ def create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc=N
 
     return elements
 
-# ==================== ROUTES AVEC SUPPORT DU LOGO DYNAMIQUE ====================
+# ==================== ROUTES POUR LES BULLETINS ====================
 
 @bulletins_export_bp.route("/export/bulletin", methods=["GET"])
-def export_bulletin_pdf():
-    """Export PDF du bulletin individuel d'un élève - AVEC ÉCOLE DYNAMIQUE"""
+def export_bulletin():
+    """Export PDF du bulletin individuel d'un élève - ROUTE CORRIGÉE"""
     try:
         eleve_id = request.args.get("eleve_id", type=str)
         trimestre = request.args.get("trimestre", type=int, default=1)
         annee_scolaire = request.args.get("annee_scolaire", type=str)
         mode = request.args.get("mode", type=str, default="normal")
-        ecole_id = request.args.get("ecole_id", type=str)  # Récupération de l'ID de l'école
+        ecole_id = request.args.get("ecole_id", type=str)
+        ecole_type = request.args.get("ecole_type", type=str, default="college")
+        is_semestre = request.args.get("is_semestre", type=str, default="false").lower() == "true"
         
-        print(f"🎯 Export bulletin - Élève: {eleve_id}, Trimestre: {trimestre}, École: {ecole_id}")
+        print(f"🎯 Export bulletin - Élève: {eleve_id}, Trimestre: {trimestre}, Année: {annee_scolaire}")
+        print(f"🏫 Type école: {ecole_type}, Semestre: {is_semestre}, École ID: {ecole_id}")
         
+        # Validation des paramètres
         if not eleve_id or not annee_scolaire:
             return jsonify({
                 "error": "Paramètres manquants: eleve_id et annee_scolaire requis",
                 "code": "MISSING_PARAMETERS"
             }), 400
         
-        # ✅ CORRECTION : Passage EXPLICITE de l'ecole_id
-        eleve_data = get_eleve_data(UUID(eleve_id), trimestre, annee_scolaire)
+        # Validation de la période selon le type d'établissement
+        if ecole_type == "lycee" or is_semestre:
+            # Lycée : semestres 1 et 2 uniquement
+            if trimestre not in [1, 2]:
+                return jsonify({
+                    "error": f"Période invalide pour un lycée: {trimestre}. Les semestres valides sont 1 ou 2",
+                    "code": "INVALID_PERIOD"
+                }), 400
+            periode_type = "semestre"
+        else:
+            # Collège : trimestres 1, 2, 3 uniquement
+            if trimestre not in [1, 2, 3]:
+                return jsonify({
+                    "error": f"Période invalide pour un collège: {trimestre}. Les trimestres valides sont 1, 2 ou 3",
+                    "code": "INVALID_PERIOD"
+                }), 400
+            periode_type = "trimestre"
+        
+        # Récupération des données de l'élève
+        try:
+            eleve_uuid = UUID(eleve_id)
+        except ValueError:
+            return jsonify({
+                "error": "ID d'élève invalide",
+                "code": "INVALID_STUDENT_ID"
+            }), 400
+        
+        eleve_data = get_eleve_data(eleve_uuid, trimestre, annee_scolaire)
         if not eleve_data:
             return jsonify({
-                "error": "Élève non trouvé ou pas de données pour ce trimestre",
+                "error": "Élève non trouvé ou pas de données pour cette période",
                 "code": "STUDENT_NOT_FOUND"
             }), 404
         
-        # ✅ CORRECTION : Passage de l'ecole_id à la fonction PDF
-        pdf_buffer = create_unified_bulletin_pdf(eleve_data, trimestre, annee_scolaire, mode, ecole_id)
+        # Création du PDF
+        pdf_buffer = create_unified_bulletin_pdf(
+            eleve_data, 
+            trimestre, 
+            annee_scolaire, 
+            mode, 
+            ecole_id
+        )
         
         eleve = eleve_data['eleve']
-        filename = f"bulletin_{eleve.nom}_{eleve.prenoms}_T{trimestre}_{annee_scolaire.replace('/', '-')}.pdf"
         
-        return send_file(pdf_buffer, as_attachment=True, download_name=filename, mimetype='application/pdf')
+        # Nom de fichier adapté
+        if ecole_type == "lycee" or is_semestre:
+            periode_prefixe = "S"  # Semestre
+        else:
+            periode_prefixe = "T"  # Trimestre
+            
+        filename = f"bulletin_{eleve.nom}_{eleve.prenoms}_{periode_prefixe}{trimestre}_{annee_scolaire.replace('/', '-')}.pdf"
+        
+        return send_file(
+            pdf_buffer, 
+            as_attachment=True, 
+            download_name=filename, 
+            mimetype='application/pdf'
+        )
         
     except Exception as e:
         print(f"❌ Erreur génération bulletin: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             "error": "Erreur lors de la génération du bulletin",
             "code": "GENERATION_ERROR",
             "details": str(e)
         }), 500
 
-@bulletins_export_bp.route("/export/bulletins_classe", methods=["GET"])
+@bulletins_export_bp.route("/export/bulletins-classe", methods=["GET"])
 def export_bulletins_classe():
-    """Export PDF de tous les bulletins d'une classe - AVEC LOGO DYNAMIQUE"""
+    """Export PDF de tous les bulletins d'une classe - ROUTE CORRIGÉE"""
     try:
         classe_id = request.args.get("classe_id", type=str)
         trimestre = request.args.get("trimestre", type=int, default=1)
         annee_scolaire = request.args.get("annee_scolaire", type=str)
         mode = request.args.get("mode", type=str, default="normal")
-        ecole_id = request.args.get("ecole_id", type=str)  # Récupération de l'ID de l'école
-
-        print(f"🎯 Export bulletins classe - Classe: {classe_id}, Trimestre: {trimestre}, École: {ecole_id}")
-        # Vérification CRITIQUE des paramètres
+        ecole_id = request.args.get("ecole_id", type=str)
+        ecole_type = request.args.get("ecole_type", type=str, default="college")
+        is_semestre = request.args.get("is_semestre", type=str, default="false").lower() == "true"
+        
+        print(f"🎯 Export bulletins classe - Classe: {classe_id}, Trimestre: {trimestre}")
+        print(f"🏫 Type école: {ecole_type}, Semestre: {is_semestre}, École ID: {ecole_id}")
+        
+        # Vérification des paramètres
         if not classe_id or str(classe_id).strip() in ['', 'null', 'undefined', 'None', 'none', 'NaN']:
-            print("❌ ERREUR: classe_id est vide ou invalide")
             return jsonify({
                 "error": "Veuillez sélectionner une classe", 
                 "code": "MISSING_CLASS",
@@ -2590,101 +2970,53 @@ def export_bulletins_classe():
             }), 400
 
         if not annee_scolaire:
-            print("❌ ERREUR: annee_scolaire manquant")
             return jsonify({
                 "error": "Paramètre annee_scolaire requis", 
                 "code": "MISSING_ACADEMIC_YEAR"
             }), 400
         
-        # Conversion UUID avec gestion d'erreur améliorée
-        try:
-            classe_uuid = UUID(str(classe_id).strip())
-            print(f"✅ UUID converti: {classe_uuid}")
-        except ValueError as e:
-            print(f"❌ ERREUR conversion UUID: {str(e)}")
-            # Tentative de recherche par nom
-            classe_par_nom = Classe.query.filter(Classe.nom.ilike(f"%{classe_id}%")).first()
-            if classe_par_nom:
-                classe_uuid = classe_par_nom.id
-                print(f"✅ Classe trouvée par nom: {classe_par_nom.nom}")
-            else:
+        # Validation de la période
+        if ecole_type == "lycee" or is_semestre:
+            if trimestre not in [1, 2]:
                 return jsonify({
-                    "error": "Identifiant de classe invalide", 
-                    "code": "INVALID_CLASS_ID",
-                    "details": str(e)
+                    "error": f"Période invalide pour un lycée: {trimestre}. Les semestres valides sont 1 ou 2",
+                    "code": "INVALID_PERIOD"
+                }), 400
+        else:
+            if trimestre not in [1, 2, 3]:
+                return jsonify({
+                    "error": f"Période invalide pour un collège: {trimestre}. Les trimestres valides sont 1, 2 ou 3",
+                    "code": "INVALID_PERIOD"
                 }), 400
         
-        # Vérification de l'existence de la classe
+        # Conversion UUID
+        try:
+            classe_uuid = UUID(str(classe_id).strip())
+        except ValueError:
+            return jsonify({
+                "error": "Identifiant de classe invalide", 
+                "code": "INVALID_CLASS_ID"
+            }), 400
+        
+        # Vérification de la classe
         classe = Classe.query.get(classe_uuid)
         if not classe:
-            print(f"❌ ERREUR: Classe non trouvée en base: {classe_uuid}")
-            # Lister les classes disponibles pour debug
-            classes_disponibles = Classe.query.all()
-            print("📋 Classes disponibles en base:")
-            for c in classes_disponibles:
-                print(f"   - {c.nom} (ID: {c.id})")
-            
             return jsonify({
                 "error": "Classe non trouvée", 
-                "code": "CLASS_NOT_FOUND",
-                "requested_id": str(classe_uuid),
-                "available_classes": [{"id": str(c.id), "nom": c.nom} for c in classes_disponibles]
+                "code": "CLASS_NOT_FOUND"
             }), 404
-        
-        print(f"✅ Classe trouvée: {classe.nom} (ID: {classe.id})")
         
         # Récupération des élèves
         eleves = Eleve.query.filter_by(classe_id=classe_uuid).order_by(Eleve.nom).all()
         
         if not eleves:
-            print(f"⚠️ ATTENTION: Aucun élève trouvé dans la classe {classe.nom}")
             return jsonify({
                 "error": "Aucun élève trouvé dans cette classe", 
-                "code": "NO_STUDENTS_IN_CLASS",
-                "classe": classe.nom
+                "code": "NO_STUDENTS_IN_CLASS"
             }), 404
-        
-        print(f"✅ {len(eleves)} élèves trouvés dans la classe {classe.nom}")
-        
-        # Vérification des données pour chaque élève
-        eleves_avec_donnees = []
-        for eleve in eleves:
-            print(f"🔍 Vérification données pour {eleve.nom} {eleve.prenoms}:")
-            
-            # Vérifier si l'élève a des notes pour ce trimestre
-            notes_count = Note.query.filter_by(
-                eleve_id=eleve.id,
-                trimestre=trimestre,
-                annee_scolaire=annee_scolaire
-            ).count()
-            
-            # Vérifier si l'élève a une moyenne pour ce trimestre
-            moyenne_count = Moyenne.query.filter_by(
-                eleve_id=eleve.id,
-                trimestre=trimestre,
-                annee_scolaire=annee_scolaire
-            ).count()
-            
-            print(f"   - Notes: {notes_count}, Moyennes: {moyenne_count}")
-            
-            if notes_count > 0 or moyenne_count > 0:
-                eleves_avec_donnees.append(eleve)
-        
-        if not eleves_avec_donnees:
-            print(f"❌ ERREUR: Aucun élève n'a de données pour le trimestre {trimestre} {annee_scolaire}")
-            return jsonify({
-                "error": f"Aucun élève n'a de données pour le trimestre {trimestre} de l'année {annee_scolaire}",
-                "code": "NO_DATA_FOR_TRIMESTER",
-                "trimestre": trimestre,
-                "annee_scolaire": annee_scolaire
-            }), 404
-        
-        print(f"📊 {len(eleves_avec_donnees)} élèves sur {len(eleves)} ont des données pour ce trimestre")
         
         # Création du PDF
         buffer = io.BytesIO()
-        
-        # Configuration du document avec marges optimisées
         doc = SimpleDocTemplate(
             buffer, 
             pagesize=A4,
@@ -2696,62 +3028,28 @@ def export_bulletins_classe():
         
         all_elements = []
         successful_bulletins = 0
-        failed_bulletins = 0
         
-        # Génération des bulletins
-        for i, eleve in enumerate(eleves_avec_donnees):
+        for i, eleve in enumerate(eleves):
             if i > 0:
                 all_elements.append(PageBreak())
             
             try:
-                print(f"📝 Génération bulletin {i+1}/{len(eleves_avec_donnees)}: {eleve.nom} {eleve.prenoms}")
+                print(f"📝 Génération bulletin {i+1}/{len(eleves)}: {eleve.nom} {eleve.prenoms}")
                 
-                # Récupération des données de l'élève
                 eleve_data = get_eleve_data(eleve.id, trimestre, annee_scolaire)
                 
                 if eleve_data:
-                    # Vérifier que les données sont valides
-                    if (eleve_data.get('moyenne_generale', 0) > 0 or 
-                        len(eleve_data.get('matieres_litteraires', [])) > 0 or
-                        len(eleve_data.get('matieres_scientifiques', [])) > 0 or
-                        len(eleve_data.get('matieres_specialisees', [])) > 0):
-                        
-                        # Génération du contenu selon le mode
-                        if mode == "compact":
-                            bulletin_elements = create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc, ecole_id)
-                        else:
-                             bulletin_elements = create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc, ecole_id)
-                        
-                        if bulletin_elements:
-                            all_elements.extend(bulletin_elements)
-                            successful_bulletins += 1
-                            print(f"✅ Bulletin généré avec succès pour {eleve.nom}")
-                        else:
-                            print(f"⚠️ Aucun élément généré pour {eleve.nom}")
-                            failed_bulletins += 1
+                    if mode == "compact":
+                        bulletin_elements = create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc, ecole_id)
                     else:
-                        print(f"⚠️ Données insuffisantes pour {eleve.nom} (moyenne: {eleve_data.get('moyenne_generale', 0)})")
-                        failed_bulletins += 1
-                        
-                        # Créer un message d'erreur dans le PDF
-                        error_style = ParagraphStyle(
-                            'ErrorStyle', 
-                            parent=getSampleStyleSheet()['Normal'], 
-                            fontSize=12, 
-                            alignment=1, 
-                            textColor=colors.red,
-                            spaceAfter=20
-                        )
-                        all_elements.append(Paragraph(f"DONNÉES INSUFFISANTES", error_style))
-                        all_elements.append(Paragraph(f"Pour {eleve.nom} {eleve.prenoms}", error_style))
-                        all_elements.append(Paragraph(f"Trimestre {trimestre} - {annee_scolaire}", error_style))
-                        all_elements.append(Spacer(1, 20*mm))
+                        bulletin_elements = create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc, ecole_id)
+                    
+                    if bulletin_elements:
+                        all_elements.extend(bulletin_elements)
+                        successful_bulletins += 1
                         
                 else:
-                    print(f"❌ Aucune donnée récupérée pour {eleve.nom}")
-                    failed_bulletins += 1
-                    
-                    # Message d'erreur dans le PDF
+                    # Message d'erreur
                     error_style = ParagraphStyle(
                         'ErrorStyle', 
                         parent=getSampleStyleSheet()['Normal'], 
@@ -2765,12 +3063,8 @@ def export_bulletins_classe():
                     all_elements.append(Spacer(1, 20*mm))
                     
             except Exception as e:
-                print(f"❌ ERREUR génération bulletin {eleve.nom}: {str(e)}")
-                import traceback
-                traceback.print_exc()
-                failed_bulletins += 1
-                
-                # Message d'erreur détaillé dans le PDF
+                print(f"❌ Erreur génération bulletin {eleve.nom}: {str(e)}")
+                # Message d'erreur
                 error_style = ParagraphStyle(
                     'ErrorStyle', 
                     parent=getSampleStyleSheet()['Normal'], 
@@ -2784,76 +3078,83 @@ def export_bulletins_classe():
                 all_elements.append(Paragraph(f"Erreur: {str(e)}", error_style))
                 all_elements.append(Spacer(1, 15*mm))
         
-        # Vérification finale
         if not all_elements:
-            print("❌ ERREUR FINALE: Aucun élément à exporter")
             return jsonify({
-                "error": "Aucune donnée à exporter après traitement", 
-                "code": "NO_ELEMENTS_TO_EXPORT",
-                "statistics": {
-                    "total_eleves": len(eleves),
-                    "eleves_avec_donnees": len(eleves_avec_donnees),
-                    "bulletins_reussis": successful_bulletins,
-                    "bulletins_echoues": failed_bulletins
-                }
+                "error": "Aucune donnée à exporter", 
+                "code": "NO_DATA_TO_EXPORT"
             }), 404
         
-        print(f"📄 Construction du PDF avec {len(all_elements)} éléments...")
-        print(f"📊 Statistiques: {successful_bulletins} réussis, {failed_bulletins} échoués")
+        # Construction du PDF
+        doc.build(all_elements)
+        buffer.seek(0)
         
-        try:
-            # Construction du PDF
-            doc.build(all_elements)
-            buffer.seek(0)
+        # Nom de fichier
+        if ecole_type == "lycee" or is_semestre:
+            periode_prefixe = "S"
+        else:
+            periode_prefixe = "T"
             
-            # Nom du fichier
-            filename = f"bulletins_{classe.nom}_T{trimestre}_{annee_scolaire.replace('/', '-')}.pdf"
-            print(f"✅ EXPORT RÉUSSI: {filename}")
-            
-            return send_file(
-                buffer, 
-                as_attachment=True, 
-                download_name=filename, 
-                mimetype='application/pdf'
-            )
-            
-        except Exception as e:
-            print(f"❌ ERREUR construction PDF: {str(e)}")
-            return jsonify({
-                "error": "Erreur lors de la construction du PDF", 
-                "code": "PDF_BUILD_ERROR",
-                "details": str(e)
-            }), 500
+        filename = f"bulletins_{classe.nom}_{periode_prefixe}{trimestre}_{annee_scolaire.replace('/', '-')}.pdf"
+        
+        return send_file(
+            buffer, 
+            as_attachment=True, 
+            download_name=filename, 
+            mimetype='application/pdf'
+        )
         
     except Exception as e:
-        print(f"❌ ERREUR CRITIQUE dans export_bulletins_classe: {str(e)}")
+        print(f"❌ Erreur génération bulletins classe: {str(e)}")
         import traceback
         traceback.print_exc()
-        
         return jsonify({
-            "error": "Erreur critique lors de la génération des bulletins de classe",
-            "code": "CRITICAL_ERROR", 
-            "details": str(e),
-            "traceback": traceback.format_exc()
+            "error": "Erreur lors de la génération des bulletins de classe",
+            "code": "GENERATION_ERROR", 
+            "details": str(e)
         }), 500
 
-
-@bulletins_export_bp.route("/export/bulletins_toutes_classes", methods=["GET"])
+@bulletins_export_bp.route("/export/bulletins-toutes-classes", methods=["GET"])
 def export_bulletins_toutes_classes():
-    """Export PDF de tous les bulletins de toutes les classes - VERSION CORRIGÉE"""
+    """Export PDF de tous les bulletins de toutes les classes - ROUTE CORRIGÉE"""
     try:
         trimestre = request.args.get("trimestre", type=int, default=1)
         annee_scolaire = request.args.get("annee_scolaire", type=str)
         mode = request.args.get("mode", type=str, default="normal")
+        ecole_id = request.args.get("ecole_id", type=str)
+        ecole_type = request.args.get("ecole_type", type=str, default="college")
+        is_semestre = request.args.get("is_semestre", type=str, default="false").lower() == "true"
+        
+        print(f"🎯 Export toutes classes - Trimestre: {trimestre}")
+        print(f"🏫 Type école: {ecole_type}, Semestre: {is_semestre}, École ID: {ecole_id}")
         
         if not annee_scolaire:
-            return jsonify({"error": "Paramètre annee_scolaire requis", "code": "MISSING_ACADEMIC_YEAR"}), 400
+            return jsonify({
+                "error": "Paramètre annee_scolaire requis", 
+                "code": "MISSING_ACADEMIC_YEAR"
+            }), 400
+        
+        # Validation de la période
+        if ecole_type == "lycee" or is_semestre:
+            if trimestre not in [1, 2]:
+                return jsonify({
+                    "error": f"Période invalide pour un lycée: {trimestre}. Les semestres valides sont 1 ou 2",
+                    "code": "INVALID_PERIOD"
+                }), 400
+        else:
+            if trimestre not in [1, 2, 3]:
+                return jsonify({
+                    "error": f"Période invalide pour un collège: {trimestre}. Les trimestres valides sont 1, 2 ou 3",
+                    "code": "INVALID_PERIOD"
+                }), 400
         
         classes = Classe.query.order_by(Classe.nom).all()
         if not classes:
-            return jsonify({"error": "Aucune classe trouvée", "code": "NO_CLASSES_FOUND"}), 404
+            return jsonify({
+                "error": "Aucune classe trouvée", 
+                "code": "NO_CLASSES_FOUND"
+            }), 404
         
-        print(f"🎯 Export toutes classes - {len(classes)} classes trouvées")
+        print(f"📚 {len(classes)} classes trouvées")
         
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4, 
@@ -2869,7 +3170,6 @@ def export_bulletins_toutes_classes():
             if classe_index > 0:
                 all_elements.append(PageBreak())
             
-            # Récupérer les élèves de cette classe
             eleves = Eleve.query.filter_by(classe_id=classe.id).order_by(Eleve.nom).all()
             
             if not eleves:
@@ -2888,16 +3188,15 @@ def export_bulletins_toutes_classes():
                     
                     if eleve_data:
                         if mode == "compact":
-                            bulletin_elements = create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc)
+                            bulletin_elements = create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc, ecole_id)
                         else:
-                            bulletin_elements = create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc)
+                            bulletin_elements = create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc, ecole_id)
                         
                         all_elements.extend(bulletin_elements)
                         total_bulletins += 1
-                        print(f"   ✅ Bulletin généré pour {eleve.nom}")
+                        
                     else:
                         print(f"   ⚠️ Pas de données pour {eleve.nom}")
-                        # Ajouter un message d'erreur
                         error_style = ParagraphStyle('Error', parent=getSampleStyleSheet()['Normal'], 
                                                    fontSize=10, alignment=1, textColor=colors.red)
                         all_elements.append(Paragraph(f"Pas de données pour {eleve.nom} {eleve.prenoms}", error_style))
@@ -2905,7 +3204,6 @@ def export_bulletins_toutes_classes():
                         
                 except Exception as e:
                     print(f"   ❌ Erreur génération bulletin {eleve.nom}: {str(e)}")
-                    # Ajouter un message d'erreur dans le PDF
                     error_style = ParagraphStyle('Error', parent=getSampleStyleSheet()['Normal'], 
                                                fontSize=9, alignment=1, textColor=colors.red)
                     all_elements.append(Paragraph(f"Erreur génération bulletin pour {eleve.nom}", error_style))
@@ -2913,36 +3211,51 @@ def export_bulletins_toutes_classes():
                     all_elements.append(Spacer(1, 10*mm))
         
         if not all_elements:
-            return jsonify({"error": "Aucune donnée à exporter", "code": "NO_DATA_TO_EXPORT"}), 404
+            return jsonify({
+                "error": "Aucune donnée à exporter", 
+                "code": "NO_DATA_TO_EXPORT"
+            }), 404
         
         print(f"📄 Construction du PDF avec {len(all_elements)} éléments ({total_bulletins} bulletins)...")
         
-        try:
-            doc.build(all_elements)
-            buffer.seek(0)
-            
-            filename = f"bulletins_toutes_classes_T{trimestre}_{annee_scolaire.replace('/', '-')}.pdf"
-            print(f"✅ Export réussi: {filename}")
-            
-            return send_file(buffer, as_attachment=True, download_name=filename, mimetype='application/pdf')
-            
-        except Exception as e:
-            print(f"❌ Erreur construction PDF: {str(e)}")
-            return jsonify({
-                "error": "Erreur lors de la construction du PDF",
-                "code": "PDF_BUILD_ERROR",
-                "details": str(e)
-            }), 500
+        doc.build(all_elements)
+        buffer.seek(0)
+        
+        # Nom de fichier
+        if ecole_type == "lycee" or is_semestre:
+            periode_prefixe = "S"
+        else:
+            periode_prefixe = "T"
+        
+        filename = f"bulletins_toutes_classes_{periode_prefixe}{trimestre}_{annee_scolaire.replace('/', '-')}.pdf"
+        
+        return send_file(buffer, as_attachment=True, download_name=filename, mimetype='application/pdf')
         
     except Exception as e:
-        print(f"❌ Erreur critique génération bulletins toutes classes: {str(e)}")
+        print(f"❌ Erreur génération bulletins toutes classes: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({
             "error": "Erreur lors de la génération des bulletins de toutes les classes",
-            "code": "BULLETINS_GENERATION_ERROR",
+            "code": "GENERATION_ERROR",
             "details": str(e)
         }), 500
+        
+def valider_periode_ecole(ecole_type, periode):
+    """Valide la période selon le type d'établissement"""
+    if ecole_type == "lycee":
+        return periode in [1, 2]  # Semestres 1 et 2 pour lycée
+    elif ecole_type == "college":
+        return periode in [1, 2, 3]  # Trimestres 1, 2, 3 pour collège
+    else:
+        return False
+
+def get_periode_libelle(ecole_type, periode):
+    """Retourne le libellé de la période selon le type d'établissement"""
+    if ecole_type == "lycee":
+        return f"Semestre {periode}"
+    else:
+        return f"Trimestre {periode}"
 
 @bulletins_export_bp.route("/export/filters", methods=["GET"])
 def get_bulletin_filters():

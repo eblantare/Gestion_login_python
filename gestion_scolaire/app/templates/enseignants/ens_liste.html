@@ -211,33 +211,49 @@
     </div>
 
     <!-- Pagination CORRIGÉE avec paramètre école -->
-    {% if pagination.pages > 1 %}
-    <nav aria-label="Navigation des pages">
-        <ul class="pagination justify-content-center">
-            {% if pagination.has_prev %}
-            <li class="page-item">
-                <a class="page-link" href="{{ url_for('enseignants.liste_enseignants', page=pagination.prev_num, per_page=per_page, search=search, filter=filter_value, ecole=request.args.get('ecole', '')) }}">Précédent</a>
+    <!-- Pagination CORRIGÉE avec paramètre école -->
+{% if pagination.pages > 1 %}
+<nav aria-label="Navigation des pages">
+    <ul class="pagination justify-content-center">
+        {% if pagination.has_prev %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('enseignants.liste_enseignants', 
+                page=pagination.prev_num, 
+                per_page=per_page, 
+                search=search, 
+                filter=filter_value, 
+                ecole=current_ecole_id) }}">Précédent</a>  <!-- CORRECTION : current_ecole_id au lieu de request.args.get('ecole') -->
+        </li>
+        {% endif %}
+        
+        {% for p in pagination.iter_pages() %}
+            {% if p %}
+            <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                <a class="page-link" href="{{ url_for('enseignants.liste_enseignants', 
+                    page=p, 
+                    per_page=per_page, 
+                    search=search, 
+                    filter=filter_value, 
+                    ecole=current_ecole_id) }}">{{ p }}</a>
             </li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link">…</span></li>
             {% endif %}
-            
-            {% for p in pagination.iter_pages() %}
-                {% if p %}
-                <li class="page-item {% if p == pagination.page %}active{% endif %}">
-                    <a class="page-link" href="{{ url_for('enseignants.liste_enseignants', page=p, per_page=per_page, search=search, filter=filter_value, ecole=request.args.get('ecole', '')) }}">{{ p }}</a>
-                </li>
-                {% else %}
-                <li class="page-item disabled"><span class="page-link">…</span></li>
-                {% endif %}
-            {% endfor %}
-            
-            {% if pagination.has_next %}
-            <li class="page-item">
-                <a class="page-link" href="{{ url_for('enseignants.liste_enseignants', page=pagination.next_num, per_page=per_page, search=search, filter=filter_value, ecole=request.args.get('ecole', '')) }}">Suivant</a>
-            </li>
-            {% endif %}
-        </ul>
-    </nav>
-    {% endif %}
+        {% endfor %}
+        
+        {% if pagination.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for('enseignants.liste_enseignants', 
+                page=pagination.next_num, 
+                per_page=per_page, 
+                search=search, 
+                filter=filter_value, 
+                ecole=current_ecole_id) }}">Suivant</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
 </div>
 
 <!-- Inclusion des modales -->

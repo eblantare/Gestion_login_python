@@ -10,10 +10,12 @@ from .paiements import Paiement
 from .services import Service
 from .enseignements import Enseignement
 from .ecoles import Ecole
+from .systeme_evaluation import SystemeEvaluation
 
 # Liste des exports pour les imports *
 __all__ = [
     "Eleve", "Classe", "Enseignant", "Matiere",
     "Note", "Moyenne", "Appreciations",
-    "Paiement", "Service", "Enseignement", "Ecole"
+    "Paiement", "Service", "Enseignement",
+    "Ecole",'SystemeEvaluation'
 ]

@@ -1048,7 +1048,8 @@ function initializeNotes() {
                 note2: n2,
                 note3: n3,
                 note_comp: nComp,
-                coefficient: coefficientSelect?.value || ""
+                coefficient: coefficientSelect?.value || "",
+                cycle_type: currentCycleType  // ← Ajouter cette ligne
             };
 
             console.log("Données envoyées:", data);
@@ -1272,6 +1273,7 @@ async function loadClasseFilterList() {
     loadClasseFilterList();
 
     console.log('✅ Module notes initialisé avec succès');
+    initializeCycleSelection();
 }
 // Fonction pour gérer le filtrage par classe
 function handleClasseFilter() {
@@ -1400,6 +1402,104 @@ function resetSimpleEleveSearch() {
             item.style.display = '';
         });
     }
+}
+
+// ===============================
+// GESTION DES CYCLES (COLLÈGE/LYCÉE)
+// ===============================
+
+let currentCycleType = 'college'; // Valeur par défaut
+
+function initializeCycleSelection() {
+    const addModalEl = document.getElementById("addNoteModal");
+    if (!addModalEl) return;
+
+    const cycleRadios = addModalEl.querySelectorAll('input[name="cycle_type"]');
+    const trimestreSelect = addModalEl.querySelector("#trimestre");
+    const anneeSelect = addModalEl.querySelector("#anneeScolaire");
+    const trimestreLabel = addModalEl.querySelector("#trimestreLabel");
+
+    if (!cycleRadios.length || !trimestreSelect || !trimestreLabel) {
+        console.log('⚠️ Éléments de cycle non trouvés');
+        return;
+    }
+
+    // Écouteur pour les boutons radio
+    cycleRadios.forEach(radio => {
+        radio.addEventListener('change', function(e) {
+            currentCycleType = this.value;
+            console.log(`🎯 Cycle sélectionné: ${currentCycleType}`);
+            
+            // Mettre à jour le label et les options
+            updateTrimestreOptions(currentCycleType);
+            
+            // Griser/dégriser les champs
+            updateFieldStates();
+        });
+    });
+
+    // Initialiser les options
+    updateTrimestreOptions(currentCycleType);
+    updateFieldStates();
+}
+
+function updateTrimestreOptions(cycleType) {
+    const trimestreSelect = document.querySelector("#trimestre");
+    const trimestreLabel = document.querySelector("#trimestreLabel");
+    
+    if (!trimestreSelect || !trimestreLabel) return;
+
+    // Vider les options actuelles
+    trimestreSelect.innerHTML = '';
+    
+    let options = [];
+    let label = '';
+    
+    if (cycleType === 'lycee') {
+        options = [1, 2];
+        label = 'Semestre';
+        trimestreSelect.innerHTML = '<option value="">Sélectionnez un semestre</option>';
+    } else {
+        options = [1, 2, 3];
+        label = 'Trimestre';
+        trimestreSelect.innerHTML = '<option value="">Sélectionnez un trimestre</option>';
+    }
+    
+    // Ajouter les options
+    options.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt;
+        option.textContent = `${label} ${opt}`;
+        trimestreSelect.appendChild(option);
+    });
+    
+    // Mettre à jour le label
+    trimestreLabel.textContent = label;
+    
+    console.log(`✅ Options mises à jour pour ${cycleType}: ${options.join(', ')}`);
+}
+
+function updateFieldStates() {
+    const trimestreSelect = document.querySelector("#trimestre");
+    const anneeSelect = document.querySelector("#anneeScolaire");
+    
+    if (!trimestreSelect || !anneeSelect) return;
+    
+    // Si un cycle est sélectionné, dégriser les champs
+    if (currentCycleType) {
+        trimestreSelect.disabled = false;
+        anneeSelect.disabled = false;
+        trimestreSelect.classList.remove('bg-light', 'text-muted');
+        anneeSelect.classList.remove('bg-light', 'text-muted');
+    } else {
+        // Sinon, griser les champs
+        trimestreSelect.disabled = true;
+        anneeSelect.disabled = true;
+        trimestreSelect.classList.add('bg-light', 'text-muted');
+        anneeSelect.classList.add('bg-light', 'text-muted');
+    }
+    
+    console.log(`🔄 États des champs - Cycle: ${currentCycleType}, Trimestre actif: ${!trimestreSelect.disabled}`);
 }
 // ===============================
 // INITIALISATION AU CHARGEMENT DU DOM

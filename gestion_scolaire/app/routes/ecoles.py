@@ -279,6 +279,10 @@ def liste_ecoles():
     per_page = request.args.get("per_page", 5, type=int)
     page = request.args.get("page", 1, type=int)
 
+    # === CORRECTION : Validation de per_page ===
+    valid_per_page = [5, 10, 20, 30, 50, 100, 150]
+    if per_page not in valid_per_page:
+       per_page = 5  # Valeur par défaut
     query = Ecole.query
 
     if search:
@@ -302,10 +306,17 @@ def liste_ecoles():
     
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     ecoles = pagination.items
+    
+    # === CORRECTION : Récupérer toutes les écoles (sans pagination) ===
+    # Pour le sélecteur en haut de page, on a besoin de TOUTES les écoles
+    # pas seulement celles de la page courante
+    all_ecoles = Ecole.query.order_by(Ecole.nom).all()
+    
     user_role = (getattr(current_user, "role", "guest") or "guest").lower()
 
     return render_template("ecoles/list_eco.html",
-                           ecoles=ecoles,
+                           ecoles=ecoles,  # Pour le tableau (paginé)
+                           all_ecoles=all_ecoles,  # Pour le sélecteur (toutes)
                            pagination=pagination,
                            search=search,
                            per_page=per_page,
@@ -368,6 +379,15 @@ def add_ecole():
             else:
                 return jsonify({"error": "Type de fichier logo non autorisé"}), 400
 
+        # Récupérer les cycles sélectionnés
+        cycle_college = request.form.get("cycle_college") == "1"
+        cycle_lycee = request.form.get("cycle_lycee") == "1"
+        
+        cycles_disponibles = {
+            'college': cycle_college,
+            'lycee': cycle_lycee
+        }
+
         # Création de l'école
         ecole = Ecole(
             code=code,
@@ -385,7 +405,8 @@ def add_ecole():
             logo_filename=logo_filename,
             chef_etablissement_nom=request.form.get("chef_etablissement_nom", ""),
             chef_etablissement_titre=request.form.get("chef_etablissement_titre", "LE CHEF D'ÉTABLISSEMENT"),
-            chef_etablissement_civilite=request.form.get("chef_etablissement_civilite", "M.")
+            chef_etablissement_civilite=request.form.get("chef_etablissement_civilite", "M."),
+            cycles_disponibles=cycles_disponibles
         )
 
         db.session.add(ecole)
@@ -394,7 +415,7 @@ def add_ecole():
         # Journalisation
         current_app.logger.info(
             f"École créée - ID: {ecole.id}, Code: {ecole.code}, "
-            f"Nom: {ecole.nom}, Par utilisateur: {current_user.id}"
+            f"Nom: {ecole.nom}, Cycles: {cycles_disponibles}, Par utilisateur: {current_user.id}"
         )
 
         return jsonify({
@@ -438,7 +459,8 @@ def get_ecole(id):
         "logo_filename": ecole.logo_filename,
         "chef_etablissement_nom": ecole.chef_etablissement_nom,
         "chef_etablissement_titre": ecole.chef_etablissement_titre,
-        "chef_etablissement_civilite": ecole.chef_etablissement_civilite
+        "chef_etablissement_civilite": ecole.chef_etablissement_civilite,
+        "cycles_disponibles": ecole.cycles_disponibles or {'college': True, 'lycee': False}
     })
 
 @ecoles_bp.route("/update/<string:id>", methods=["POST"])
@@ -501,6 +523,15 @@ def update_ecole(id):
             else:
                 return jsonify({"error": "Type de fichier logo non autorisé"}), 400
 
+        # Récupérer les cycles sélectionnés
+        cycle_college = request.form.get("cycle_college") == "1"
+        cycle_lycee = request.form.get("cycle_lycee") == "1"
+        
+        cycles_disponibles = {
+            'college': cycle_college,
+            'lycee': cycle_lycee
+        }
+
         # Mise à jour des champs
         ecole.code = code
         ecole.nom = nom
@@ -517,13 +548,14 @@ def update_ecole(id):
         ecole.chef_etablissement_nom = request.form.get("chef_etablissement_nom", "")
         ecole.chef_etablissement_titre = request.form.get("chef_etablissement_titre", "LE CHEF D'ÉTABLISSEMENT")
         ecole.chef_etablissement_civilite = request.form.get("chef_etablissement_civilite", "M.")
+        ecole.cycles_disponibles = cycles_disponibles
 
         db.session.commit()
 
         # Journalisation
         current_app.logger.info(
             f"École modifiée - ID: {ecole.id}, Code: {ecole.code}, "
-            f"Nom: {ecole.nom}, Par utilisateur: {current_user.id}"
+            f"Nom: {ecole.nom}, Cycles: {cycles_disponibles}, Par utilisateur: {current_user.id}"
         )
 
         return jsonify({
@@ -544,6 +576,7 @@ def update_ecole(id):
             "chef_etablissement_nom": ecole.chef_etablissement_nom,
             "chef_etablissement_titre": ecole.chef_etablissement_titre,
             "chef_etablissement_civilite": ecole.chef_etablissement_civilite,
+            "cycles_disponibles": cycles_disponibles,
             "message": "École modifiée avec succès"
         })
 
@@ -609,7 +642,8 @@ def delete_ecole(id):
         ecole_info = {
             "id": str(ecole.id),
             "code": ecole.code,
-            "nom": ecole.nom
+            "nom": ecole.nom,
+            "cycles": ecole.cycles_disponibles
         }
         
         db.session.delete(ecole)
@@ -655,13 +689,38 @@ def detail_ecole(id):
     """
     ecole = Ecole.query.get_or_404(id)
     
-    # Statistiques supplémentaires
+    # Formater les cycles disponibles pour l'affichage
+    cycles = []
+    if ecole.cycles_disponibles.get('college', False):
+        cycles.append("Collège")
+    if ecole.cycles_disponibles.get('lycee', False):
+        cycles.append("Lycée")
+    cycles_text = ', '.join(cycles) if cycles else "Collège (par défaut)"
+    
+    # === CORRECTION : Utiliser des requêtes directes au lieu des relations ===
+    from ..models import Classe, Eleve, Enseignant, Matiere
+    
+    # Compter les classes via une requête directe
+    nb_classes = Classe.query.filter_by(ecole_id=ecole.id).count()
+    
+    # Compter les élèves via une requête directe
+    nb_eleves = Eleve.query.filter_by(ecole_id=ecole.id).count()
+    
+    # Compter les enseignants via une requête directe
+    nb_enseignants = Enseignant.query.filter_by(ecole_id=ecole.id).count()
+    
+    # Compter les matières via une requête directe
+    nb_matieres = Matiere.query.filter_by(ecole_id=ecole.id).count()
+    
+    # Compter les utilisateurs
+    nb_utilisateurs = len(ecole.utilisateurs) if hasattr(ecole, 'utilisateurs') else 0
+    
     stats = {
-        "nb_utilisateurs": len(ecole.utilisateurs),
-        "nb_classes": len(ecole.classes),
-        "nb_eleves": len(ecole.eleves),
-        "nb_enseignants": len(ecole.enseignants) if hasattr(ecole, 'enseignants') else 0,
-        "nb_matieres": len(ecole.matieres) if hasattr(ecole, 'matieres') else 0
+        "nb_utilisateurs": nb_utilisateurs,
+        "nb_classes": nb_classes,
+        "nb_eleves": nb_eleves,
+        "nb_enseignants": nb_enseignants,
+        "nb_matieres": nb_matieres
     }
     
     return jsonify({
@@ -681,6 +740,7 @@ def detail_ecole(id):
         "chef_etablissement_nom": ecole.chef_etablissement_nom,
         "chef_etablissement_titre": ecole.chef_etablissement_titre,
         "chef_etablissement_civilite": ecole.chef_etablissement_civilite,
+        "cycles_disponibles": cycles_text,
         "statistiques": stats
     })
 
@@ -698,11 +758,20 @@ def statistiques_ecoles():
         "total_utilisateurs": sum(len(ecole.utilisateurs) for ecole in ecoles),
         "total_classes": sum(len(ecole.classes) for ecole in ecoles),
         "total_eleves": sum(len(ecole.eleves) for ecole in ecoles),
-        "total_enseignants": sum(len(ecole.enseignants) for ecole in ecoles if hasattr(ecole, 'enseignants'))
+        "total_enseignants": sum(len(ecole.enseignants) for ecole in ecoles if hasattr(ecole, 'enseignants')),
+        "ecoles_college": sum(1 for e in ecoles if e.cycles_disponibles.get('college', False)),
+        "ecoles_lycee": sum(1 for e in ecoles if e.cycles_disponibles.get('lycee', False)),
+        "ecoles_les_deux": sum(1 for e in ecoles if e.cycles_disponibles.get('college', False) and e.cycles_disponibles.get('lycee', False))
     }
     
     stats_par_ecole = []
     for ecole in ecoles:
+        cycles = []
+        if ecole.cycles_disponibles.get('college', False):
+            cycles.append("Collège")
+        if ecole.cycles_disponibles.get('lycee', False):
+            cycles.append("Lycée")
+        
         stats_par_ecole.append({
             "ecole": {
                 "id": str(ecole.id),
@@ -712,7 +781,8 @@ def statistiques_ecoles():
             "utilisateurs": len(ecole.utilisateurs),
             "classes": len(ecole.classes),
             "eleves": len(ecole.eleves),
-            "enseignants": len(ecole.enseignants) if hasattr(ecole, 'enseignants') else 0
+            "enseignants": len(ecole.enseignants) if hasattr(ecole, 'enseignants') else 0,
+            "cycles": cycles
         })
     
     return jsonify({
@@ -757,12 +827,20 @@ def dashboard_ecole_courante():
     ecole_id = get_current_ecole_id()
     ecole = Ecole.query.get_or_404(ecole_id)
     
+    # Récupérer les cycles disponibles
+    cycles = []
+    if ecole.cycles_disponibles.get('college', False):
+        cycles.append("Collège")
+    if ecole.cycles_disponibles.get('lycee', False):
+        cycles.append("Lycée")
+    
     stats = {
         'nb_eleves': len(ecole.eleves),
         'nb_classes': len(ecole.classes),
         'nb_utilisateurs': len(ecole.utilisateurs),
         'nb_eleves_actifs': len([e for e in ecole.eleves if e.etat == 'Actif']),
-        'nb_eleves_inactifs': len([e for e in ecole.eleves if e.etat == 'Inactif'])
+        'nb_eleves_inactifs': len([e for e in ecole.eleves if e.etat == 'Inactif']),
+        'cycles_disponibles': cycles
     }
     
     return render_template('admin/dashboard_ecole.html', ecole=ecole, stats=stats)
@@ -804,10 +882,44 @@ def rapport_ecole_courante():
             'nb_filles': len([e for e in classe.eleves if e.sexe == 'F'])
         })
     
+    # Cycles disponibles
+    cycles = []
+    if ecole.cycles_disponibles.get('college', False):
+        cycles.append("Collège")
+    if ecole.cycles_disponibles.get('lycee', False):
+        cycles.append("Lycée")
+    
     return render_template('admin/rapport_ecole.html', 
                          ecole=ecole, 
-                         eleves_par_classe=eleves_par_classe)
+                         eleves_par_classe=eleves_par_classe,
+                         cycles=cycles)
 
 @ecoles_bp.route("/test")
 def test_route():
     return jsonify({"message": "Blueprint ecoles fonctionne!"}), 200
+
+# ========== ROUTE POUR RÉCUPÉRER LES CYCLES D'UNE ÉCOLE ==========
+
+@ecoles_bp.route("/<string:id>/cycles", methods=["GET"])
+@login_required
+@ecole_required
+def get_ecole_cycles(id):
+    """
+    Récupérer les cycles disponibles d'une école spécifique
+    """
+    ecole = Ecole.query.get_or_404(id)
+    
+    cycles = []
+    if ecole.cycles_disponibles.get('college', False):
+        cycles.append({'id': 'college', 'nom': 'Collège'})
+    if ecole.cycles_disponibles.get('lycee', False):
+        cycles.append({'id': 'lycee', 'nom': 'Lycée'})
+    
+    return jsonify({
+        'success': True,
+        'ecole_id': str(ecole.id),
+        'ecole_nom': ecole.nom,
+        'cycles': cycles,
+        'multiple_cycles': len(cycles) > 1,
+        'default_cycle': cycles[0]['id'] if cycles else 'college'
+    })

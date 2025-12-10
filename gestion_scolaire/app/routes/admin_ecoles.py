@@ -3,6 +3,7 @@ from flask_login import login_required, current_user
 from app.models import Ecole, Utilisateur, Classe
 from ..utils import system_admin_required, get_current_ecole_id, ecole_required, admin_required
 from extensions import db
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 admin_ecoles_bp = Blueprint('admin_ecoles', __name__, url_prefix='/admin')
 
@@ -28,74 +29,82 @@ def api_signatures_data():
     API pour récupérer les données de signature de l'école courante
     AVEC GESTION DES DONNÉES MANQUANTES
     """
-    ecole_id = get_current_ecole_id()
-    ecole = Ecole.query.get_or_404(ecole_id)
-    
-    # VÉRIFICATION CRITIQUE : S'assurer que les champs du chef d'établissement ont des valeurs par défaut
-    chef_nom = ecole.chef_etablissement_nom or "NON DÉFINI"
-    chef_titre = ecole.chef_etablissement_titre or "LE CHEF D'ÉTABLISSEMENT"
-    chef_civilite = ecole.chef_etablissement_civilite or "M."
-    
-    print(f"🔍 Données chef établissement - Nom: {chef_nom}, Titre: {chef_titre}, Civilité: {chef_civilite}")
-    
-    # Récupérer les classes de l'école courante SEULEMENT
-    classes = Classe.query.filter_by(ecole_id=ecole_id).all()
-    
-    # Récupérer les enseignants de l'école courante SEULEMENT
-    enseignants = Utilisateur.query.filter_by(
-        ecole_id=ecole_id, 
-        role='ENSEIGNANT'
-    ).all()
-    
-    # Préparer les données des classes
-    classes_data = []
-    for classe in classes:
-        titulaire_data = None
-        if classe.titulaire_id:
-            titulaire = Utilisateur.query.filter_by(
-                id=classe.titulaire_id, 
-                ecole_id=ecole_id
-            ).first()
-            if titulaire:
-                titulaire_data = {
-                    'id': str(titulaire.id),
-                    'nom_complet': f"{titulaire.prenom} {titulaire.nom}"
-                }
+    try:
+        ecole_id = get_current_ecole_id()
+        ecole = Ecole.query.get_or_404(ecole_id)
         
-        classes_data.append({
-            'id': str(classe.id),
-            'nom': classe.nom,
-            'niveau': classe.niveau or 'Non spécifié',
-            'titulaire': titulaire_data
-        })
-    
-    # Préparer les données des enseignants
-    enseignants_data = []
-    for enseignant in enseignants:
-        enseignants_data.append({
-            'id': str(enseignant.id),
-            'nom_complet': f"{enseignant.prenom} {enseignant.nom}",
-            'matieres': getattr(enseignant, 'matieres_enseignees', []) or [],
-            'signature': getattr(enseignant, 'signature', '') or ''
-        })
-    
-    response_data = {
-        'success': True,
-        'ecole': {
-            'id': str(ecole.id),
-            'nom': ecole.nom,
-            'chef_etablissement_civilite': chef_civilite,
-            'chef_etablissement_nom': chef_nom,
-            'chef_etablissement_titre': chef_titre
-        },
-        'classes': classes_data,
-        'enseignants': enseignants_data,
-        'statut_chef': 'défini' if ecole.chef_etablissement_nom and ecole.chef_etablissement_nom.strip() != '' else 'non défini'
-    }
-    
-    print(f"✅ Données envoyées - Chef: {response_data['ecole']['chef_etablissement_nom']}")
-    
-    return jsonify(response_data)
+        # VÉRIFICATION CRITIQUE : S'assurer que les champs du chef d'établissement ont des valeurs par défaut
+        chef_nom = ecole.chef_etablissement_nom or "NON DÉFINI"
+        chef_titre = ecole.chef_etablissement_titre or "LE CHEF D'ÉTABLISSEMENT"
+        chef_civilite = ecole.chef_etablissement_civilite or "M."
+        
+        print(f"🔍 Données chef établissement - Nom: {chef_nom}, Titre: {chef_titre}, Civilité: {chef_civilite}")
+        
+        # Récupérer les classes de l'école courante SEULEMENT
+        classes = Classe.query.filter_by(ecole_id=ecole_id).all()
+        
+        # Récupérer les enseignants de l'école courante SEULEMENT
+        enseignants = Utilisateur.query.filter_by(
+            ecole_id=ecole_id, 
+            role='ENSEIGNANT'
+        ).all()
+        
+        # Préparer les données des classes
+        classes_data = []
+        for classe in classes:
+            titulaire_data = None
+            if classe.titulaire_id:
+                titulaire = Utilisateur.query.filter_by(
+                    id=classe.titulaire_id, 
+                    ecole_id=ecole_id
+                ).first()
+                if titulaire:
+                    titulaire_data = {
+                        'id': str(titulaire.id),
+                        'nom_complet': f"{titulaire.prenom} {titulaire.nom}"
+                    }
+            
+            classes_data.append({
+                'id': str(classe.id),
+                'nom': classe.nom,
+                'niveau': classe.niveau or 'Non spécifié',
+                'titulaire': titulaire_data
+            })
+        
+        # Préparer les données des enseignants
+        enseignants_data = []
+        for enseignant in enseignants:
+            enseignants_data.append({
+                'id': str(enseignant.id),
+                'nom_complet': f"{enseignant.prenom} {enseignant.nom}",
+                'matieres': getattr(enseignant, 'matieres_enseignees', []) or [],
+                'signature': getattr(enseignant, 'signature', '') or ''
+            })
+        
+        response_data = {
+            'success': True,
+            'ecole': {
+                'id': str(ecole.id),
+                'nom': ecole.nom,
+                'chef_etablissement_civilite': chef_civilite,
+                'chef_etablissement_nom': chef_nom,
+                'chef_etablissement_titre': chef_titre
+            },
+            'classes': classes_data,
+            'enseignants': enseignants_data,
+            'statut_chef': 'défini' if ecole.chef_etablissement_nom and ecole.chef_etablissement_nom.strip() != '' else 'non défini'
+        }
+        
+        print(f"✅ Données envoyées - Chef: {response_data['ecole']['chef_etablissement_nom']}")
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        print(f"❌ Erreur dans api_signatures_data: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Erreur lors du chargement des données: {str(e)}'
+        }), 500
 
 @admin_ecoles_bp.route('/api/signatures/chef', methods=['POST'])
 @login_required
@@ -103,34 +112,69 @@ def api_signatures_data():
 @ecole_required
 def api_update_chef():
     """
-    API pour mettre à jour les informations du chef d'établissement
-    POUR L'ÉCOLE COURANTE SEULEMENT
+    VERSION DE TEST SIMPLIFIÉE pour identifier l'erreur
     """
-    ecole_id = get_current_ecole_id()
-    ecole = Ecole.query.get_or_404(ecole_id)
-    
-    data = request.get_json()
-    
-    if not data:
-        return jsonify({'success': False, 'error': 'Données manquantes'}), 400
-    
     try:
-        ecole.chef_etablissement_civilite = data.get('civilite', 'M.')
-        ecole.chef_etablissement_nom = data.get('nom', '')
-        ecole.chef_etablissement_titre = data.get('titre', "LE CHEF D'ÉTABLISSEMENT")
+        print("🔍 Début de api_update_chef")
         
-        db.session.commit()
+        # DEBUG: Vérifier les données reçues
+        if not request.is_json:
+            print("❌ La requête n'est pas en JSON")
+            return jsonify({'success': False, 'error': 'Format JSON requis'}), 400
+        
+        data = request.get_json()
+        print(f"🔍 Données JSON reçues: {data}")
+        
+        ecole_id = get_current_ecole_id()
+        print(f"🔍 ID école courante: {ecole_id}")
+        
+        ecole = Ecole.query.get(ecole_id)
+        if not ecole:
+            print(f"❌ École non trouvée: {ecole_id}")
+            return jsonify({'success': False, 'error': 'École non trouvée'}), 404
+        
+        print(f"🔍 École trouvée: {ecole.nom}")
+        
+        # Validation minimaliste
+        nom = data.get('nom', '').strip()
+        if not nom:
+            print("❌ Nom vide")
+            return jsonify({'success': False, 'error': 'Nom requis'}), 400
+        
+        # Mise à jour directe (pas de validation complexe)
+        ecole.chef_etablissement_civilite = data.get('civilite', 'M.').strip()
+        ecole.chef_etablissement_nom = nom
+        ecole.chef_etablissement_titre = data.get('titre', "LE CHEF D'ÉTABLISSEMENT").strip()
+        
+        # DEBUG: Afficher ce qu'on va sauvegarder
+        print(f"🔍 Valeurs à sauvegarder:")
+        print(f"  - Civilité: {ecole.chef_etablissement_civilite}")
+        print(f"  - Nom: {ecole.chef_etablissement_nom}")
+        print(f"  - Titre: {ecole.chef_etablissement_titre}")
+        
+        try:
+            db.session.commit()
+            print("✅ Commit réussi")
+        except Exception as commit_error:
+            print(f"❌ Erreur lors du commit: {str(commit_error)}")
+            db.session.rollback()
+            return jsonify({
+                'success': False, 
+                'error': f'Erreur base de données: {str(commit_error)}'
+            }), 500
         
         return jsonify({
             'success': True,
-            'message': 'Informations du chef d\'établissement mises à jour avec succès'
+            'message': 'Chef mis à jour avec succès'
         })
         
     except Exception as e:
-        db.session.rollback()
+        print(f"❌ Erreur globale dans api_update_chef: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
-            'error': f'Erreur lors de la mise à jour: {str(e)}'
+            'error': f'Erreur serveur: {str(e)}'
         }), 500
 
 @admin_ecoles_bp.route('/api/signatures/titulaire', methods=['POST'])
@@ -142,50 +186,119 @@ def api_update_titulaire():
     API pour mettre à jour le titulaire d'une classe
     AVEC VÉRIFICATIONS DE SÉCURITÉ POUR L'ÉCOLE
     """
-    ecole_id = get_current_ecole_id()
-    data = request.get_json()
-    
-    if not data:
-        return jsonify({'success': False, 'error': 'Données manquantes'}), 400
-    
-    classe_id = data.get('classe_id')
-    enseignant_id = data.get('enseignant_id')
-    
-    if not classe_id:
-        return jsonify({'success': False, 'error': 'ID de classe manquant'}), 400
-    
-    # Vérifier que la classe appartient à l'école courante
-    classe = Classe.query.filter_by(id=classe_id, ecole_id=ecole_id).first()
-    if not classe:
-        return jsonify({'success': False, 'error': 'Classe non trouvée ou non autorisée'}), 404
-    
-    # Si un enseignant est spécifié, vérifier qu'il appartient à l'école courante
-    if enseignant_id:
-        enseignant = Utilisateur.query.filter_by(
-            id=enseignant_id, 
-            ecole_id=ecole_id,  # FILTRE IMPORTANT : même école
-            role='ENSEIGNANT'
-        ).first()
-        if not enseignant:
-            return jsonify({'success': False, 'error': 'Enseignant non trouvé ou non autorisé'}), 404
-    
     try:
+        ecole_id = get_current_ecole_id()
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'error': 'Données manquantes'}), 400
+        
+        classe_id = data.get('classe_id')
+        enseignant_id = data.get('enseignant_id')
+        
+        if not classe_id:
+            return jsonify({'success': False, 'error': 'ID de classe manquant'}), 400
+        
+        # Vérifier que la classe appartient à l'école courante
+        classe = Classe.query.filter_by(id=classe_id, ecole_id=ecole_id).first()
+        if not classe:
+            return jsonify({'success': False, 'error': 'Classe non trouvée ou non autorisée'}), 404
+        
+        # Si un enseignant est spécifié, vérifier qu'il appartient à l'école courante
+        if enseignant_id:
+            enseignant = Utilisateur.query.filter_by(
+                id=enseignant_id, 
+                ecole_id=ecole_id,  # FILTRE IMPORTANT : même école
+                role='ENSEIGNANT'
+            ).first()
+            if not enseignant:
+                return jsonify({'success': False, 'error': 'Enseignant non trouvé ou non autorisé'}), 404
+        
         classe.titulaire_id = enseignant_id if enseignant_id else None
         db.session.commit()
+        
+        print(f"✅ Titulaire mis à jour - Classe: {classe.nom}, Titulaire ID: {enseignant_id or 'Aucun'}")
         
         return jsonify({
             'success': True,
             'message': 'Titulaire de classe mis à jour avec succès'
         })
         
+    except IntegrityError as e:
+        db.session.rollback()
+        print(f"❌ Erreur d'intégrité lors de la mise à jour du titulaire: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Erreur de base de données lors de la mise à jour'
+        }), 500
+        
     except Exception as e:
         db.session.rollback()
+        print(f"❌ Erreur lors de la mise à jour du titulaire: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'Erreur lors de la mise à jour: {str(e)}'
         }), 500
 
-# ========== ROUTES EXISTANTES POUR LES ÉCOLES ==========
+@admin_ecoles_bp.route('/api/signatures/fix-chef', methods=['POST'])
+@login_required
+@admin_required
+@ecole_required
+def api_fix_chef_etablissement():
+    """
+    API pour corriger les données manquantes du chef d'établissement
+    """
+    try:
+        ecole_id = get_current_ecole_id()
+        ecole = Ecole.query.get_or_404(ecole_id)
+        
+        # Vérifier et corriger les champs manquants
+        corrections = []
+        
+        if not ecole.chef_etablissement_nom or ecole.chef_etablissement_nom.strip() == '':
+            # Essayer de trouver un enseignant comme chef par défaut
+            enseignant_chef = Utilisateur.query.filter_by(
+                ecole_id=ecole_id, 
+                role='ENSEIGNANT'
+            ).first()
+            
+            if enseignant_chef:
+                ecole.chef_etablissement_nom = f"{enseignant_chef.prenom} {enseignant_chef.nom}"
+                corrections.append(f"Nom du chef défini sur: {enseignant_chef.prenom} {enseignant_chef.nom}")
+            else:
+                ecole.chef_etablissement_nom = "CHEF À DÉFINIR"
+                corrections.append("Nom du chef défini sur valeur par défaut")
+        
+        if not ecole.chef_etablissement_titre or ecole.chef_etablissement_titre.strip() == '':
+            ecole.chef_etablissement_titre = "LE CHEF D'ÉTABLISSEMENT"
+            corrections.append("Titre du chef défini sur valeur par défaut")
+        
+        if not ecole.chef_etablissement_civilite or ecole.chef_etablissement_civilite.strip() == '':
+            ecole.chef_etablissement_civilite = "M."
+            corrections.append("Civilité du chef définie sur M.")
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Données du chef d\'établissement corrigées avec succès',
+            'corrections': corrections,
+            'chef': {
+                'nom': ecole.chef_etablissement_nom,
+                'titre': ecole.chef_etablissement_titre,
+                'civilite': ecole.chef_etablissement_civilite
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Erreur lors de la correction automatique du chef: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Erreur lors de la correction: {str(e)}'
+        }), 500
+
+# ========== ROUTES EXISTANTES POUR LES ÉCOLES (inchangées) ==========
 
 @admin_ecoles_bp.route('/ecoles')
 @login_required
@@ -457,61 +570,4 @@ def rapport_ecole_courante():
     return render_template('admin/rapport_ecole.html', 
                          ecole=ecole, 
                          eleves_par_classe=eleves_par_classe)
-
-@admin_ecoles_bp.route('/api/signatures/fix-chef', methods=['POST'])
-@login_required
-@admin_required
-@ecole_required
-def api_fix_chef_etablissement():
-    """
-    API pour corriger les données manquantes du chef d'établissement
-    """
-    ecole_id = get_current_ecole_id()
-    ecole = Ecole.query.get_or_404(ecole_id)
-    
-    try:
-        # Vérifier et corriger les champs manquants
-        corrections = []
-        
-        if not ecole.chef_etablissement_nom or ecole.chef_etablissement_nom.strip() == '':
-            # Essayer de trouver un enseignant comme chef par défaut
-            enseignant_chef = Utilisateur.query.filter_by(
-                ecole_id=ecole_id, 
-                role='ENSEIGNANT'
-            ).first()
-            
-            if enseignant_chef:
-                ecole.chef_etablissement_nom = f"{enseignant_chef.prenom} {enseignant_chef.nom}"
-                corrections.append(f"Nom du chef défini sur: {enseignant_chef.prenom} {enseignant_chef.nom}")
-            else:
-                ecole.chef_etablissement_nom = "CHEF À DÉFINIR"
-                corrections.append("Nom du chef défini sur valeur par défaut")
-        
-        if not ecole.chef_etablissement_titre or ecole.chef_etablissement_titre.strip() == '':
-            ecole.chef_etablissement_titre = "LE CHEF D'ÉTABLISSEMENT"
-            corrections.append("Titre du chef défini sur valeur par défaut")
-        
-        if not ecole.chef_etablissement_civilite or ecole.chef_etablissement_civilite.strip() == '':
-            ecole.chef_etablissement_civilite = "M."
-            corrections.append("Civilité du chef définie sur M.")
-        
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Données du chef d\'établissement corrigées avec succès',
-            'corrections': corrections,
-            'chef': {
-                'nom': ecole.chef_etablissement_nom,
-                'titre': ecole.chef_etablissement_titre,
-                'civilite': ecole.chef_etablissement_civilite
-            }
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({
-            'success': False,
-            'error': f'Erreur lors de la correction: {str(e)}'
-        }), 500
 

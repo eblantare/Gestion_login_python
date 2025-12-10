@@ -46,65 +46,72 @@
             </a>
 
             <div class="ms-auto d-flex align-items-center">
-                <!-- Sélecteur d'école - VERSION FINALE -->
-                {% if ecoles %}
-                <div class="ecole-selector-container me-3">
-                    <div class="ecole-selector">
-                        <div class="input-group input-group-sm" style="width: 300px;">
-                            <span class="input-group-text {% if is_system_admin %}bg-primary text-white{% else %}bg-secondary text-white{% endif %}">
-                                <i class="bi bi-building"></i>
-                            </span>
-                            <select class="form-select form-select-sm select2-ecole" id="ecoleSelect" 
-                                data-placeholder="{% if is_system_admin %}Sélectionnez une école{% else %}Votre école{% endif %}"
-                                data-url="{{ url_for('main.select_ecole') }}"
-                                data-user-role="{{ current_user.role }}"
-                                data-user-ecole-id="{{ current_user.ecole_id }}"
-                                {% if not is_system_admin %}disabled{% endif %}>
-                                
-                                {% if is_system_admin %}
-                                    <!-- Admin système : toutes les écoles -->
-                                    <option value="">Toutes les écoles</option>
-                                    {% for ecole in ecoles %}
-                                        <option value="{{ ecole.id }}" 
-                                            {% if selected_ecole_id == ecole.id|string %}selected="selected"{% endif %}>
-                                            {{ ecole.nom }}
-                                        </option>
-                                    {% endfor %}
-                                {% else %}
-                                    <!-- Autres utilisateurs : seulement leur école -->
-                                    {% for ecole in ecoles %}
-                                        <option value="{{ ecole.id }}" selected="selected">
-                                            {{ ecole.nom }}
-                                        </option>
-                                    {% endfor %}
-                                {% endif %}
-                            </select>
-                        </div>
-
-                        <!-- Affichage simple du statut -->
-                        {% if is_system_admin %}
-                            {% if selected_ecole %}
-                                <small class="text-success mt-1 d-block">
-                                    <i class="bi bi-check-circle"></i>
-                                    École sélectionnée: <strong>{{ selected_ecole.nom }}</strong>
-                                </small>
-                            {% else %}
-                                <small class="text-warning mt-1 d-block">
-                                    <i class="bi bi-exclamation-triangle"></i>
-                                    Mode toutes les écoles
-                                </small>
-                            {% endif %}
-                        {% else %}
-                            {% if ecoles and ecoles[0] %}
-                                <small class="text-muted mt-1 d-block">
-                                    <i class="bi bi-building"></i>
-                                    Votre école: <strong>{{ ecoles[0].nom }}</strong>
-                                </small>
-                            {% endif %}
+                  <!-- Sélecteur d'école - VERSION FINALE -->
+               <!-- ebase.html - MODIFICATION -->
+<!-- Sélecteur d'école - VERSION CORRIGÉE -->
+{% if current_user.is_authenticated and all_ecoles %}
+<div class="ecole-selector-container me-3">
+    <div class="ecole-selector">
+        <div class="input-group input-group-sm" style="width: 300px;">
+            <span class="input-group-text {% if is_system_admin %}bg-primary text-white{% else %}bg-secondary text-white{% endif %}">
+                <i class="bi bi-building"></i>
+            </span>
+            <select class="form-select form-select-sm select2-ecole" id="ecoleSelect" 
+                data-placeholder="{% if is_system_admin %}Sélectionnez une école{% else %}Votre école{% endif %}"
+                data-url="{{ url_for('main.select_ecole') }}"
+                data-user-role="{{ current_user.role }}"
+                data-user-ecole-id="{{ current_user.ecole_id }}"
+                {% if not is_system_admin %}disabled{% endif %}>
+                
+                {% if is_system_admin %}
+                    <!-- Admin système : toutes les écoles -->
+                    <option value="">Toutes les écoles</option>
+                    {% for ecole in all_ecoles %}
+                        <option value="{{ ecole.id }}" 
+                            {% if selected_ecole_id == ecole.id|string %}selected="selected"{% endif %}>
+                            {{ ecole.nom }}
+                        </option>
+                    {% endfor %}
+                {% else %}
+                    <!-- Autres utilisateurs : seulement leur école -->
+                    {% for ecole in all_ecoles %}
+                        {% if ecole.id|string == current_user.ecole_id|string %}
+                        <option value="{{ ecole.id }}" selected="selected">
+                            {{ ecole.nom }}
+                        </option>
                         {% endif %}
-                    </div>
-                </div>
+                    {% endfor %}
                 {% endif %}
+            </select>
+        </div>
+
+        <!-- Affichage simple du statut -->
+        {% if is_system_admin %}
+            {% if selected_ecole %}
+                <small class="text-success mt-1 d-block">
+                    <i class="bi bi-check-circle"></i>
+                    École sélectionnée: <strong>{{ selected_ecole.nom }}</strong>
+                </small>
+            {% else %}
+                <small class="text-warning mt-1 d-block">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Mode toutes les écoles
+                </small>
+            {% endif %}
+        {% else %}
+            {% if all_ecoles %}
+                {% set user_ecole = all_ecoles|selectattr('id', 'equalto', current_user.ecole_id|string)|first %}
+                {% if user_ecole %}
+                <small class="text-muted mt-1 d-block">
+                    <i class="bi bi-building"></i>
+                    Votre école: <strong>{{ user_ecole.nom }}</strong>
+                </small>
+                {% endif %}
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endif %}
 
                 <!-- Lien retour -->
                 <a href="{{ url_for('main.index') }}" 

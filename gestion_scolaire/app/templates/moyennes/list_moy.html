@@ -23,11 +23,51 @@
     font-weight: 500;
     color: #333;
 }
+
+.systeme-badge {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.5rem;
+}
 </style>
 {% endblock %}
 
 <div class="container mt-4">
-    <h2 class="mb-4">Liste des Moyennes</h2>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Liste des Moyennes</h2>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge {% if type_systeme == 'semestriel' %}bg-info{% else %}bg-warning{% endif %} systeme-badge">
+                Système {{ type_systeme }}
+            </span>
+            <style>
+             .config-btn {
+                 border-width: 2px;
+                  transition: all 0.3s ease;
+                  font-weight: 500;
+              }
+
+              .config-btn:hover {
+               transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+                background-color: #f8f9fa;
+            }
+
+             .config-btn i {
+             transition: transform 0.3s ease;
+            }
+
+             .config-btn:hover i {
+              transform: rotate(45deg);
+            }
+          </style>
+
+        <a href="{{ url_for('moyennes.configurer_systeme') }}" 
+            class="btn btn-sm btn-outline-info config-btn d-flex align-items-center" 
+            title="Configurer le système d'évaluation">
+            <i class="fas fa-cog me-2"></i>
+            <span>Configurer</span>
+       </a>
+        </div>
+      </div>
 
     {# 🔹 Élément pour afficher les résultats du batch #}
     <div id="batchResult"></div>
@@ -54,10 +94,15 @@
             </select>
         </div>
         <div class="col-auto">
-            <select name="trimestre" class="form-select">
-                <option value="1" {% if trimestre == 1 %}selected{% endif %}>Trimestre 1</option>
-                <option value="2" {% if trimestre == 2 %}selected{% endif %}>Trimestre 2</option>
-                <option value="3" {% if trimestre == 3 %}selected{% endif %}>Trimestre 3</option>
+            <select name="periode" class="form-select">
+                {% if type_systeme == 'semestriel' %}
+                    <option value="1" {% if periode == 1 %}selected{% endif %}>Semestre 1</option>
+                    <option value="2" {% if periode == 2 %}selected{% endif %}>Semestre 2</option>
+                {% else %}
+                    <option value="1" {% if periode == 1 %}selected{% endif %}>Trimestre 1</option>
+                    <option value="2" {% if periode == 2 %}selected{% endif %}>Trimestre 2</option>
+                    <option value="3" {% if periode == 3 %}selected{% endif %}>Trimestre 3</option>
+                {% endif %}
             </select>
         </div>
         <div class="col-auto">
@@ -81,7 +126,7 @@
             <button class="btn btn-success dropdown-toggle d-flex align-items-center px-3" 
                     type="button" id="exportDropdown" data-bs-toggle="dropdown" 
                     aria-expanded="false" {% if not classe_id or not annee_scolaire %}disabled{% endif %}>
-                <img src="{{ url_for('static', filename='images/export_icon.png') }}" alt="Export" width="18" height="18" class="me-2" title="Exporter les moyennes">
+                <i class="fas fa-file-export me-2"></i>
                 <span>Exporter</span>
             </button>
             <ul class="dropdown-menu" aria-labelledby="exportDropdown">
@@ -108,13 +153,15 @@
 
         <!-- Formulaire batch -->
         <form id="batchForm" method="POST" action="{{ url_for('moyennes.lancer_batch') }}">
+            <!-- Champs cachés avec les valeurs actuelles -->
             <input type="hidden" name="classe_id" id="batchClasseId" value="{{ classe_id or '' }}">
             <input type="hidden" name="annee_scolaire" id="batchAnnee" value="{{ annee_scolaire or '' }}">
-            <input type="hidden" name="trimestre" value="{{ trimestre }}">
-            
+            <input type="hidden" name="periode" value="{{ periode or 1 }}">
+            <input type="hidden" name="type_systeme" value="{{ type_systeme or 'trimestriel' }}">
+    
             <button type="submit" id="batchBtn" class="btn btn-warning d-flex align-items-center px-3" disabled>
-                <img src="{{ url_for('static', filename='images/e_cone.png') }}" alt="Batch" width="22" height="22" class="me-2" title="Calcul des moyennes">
-                <span id="batchBtnText">Calculer moyenne</span>
+                <i class="fas fa-calculator me-2"></i>
+                <span id="batchBtnText">Calculer moyennes</span>
                 <span id="batchSpinner" class="spinner-border spinner-border-sm d-none ms-2"></span>
             </button>
         </form>
@@ -130,7 +177,9 @@
                     <th width="25%">Élève</th>
                     <th width="15%">Classe</th>
                     <th width="10%">Moyenne</th>
-                    {% if trimestre == 3 %}<th width="10%">Moy_Gén</th>{% endif %}
+                    {% if (type_systeme == 'semestriel' and periode == 2) or (type_systeme == 'trimestriel' and periode == 3) %}
+                        <th width="10%">Moyenne Générale</th>
+                    {% endif %}
                     <th width="10%">Rang</th>
                     <th width="15%">Mention</th>
                     <th width="10%">Moy_class</th>
@@ -154,7 +203,7 @@
                                 {{ row.moy_trim if row.moy_trim and row.moy_trim > 0 else "—" }}
                             </span>
                         </td>
-                        {% if trimestre == 3 %}
+                        {% if (type_systeme == 'semestriel' and periode == 2) or (type_systeme == 'trimestriel' and periode == 3) %}
                         <td>
                             <span class="fw-bold {% if row.moy_gen >= 10 %}text-success{% else %}text-danger{% endif %}">
                                 {{ row.moy_gen if row.moy_gen and row.moy_gen > 0 else "—" }}
@@ -186,11 +235,15 @@
 
                     {# 🔹 Ligne de résumé de classe #}
                     <tr class="table-info fw-bold">
-                        <td colspan="{% if trimestre == 3 %}8{% else %}7{% endif %}" class="text-center py-2">
+                        {% set colspan = 7 %}
+                        {% if (type_systeme == 'semestriel' and periode == 2) or (type_systeme == 'trimestriel' and periode == 3) %}
+                            {% set colspan = 8 %}
+                        {% endif %}
+                        <td colspan="{{ colspan }}" class="text-center py-2">
                             <div class="d-flex justify-content-between align-items-center flex-wrap">
                                 <span>Résumé Classe</span>
-                                <span>Effectif Total: {{ classe_recap.effectif_total }}</span>
-                                <span>Effectif Composé: {{ classe_recap.effectif_composants }}</span>
+                                <span>Effectif classe: {{ classe_recap.effectif_total }} élèves</span>
+                                <span>Ont composé: {{ classe_recap.effectif_composants }} élèves</span>
                                 <span>Moy_class: {{ classe_recap.moy_class or "—" }}</span>
                                 <span>Moy_faible: {{ classe_recap.moy_faible or "—" }}</span>
                                 <span>Moy_forte: {{ classe_recap.moy_forte or "—" }}</span>
@@ -198,13 +251,17 @@
                         </td>
                     </tr>
                 {% else %}
+                    {% set colspan = 7 %}
+                    {% if (type_systeme == 'semestriel' and periode == 2) or (type_systeme == 'trimestriel' and periode == 3) %}
+                        {% set colspan = 8 %}
+                    {% endif %}
                     <tr>
-                        <td colspan="{% if trimestre == 3 %}8{% else %}7{% endif %}" class="text-center py-4">
+                        <td colspan="{{ colspan }}" class="text-center py-4">
                             <div class="text-muted">
                                 <i class="fas fa-inbox fa-2x mb-2"></i>
                                 <p>Aucune moyenne disponible</p>
                                 {% if classe_id and annee_scolaire %}
-                                <p class="small">Utilisez le bouton "Calculer moyenne" pour générer les moyennes de cette classe</p>
+                                <p class="small">Utilisez le bouton "Calculer moyennes" pour générer les moyennes de cette classe</p>
                                 {% endif %}
                             </div>
                         </td>
@@ -243,83 +300,5 @@
 {% endblock %}
 
 {% block scripts %}
-<!-- Dans list_moy.html, ajoutez ce script -->
-<script>
-function verifierExport() {
-    const classeId = document.querySelector('[name="classe_id"]').value;
-    const anneeScolaire = document.querySelector('[name="annee_scolaire"]').value;
-    const trimestre = document.querySelector('[name="trimestre"]').value;
-    
-    if (!classeId || !anneeScolaire) {
-        alert('Veuillez sélectionner une classe et une année scolaire');
-        return;
-    }
-    
-    // Afficher un indicateur de chargement
-    const exportBtn = document.querySelector('#export-btn');
-    const originalText = exportBtn.innerHTML;
-    exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vérification...';
-    
-    fetch(`/moyennes/verifier-export?classe_id=${classeId}&annee_scolaire=${anneeScolaire}&trimestre=${trimestre}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.available) {
-                if (data.has_duplicates) {
-                    if (confirm(`ATTENTION: ${data.duplicate_count} doublons détectés. Voulez-vous les nettoyer automatiquement avant l'export ?`)) {
-                        nettoyerDoublonsAvantExport(classeId, anneeScolaire, trimestre);
-                    } else {
-                        lancerExport();
-                    }
-                } else {
-                    lancerExport();
-                }
-            } else {
-                alert('Aucune donnée disponible pour l\'export avec ces critères');
-            }
-            exportBtn.innerHTML = originalText;
-        })
-        .catch(error => {
-            console.error('Erreur vérification:', error);
-            alert('Erreur lors de la vérification');
-            exportBtn.innerHTML = originalText;
-        });
-}
-
-function nettoyerDoublonsAvantExport(classeId, anneeScolaire, trimestre) {
-    fetch('/moyennes/nettoyer-doublons', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `classe_id=${classeId}&annee_scolaire=${anneeScolaire}&trimestre=${trimestre}`
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success') {
-            alert(`✅ ${data.message}\n${data.deleted} doublons supprimés`);
-            lancerExport();
-        } else {
-            alert('❌ Erreur lors du nettoyage: ' + data.message);
-        }
-    })
-    .catch(error => {
-        console.error('Erreur nettoyage:', error);
-        alert('Erreur lors du nettoyage des doublons');
-    });
-}
-
-function lancerExport() {
-    // Votre code d'export existant
-    const format = document.querySelector('[name="format"]:checked').value;
-    const url = `/moyennes/export?${new URLSearchParams({
-        classe_id: document.querySelector('[name="classe_id"]').value,
-        annee_scolaire: document.querySelector('[name="annee_scolaire"]').value,
-        trimestre: document.querySelector('[name="trimestre"]').value,
-        format: format
-    })}`;
-    
-    window.open(url, '_blank');
-}
-</script>
 <script src="{{ url_for('static', filename='js/moyennes.js') }}"></script>
 {% endblock %}

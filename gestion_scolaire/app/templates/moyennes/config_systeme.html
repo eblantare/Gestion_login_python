@@ -1,0 +1,64 @@
+{% extends "ebase.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0"><i class="fas fa-cog me-2"></i>Configuration du système d'évaluation</h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-4">
+                        Sélectionnez le système d'évaluation approprié pour votre établissement :
+                    </p>
+                    
+                    <form method="POST" action="{{ url_for('moyennes.configurer_systeme') }}">
+                        <div class="mb-4">
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="radio" name="type_systeme" 
+                                       id="trimestriel" value="trimestriel" 
+                                       {% if type_systeme == 'trimestriel' %}checked{% endif %}>
+                                <label class="form-check-label" for="trimestriel">
+                                    <h5><i class="fas fa-graduation-cap text-warning me-2"></i>Système Trimestriel</h5>
+                                    <p class="text-muted mb-0 ms-4">
+                                        <small>3 périodes d'évaluation par an<br>
+                                        Recommandé pour les <strong>collèges</strong></small>
+                                    </p>
+                                </label>
+                            </div>
+                            
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="type_systeme" 
+                                       id="semestriel" value="semestriel" 
+                                       {% if type_systeme == 'semestriel' %}checked{% endif %}>
+                                <label class="form-check-label" for="semestriel">
+                                    <h5><i class="fas fa-university text-info me-2"></i>Système Semestriel</h5>
+                                    <p class="text-muted mb-0 ms-4">
+                                        <small>2 périodes d'évaluation par an<br>
+                                        Recommandé pour les <strong>lycées</strong></small>
+                                    </p>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <small>Changer le système d'évaluation affectera l'affichage des périodes et le calcul des moyennes générales.</small>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mt-4">
+                            <a href="{{ url_for('moyennes.liste_moyennes') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Retour
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Enregistrer la configuration
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

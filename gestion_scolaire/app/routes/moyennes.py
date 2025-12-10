@@ -1,6 +1,48 @@
 from flask import Blueprint, request, render_template, redirect, url_for, flash, jsonify, session, current_app, Response, send_file
 from extensions import db
-from ..models import Moyenne, Eleve, Classe, Note, Appreciations, Enseignement, Ecole
+from ..models import Moyenne, Eleve, Classe, Note, Appreciations, Enseignement, Ecole,SystemeEvaluation
+from flask_login import current_user, login_required
+from gestion_scolaire.app.tasks.batchMoyennes import calculer_moyennes
+import uuid, time, os, io
+from datetime import datetime
+import re
+import logging
+from uuid import UUID
+from ..utils import ecole_required, get_current_ecole_id
+import csv
+import pandas as pd
+from io import BytesIO, StringIO
+import openpyxl
+from openpyxl.styles import Font, Alignment, PatternFill
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+from reportlab.lib.units import inch, mm
+from reportlab.platypus import Image
+from sqlalchemy import text
+
+moyennes_bp = Blueprint('moyennes', __name__, url_prefix='/moyennes')
+
+# ==================== CONFIGURATION DE SÉCURITÉ ====================
+
+# Configuration du logger de sécurité
+security_logger = logging.getLogger('security')
+if not security_logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter(
+        '%(asctime)s - SECURITY - %(levelname)s - [%(ip)s] %(user_id)s - %(message)s'
+    )
+    handler.setFormatter(formatter)
+    security_logger.addHandler(handler)
+    security_logger.setLevel(logging.INFO)
+
+
+
+
+from flask import Blueprint, request, render_template, redirect, url_for, flash, jsonify, session, current_app, Response, send_file
+from extensions import db
+from ..models import Moyenne, Eleve, Classe, Note, Appreciations, Enseignement, Ecole, SystemeEvaluation
 from flask_login import current_user, login_required
 from gestion_scolaire.app.tasks.batchMoyennes import calculer_moyennes
 import uuid, time, os, io
@@ -165,9 +207,10 @@ def get_logo_path_moyennes(ecole):
 
 # ==================== FONCTIONS DE DIAGNOSTIC ET CORRECTION DES DOUBLONS ====================
 
-def check_moyennes_duplicates_detailed(ecole_id, classe_id, annee_scolaire, trimestre):
+def check_moyennes_duplicates_detailed(ecole_id, classe_id, annee_scolaire, periode, type_systeme='trimestriel'):
     """Vérifie en détail les doublons de moyennes avec toutes les informations"""
     try:
+        # Utiliser moy_trim pour la requête SQL
         duplicates_query = """
         SELECT 
             e.id as eleve_id,
@@ -176,13 +219,14 @@ def check_moyennes_duplicates_detailed(ecole_id, classe_id, annee_scolaire, trim
             COUNT(m.id) as nb_moyennes,
             STRING_AGG(m.id::text, ', ') as ids_moyennes,
             STRING_AGG(ROUND(m.moy_trim::numeric, 2)::text, ', ') as moyennes
-        FROM moyennes m
-        JOIN eleves e ON m.eleve_id = e.id
-        JOIN classes c ON e.classe_id = c.id
+        FROM geslog_schema.moyennes m
+        JOIN geslog_schema.eleves e ON m.eleve_id = e.id
+        JOIN geslog_schema.classes c ON e.classe_id = c.id
         WHERE c.ecole_id = :ecole_id
         AND c.id = :classe_id
         AND m.annee_scolaire = :annee_scolaire
-        AND m.trimestre = :trimestre
+        AND m.periode = :periode
+        AND m.type_periode = :type_periode
         GROUP BY e.id, e.nom, e.prenoms
         HAVING COUNT(m.id) > 1
         ORDER BY e.nom, e.prenoms
@@ -194,7 +238,8 @@ def check_moyennes_duplicates_detailed(ecole_id, classe_id, annee_scolaire, trim
                 'ecole_id': ecole_id,
                 'classe_id': classe_id,
                 'annee_scolaire': annee_scolaire,
-                'trimestre': trimestre
+                'periode': periode,
+                'type_periode': 'semestre' if type_systeme == 'semestriel' else 'trimestre'
             }
         ).fetchall()
         
@@ -203,36 +248,37 @@ def check_moyennes_duplicates_detailed(ecole_id, classe_id, annee_scolaire, trim
         current_app.logger.error(f"Erreur vérification détaillée doublons: {str(e)}")
         return []
 
-def clean_moyennes_duplicates(ecole_id, classe_id, annee_scolaire, trimestre):
+def clean_moyennes_duplicates(ecole_id, classe_id, annee_scolaire, periode, type_systeme='trimestriel'):
     """Nettoie les doublons de moyennes en gardant la plus récente"""
     try:
         # Vérifier d'abord les doublons
-        duplicates = check_moyennes_duplicates_detailed(ecole_id, classe_id, annee_scolaire, trimestre)
+        duplicates = check_moyennes_duplicates_detailed(ecole_id, classe_id, annee_scolaire, periode, type_systeme)
         
         if not duplicates:
             return {"status": "success", "message": "Aucun doublon détecté", "deleted": 0}
         
-        # 🔥 CORRECTION : Utiliser l'ID pour déterminer le plus récent au lieu de created_at
         delete_query = """
-        DELETE FROM moyennes 
+        DELETE FROM geslog_schema.moyennes 
         WHERE id IN (
             SELECT m1.id
-            FROM moyennes m1
-            JOIN eleves e ON m1.eleve_id = e.id
-            JOIN classes c ON e.classe_id = c.id
+            FROM geslog_schema.moyennes m1
+            JOIN geslog_schema.eleves e ON m1.eleve_id = e.id
+            JOIN geslog_schema.classes c ON e.classe_id = c.id
             WHERE c.ecole_id = :ecole_id
             AND c.id = :classe_id
             AND m1.annee_scolaire = :annee_scolaire
-            AND m1.trimestre = :trimestre
+            AND m1.periode = :periode
+            AND m1.type_periode = :type_periode
             AND m1.id NOT IN (
-                SELECT MAX(m2.id)  -- 🔥 CORRECTION : Garder l'enregistrement avec l'ID le plus élevé (le plus récent)
-                FROM moyennes m2
-                JOIN eleves e2 ON m2.eleve_id = e2.id
-                JOIN classes c2 ON e2.classe_id = c2.id
+                SELECT MAX(m2.id)
+                FROM geslog_schema.moyennes m2
+                JOIN geslog_schema.eleves e2 ON m2.eleve_id = e2.id
+                JOIN geslog_schema.classes c2 ON e2.classe_id = c2.id
                 WHERE c2.ecole_id = :ecole_id
                 AND c2.id = :classe_id
                 AND m2.annee_scolaire = :annee_scolaire
-                AND m2.trimestre = :trimestre
+                AND m2.periode = :periode
+                AND m2.type_periode = :type_periode
                 GROUP BY e2.id
             )
         )
@@ -244,14 +290,15 @@ def clean_moyennes_duplicates(ecole_id, classe_id, annee_scolaire, trimestre):
                 'ecole_id': ecole_id,
                 'classe_id': classe_id,
                 'annee_scolaire': annee_scolaire,
-                'trimestre': trimestre
+                'periode': periode,
+                'type_periode': 'semestre' if type_systeme == 'semestriel' else 'trimestre'
             }
         )
         
         db.session.commit()
         
         # Vérifier après suppression
-        duplicates_after = check_moyennes_duplicates_detailed(ecole_id, classe_id, annee_scolaire, trimestre)
+        duplicates_after = check_moyennes_duplicates_detailed(ecole_id, classe_id, annee_scolaire, periode, type_systeme)
         
         return {
             "status": "success", 
@@ -267,11 +314,10 @@ def clean_moyennes_duplicates(ecole_id, classe_id, annee_scolaire, trimestre):
         current_app.logger.error(f"Erreur nettoyage doublons: {str(e)}")
         return {"status": "error", "message": str(e)}
 
-
-def get_unique_moyennes_data(ecole_id, classe_id, annee_scolaire, trimestre):
-    """Récupère les données de moyennes uniques par élève - VERSION CORRIGÉE"""
+def get_unique_moyennes_data(ecole_id, classe_id, annee_scolaire, periode, type_systeme='trimestriel'):
+    """Récupère les données de moyennes uniques par élève"""
     try:
-        # 🔥 CORRECTION : Utiliser MAX(id) pour prendre la plus récente
+        # Utiliser moy_trim dans la requête
         unique_query = """
         SELECT DISTINCT ON (e.id)
             e.id,
@@ -280,16 +326,18 @@ def get_unique_moyennes_data(ecole_id, classe_id, annee_scolaire, trimestre):
             m.moy_trim,
             m.moy_gen,
             m.classement_str,
-            a.libelle as appreciation
-        FROM eleves e
-        JOIN classes c ON e.classe_id = c.id
-        JOIN moyennes m ON e.id = m.eleve_id
-        LEFT JOIN appreciations a ON m.appreciation_id = a.id
+            a.libelle as appreciation,
+            m.moy_class
+        FROM geslog_schema.eleves e
+        JOIN geslog_schema.classes c ON e.classe_id = c.id
+        JOIN geslog_schema.moyennes m ON e.id = m.eleve_id
+        LEFT JOIN geslog_schema.appreciations a ON m.appreciation_id = a.id
         WHERE c.ecole_id = :ecole_id
         AND c.id = :classe_id
         AND m.annee_scolaire = :annee_scolaire
-        AND m.trimestre = :trimestre
-        ORDER BY e.id, m.id DESC  -- Prend la moyenne avec l'ID le plus récent
+        AND m.periode = :periode
+        AND m.type_periode = :type_periode
+        ORDER BY e.id, m.id DESC
         """
         
         items = db.session.execute(
@@ -298,7 +346,8 @@ def get_unique_moyennes_data(ecole_id, classe_id, annee_scolaire, trimestre):
                 'ecole_id': ecole_id,
                 'classe_id': classe_id,
                 'annee_scolaire': annee_scolaire,
-                'trimestre': trimestre
+                'periode': periode,
+                'type_periode': 'semestre' if type_systeme == 'semestriel' else 'trimestre'
             }
         ).fetchall()
         
@@ -306,15 +355,43 @@ def get_unique_moyennes_data(ecole_id, classe_id, annee_scolaire, trimestre):
     except Exception as e:
         current_app.logger.error(f"Erreur récupération données uniques: {str(e)}")
         return []
+
+def get_systeme_evaluation(ecole_id):
+    """Récupère ou crée la configuration du système d'évaluation de l'école"""
+    systeme = SystemeEvaluation.query.filter_by(ecole_id=ecole_id).first()
+    if not systeme:
+        # Créer une configuration par défaut
+        systeme = SystemeEvaluation(
+            id=str(uuid.uuid4()),
+            ecole_id=ecole_id,
+            type_systeme='trimestriel'
+        )
+        db.session.add(systeme)
+        db.session.commit()
+    return systeme
+
+def get_periodes_for_systeme(type_systeme):
+    """Retourne les périodes disponibles selon le système"""
+    if type_systeme == 'semestriel':
+        return [1, 2]
+    else:
+        return [1, 2, 3]
+
+def get_periode_display(type_systeme, periode):
+    """Retourne l'affichage de la période"""
+    if type_systeme == 'semestriel':
+        return f"Semestre {periode}"
+    else:
+        return f"Trimestre {periode}"
+
 # ==================== ROUTES SÉCURISÉES ====================
 
 @moyennes_bp.route("/")
 @login_required
 @ecole_required
 def liste_moyennes():
-    """Liste des moyennes - VERSION ULTRA-SIMPLE SANS DOUBLONS"""
+    """Liste des moyennes - VERSION CORRIGÉE AVEC EFFECTIFS EXACTS"""
     try:
-        # Rate limiting
         if not rate_limit_check():
             flash("Trop de requêtes. Veuillez réessayer plus tard.", "error")
             return redirect(url_for('moyennes.liste_moyennes'))
@@ -326,13 +403,19 @@ def liste_moyennes():
         classe_id = request.args.get("classe_id", "").strip()
         annee_scolaire = request.args.get("annee_scolaire", "").strip()
         
-        # Trimestre
+        # Récupérer la configuration du système d'évaluation
+        systeme_eval = SystemeEvaluation.query.filter_by(ecole_id=ecole_id).first()
+        type_systeme = systeme_eval.type_systeme if systeme_eval else 'trimestriel'
+        
+        # Validation de la période
         try:
-            trimestre = int(request.args.get("trimestre", "1"))
-            if trimestre not in [1, 2, 3]:
-                trimestre = 1
+            periode = int(request.args.get("periode", "1"))
+            if type_systeme == 'semestriel' and periode not in [1, 2]:
+                periode = 1
+            elif type_systeme == 'trimestriel' and periode not in [1, 2, 3]:
+                periode = 1
         except (ValueError, TypeError):
-            trimestre = 1
+            periode = 1
 
         # Pagination
         try:
@@ -342,7 +425,7 @@ def liste_moyennes():
             page = 1
             per_page = 10
 
-        print(f"🔍 DEBUG liste_moyennes - Paramètres: classe_id='{classe_id}', annee='{annee_scolaire}', trimestre={trimestre}")
+        current_app.logger.info(f"🔍 DEBUG liste_moyennes - Système: {type_systeme}, Période: {periode}")
 
         # Vérification d'accès à la classe
         if classe_id and not validate_ecole_access_for_classe(classe_id, ecole_id):
@@ -364,18 +447,19 @@ def liste_moyennes():
             current_year = datetime.now().year
             annees_scolaires = [f"{current_year-1}-{current_year}", f"{current_year}-{current_year+1}"]
 
-        # 🔥 SOLUTION ULTRA-SIMPLE : Récupérer tous les résultats puis éliminer les doublons en Python
+        # ========== REQUÊTE PRINCIPALE ==========
         query = (
             db.session.query(
                 Eleve.id.label("eleve_id"),
                 Eleve.nom,
                 Eleve.prenoms,
                 Classe.nom.label("classe_nom"),
-                Moyenne.moy_trim,
+                Classe.effectif.label("classe_effectif"),
+                Moyenne.moy_periode.label("moy_trim"),
                 Moyenne.moy_gen,
-                Moyenne.classement.label("classement"),
-                Moyenne.classement_str.label("classement_str"),
-                Moyenne.classement_gen.label("classement_gen"),
+                Moyenne.classement,
+                Moyenne.classement_str,
+                Moyenne.classement_gen,
                 Moyenne.moy_class,
                 Moyenne.moy_forte,
                 Moyenne.moy_faible,
@@ -385,7 +469,7 @@ def liste_moyennes():
             .join(Eleve, Eleve.id == Moyenne.eleve_id)
             .join(Classe, Classe.id == Eleve.classe_id)
             .outerjoin(Appreciations, Appreciations.id == Moyenne.appreciation_id)
-            .filter(Moyenne.trimestre == trimestre)
+            .filter(Moyenne.periode == periode)
             .filter(Classe.ecole_id == ecole_id)
         )
 
@@ -408,43 +492,76 @@ def liste_moyennes():
         # Tri par classement
         query = query.order_by(Moyenne.classement.asc())
 
-        # Récupérer TOUS les résultats
-        all_items = query.all()
+        # Pagination
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        items = pagination.items
         
-        # 🔥 ÉLIMINATION DES DOUBLONS EN PYTHON
-        seen_ids = set()
-        unique_items = []
-        
-        for item in all_items:
-            if item.eleve_id not in seen_ids:
-                seen_ids.add(item.eleve_id)
-                unique_items.append(item)
-        
-        # Pagination manuelle
-        start_idx = (page - 1) * per_page
-        end_idx = start_idx + per_page
-        items = unique_items[start_idx:end_idx]
-        
-        # Créer un objet pagination manuel
-        total_items = len(unique_items)
-        pagination = type('Pagination', (), {
-            'page': page,
-            'per_page': per_page,
-            'total': total_items,
-            'pages': (total_items + per_page - 1) // per_page,
-            'has_prev': page > 1,
-            'has_next': end_idx < total_items,
-            'prev_num': page - 1,
-            'next_num': page + 1
-        })()
-        
-        print(f"📤 DEBUG liste_moyennes - Résultat: {len(unique_items)} items uniques sur {len(all_items)} totaux")
-
         # Récupérer les classes de l'école
         classes = Classe.query.filter_by(ecole_id=ecole_id).order_by(Classe.nom).all()
 
-        # Calcul du récapitulatif
-        if items:
+        # ========== CALCUL EXACT DES EFFECTIFS ==========
+        effectif_total_classe = 0
+        effectif_composants_classe = 0
+        
+        if classe_id:
+            # Récupérer la classe
+            classe = Classe.query.filter_by(id=UUID(classe_id)).first()
+            if classe:
+                # Effectif total = effectif de la classe
+                effectif_total_classe = classe.effectif
+                
+                # Effectif composé = nombre d'élèves ayant effectivement une moyenne
+                # pour cette période et année scolaire
+                effectif_composants_classe = (
+                    db.session.query(db.func.count(Moyenne.id))
+                    .join(Eleve)
+                    .filter(
+                        Eleve.classe_id == UUID(classe_id),
+                        Moyenne.annee_scolaire == annee_scolaire if annee_scolaire else True,
+                        Moyenne.periode == periode,
+                        Moyenne.moy_periode > 0
+                    )
+                    .scalar() or 0
+                )
+        else:
+            # Si pas de classe spécifique, calculer sur tous les items
+            # Mais dans ce cas, les effectifs n'ont pas de sens
+            effectif_total_classe = 0
+            effectif_composants_classe = 0
+
+        # Calcul du récapitulatif CLASSE (pas seulement de la page courante)
+        if classe_id:
+            # Récupérer TOUTES les moyennes de la classe (sans pagination)
+            toutes_moyennes = (
+                db.session.query(Moyenne.moy_periode)
+                .join(Eleve)
+                .filter(
+                    Eleve.classe_id == UUID(classe_id),
+                    Moyenne.annee_scolaire == annee_scolaire if annee_scolaire else True,
+                    Moyenne.periode == periode,
+                    Moyenne.moy_periode > 0
+                )
+                .all()
+            )
+            
+            moyennes_valides = [m[0] for m in toutes_moyennes if m[0] is not None and m[0] > 0]
+            
+            if moyennes_valides:
+                moy_forte = max(moyennes_valides)
+                moy_faible = min(moyennes_valides)
+                moy_class = round((moy_forte + moy_faible) / 2, 2)
+            else:
+                moy_forte = moy_faible = moy_class = 0
+            
+            classe_recap = {
+                "moy_class": moy_class,
+                "moy_forte": moy_forte,
+                "moy_faible": moy_faible,
+                "effectif_composants": effectif_composants_classe,  # Toute la classe
+                "effectif_total": effectif_total_classe,  # Effectif de la classe
+            }
+        else:
+            # Si pas de classe spécifique, calculer sur les items de la page
             moyennes_valides = [i.moy_trim for i in items if i.moy_trim is not None and i.moy_trim > 0]
             
             if moyennes_valides:
@@ -456,7 +573,7 @@ def liste_moyennes():
                 moy_forte = moy_faible = moy_class = 0
                 effectif_composants = 0
             
-            effectif_total = len(items)
+            effectif_total = len(items) if items else 0
             
             classe_recap = {
                 "moy_class": moy_class,
@@ -464,14 +581,6 @@ def liste_moyennes():
                 "moy_faible": moy_faible,
                 "effectif_composants": effectif_composants,
                 "effectif_total": effectif_total,
-            }
-        else:
-            classe_recap = {
-                "moy_class": 0, 
-                "moy_forte": 0, 
-                "moy_faible": 0, 
-                "effectif_composants": 0,
-                "effectif_total": 0
             }
 
         return render_template(
@@ -481,7 +590,8 @@ def liste_moyennes():
             search=search,
             classe_id=classe_id,
             annee_scolaire=annee_scolaire,
-            trimestre=trimestre,
+            periode=periode,
+            type_systeme=type_systeme,
             per_page=per_page,
             classes=classes,
             annees_scolaires=annees_scolaires,
@@ -490,26 +600,89 @@ def liste_moyennes():
         )
         
     except Exception as e:
-        current_app.logger.error(f"Erreur liste moyennes: {str(e)}")
+        current_app.logger.error(f"Erreur liste moyennes: {str(e)}", exc_info=True)
         log_security_event("page_error", "liste_moyennes", "failed", {"error": str(e)})
         flash("Erreur lors du chargement des données.", "error")
+        return redirect(url_for('moyennes.liste_moyennes'))
+
+@moyennes_bp.route("/verifier-appreciations")
+@login_required
+@ecole_required
+def verifier_appreciations():
+    """Vérifie les incohérences dans les appréciations"""
+    try:
+        ecole_id = get_current_ecole_id()
+        
+        # Récupérer les incohérences
+        query = """
+        SELECT 
+            m.id,
+            m.moy_periode,
+            a.libelle as appreciation_actuelle,
+            se.baremes_appreciations
+        FROM geslog_schema.moyennes m
+        LEFT JOIN geslog_schema.appreciations a ON m.appreciation_id = a.id
+        LEFT JOIN geslog_schema.systeme_evaluation se ON m.ecole_id = se.ecole_id
+        WHERE m.ecole_id = :ecole_id
+        AND m.moy_periode IS NOT NULL
+        AND m.moy_periode > 0
+        ORDER BY m.moy_periode DESC
+        """
+        
+        result = db.session.execute(text(query), {'ecole_id': ecole_id}).fetchall()
+        
+        incohérences = []
+        for row in result:
+            moy = row.moy_periode
+            app_actuelle = row.appreciation_actuelle
+            baremes = row.baremes_appreciations or []
+            
+            # Vérifier si l'appréciation correspond aux barèmes
+            correspond = False
+            for bareme in baremes:
+                if bareme['min'] <= moy <= bareme['max']:
+                    if bareme['libelle'] == app_actuelle:
+                        correspond = True
+                    break
+            
+            if not correspond:
+                incohérences.append({
+                    'moyenne': moy,
+                    'appreciation_actuelle': app_actuelle,
+                    'devrait_etre': baremes[0]['libelle'] if baremes else 'Inconnu'
+                })
+        
+        return render_template(
+            "moyennes/verifier_appreciations.html",
+            incohérences=incohérences,
+            total=len(result),
+            incohérentes=len(incohérences)
+        )
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur vérification appréciations: {str(e)}")
+        flash("Erreur lors de la vérification", "error")
         return redirect(url_for('moyennes.liste_moyennes'))
 
 @moyennes_bp.route("/export")
 @login_required
 @ecole_required
 def export_moyennes():
-    """Exporte les moyennes dans différents formats - VERSION CORRIGÉE CONTRE LES DOUBLONS"""
+    """Exporte les moyennes dans différents formats"""
     try:
         ecole_id = get_current_ecole_id()
         
         # Récupération et validation des paramètres
         classe_id = sanitize_input(request.args.get("classe_id"), max_length=36)
         annee_scolaire = sanitize_input(request.args.get("annee_scolaire"), max_length=9)
-        trimestre_str = request.args.get("trimestre", "1")
+        periode_str = request.args.get("periode", "1")
         format_type = sanitize_input(request.args.get("format", "excel"))
         
-        print(f"🔍 DEBUG Export - classe_id: {classe_id}, annee: {annee_scolaire}, trimestre: {trimestre_str}, format: {format_type}")
+        # Récupérer la configuration du système
+        systeme_eval = SystemeEvaluation.query.filter_by(ecole_id=ecole_id).first()
+        type_systeme = systeme_eval.type_systeme if systeme_eval else 'trimestriel'
+        
+        current_app.logger.info(f"🔍 DEBUG Export - système: {type_systeme}, periode: {periode_str}")
         
         # Validation des paramètres obligatoires
         if not classe_id or not annee_scolaire:
@@ -522,11 +695,11 @@ def export_moyennes():
             flash("Accès non autorisé à cette classe.", "error")
             return redirect(url_for('moyennes.liste_moyennes'))
 
-        # Validation du trimestre
+        # Validation de la période
         try:
-            trimestre = int(trimestre_str)
+            periode = int(periode_str)
         except ValueError:
-            trimestre = 1
+            periode = 1
         
         # Récupérer la classe pour le nom
         classe = Classe.query.filter_by(id=UUID(classe_id), ecole_id=ecole_id).first()
@@ -540,28 +713,28 @@ def export_moyennes():
             flash("École non trouvée", "error")
             return redirect(url_for('moyennes.liste_moyennes'))
         
-        print(f"🔍 DEBUG - Classe trouvée: {classe.nom}, École: {ecole.nom}")
+        current_app.logger.info(f"🔍 DEBUG - Classe trouvée: {classe.nom}, École: {ecole.nom}, Système: {type_systeme}")
         
-        # 🔥 CORRECTION CRITIQUE : Utiliser la méthode UNIQUE pour éviter les doublons
-        items = get_unique_moyennes_data(ecole_id, classe_id, annee_scolaire, trimestre)
+        # Récupérer les données uniques
+        items = get_unique_moyennes_data(ecole_id, classe_id, annee_scolaire, periode, type_systeme)
         
-        print(f"🔍 DEBUG - {len(items)} éléments UNIQUES trouvés pour l'export")
+        current_app.logger.info(f"🔍 DEBUG - {len(items)} éléments UNIQUES trouvés pour l'export")
 
         if not items:
             flash("Aucune donnée à exporter pour les critères sélectionnés", "warning")
             return redirect(url_for('moyennes.liste_moyennes'))
 
-        # 🔥 CORRECTION : Vérifier et nettoyer les doublons AVANT l'export
-        duplicates_info = check_moyennes_duplicates_detailed(ecole_id, classe_id, annee_scolaire, trimestre)
+        # Vérifier et nettoyer les doublons AVANT l'export
+        duplicates_info = check_moyennes_duplicates_detailed(ecole_id, classe_id, annee_scolaire, periode, type_systeme)
         if duplicates_info:
-            print(f"⚠️ ATTENTION: {len(duplicates_info)} doublons détectés avant export")
+            current_app.logger.warning(f"⚠️ ATTENTION: {len(duplicates_info)} doublons détectés avant export")
             # Nettoyer automatiquement les doublons
-            clean_result = clean_moyennes_duplicates(ecole_id, classe_id, annee_scolaire, trimestre)
-            print(f"🔧 Nettoyage auto: {clean_result['message']}")
+            clean_result = clean_moyennes_duplicates(ecole_id, classe_id, annee_scolaire, periode, type_systeme)
+            current_app.logger.info(f"🔧 Nettoyage auto: {clean_result['message']}")
             
             # Recharger les données après nettoyage
-            items = get_unique_moyennes_data(ecole_id, classe_id, annee_scolaire, trimestre)
-            print(f"🔍 DEBUG - {len(items)} éléments après nettoyage")
+            items = get_unique_moyennes_data(ecole_id, classe_id, annee_scolaire, periode, type_systeme)
+            current_app.logger.info(f"🔍 DEBUG - {len(items)} éléments après nettoyage")
 
         # Préparer les données pour l'export
         export_data = []
@@ -580,39 +753,253 @@ def export_moyennes():
                 'Mention': item_dict.get('appreciation', "")
             }
             
-            if trimestre == 3:
+            # Ajouter la moyenne générale pour la dernière période
+            if (type_systeme == 'semestriel' and periode == 2) or (type_systeme == 'trimestriel' and periode == 3):
                 row_data['Moyenne Générale'] = f"{item_dict.get('moy_gen', 0):.2f}" if item_dict.get('moy_gen') is not None else "0.00"
             
             export_data.append(row_data)
 
-        # Titre du document
+        # Titre adapté au système
         titre = f"LISTE DES MOYENNES - {classe.nom.upper()}"
-        sous_titre = f"Année scolaire: {annee_scolaire} - Trimestre: {trimestre}"
+        sous_titre = f"Année scolaire: {annee_scolaire} - {get_periode_display(type_systeme, periode)}"
         
-        print(f"🔍 DEBUG - Génération export {format_type} avec {len(export_data)} lignes UNIQUES")
+        current_app.logger.info(f"🔍 DEBUG - Génération export {format_type} avec {len(export_data)} lignes UNIQUES")
         
         # Journalisation de l'export
         log_security_event("export_moyennes", f"classe_{classe_id}", "success", {
             "annee_scolaire": annee_scolaire,
-            "trimestre": trimestre,
+            "periode": periode,
+            "type_systeme": type_systeme,
             "format": format_type,
-            "item_count": len(items),
-            "doublons_nettoyes": len(duplicates_info) if duplicates_info else 0
+            "item_count": len(items)
         })
 
         # Sélection du format d'export
         if format_type == 'pdf':
-            return generate_pdf_export_uniforme(export_data, titre, sous_titre, classe_id, annee_scolaire, trimestre, ecole, classe)
+            return generate_pdf_export_uniforme(export_data, titre, sous_titre, classe_id, annee_scolaire, periode, type_systeme, ecole, classe)
         elif format_type == 'csv':
-            return generate_csv_export_uniforme(export_data, titre, sous_titre, classe_id, annee_scolaire, trimestre, ecole, classe)
+            return generate_csv_export_uniforme(export_data, titre, sous_titre, classe_id, annee_scolaire, periode, type_systeme, ecole, classe)
         else:  # excel par défaut
-            return generate_excel_export_uniforme(export_data, titre, sous_titre, classe_id, annee_scolaire, trimestre, ecole, classe)
+            return generate_excel_export_uniforme(export_data, titre, sous_titre, classe_id, annee_scolaire, periode, type_systeme, ecole, classe)
         
     except Exception as e:
         current_app.logger.error(f"Erreur export moyennes: {str(e)}", exc_info=True)
         log_security_event("export_moyennes", "error", "failed", {"error": str(e)})
         flash("Erreur lors de l'export des données", "error")
         return redirect(url_for('moyennes.liste_moyennes'))
+
+# Les autres routes restent similaires...
+
+# ==================== FONCTIONS D'EXPORT ====================
+
+def generate_excel_export_uniforme(data, titre, sous_titre, classe_id, annee_scolaire, periode, type_systeme, ecole, classe):
+    """Génère un export Excel avec en-tête uniformisé - ADAPTÉ POUR TRIMESTRES/SEMESTRES"""
+    try:
+        current_app.logger.info(f"DEBUG - Début génération Excel uniformisé (Système: {type_systeme}, Période: {periode})")
+        
+        # Créer un nouveau workbook
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Moyennes"
+        
+        # UTILISER LES VALEURS DYNAMIQUES DE L'ÉCOLE COURANTE
+        nom_ecole = ecole.nom if ecole.nom else "École non renseignée"
+        dre = ecole.dre if ecole.dre else "DRE non renseignée"
+        inspection = ecole.inspection if ecole.inspection else "Inspection non renseignée"
+        telephone = ecole.telephone1 if ecole.telephone1 else "Téléphone non renseigné"
+        devise_ecole = ecole.devise if ecole.devise else "Travail - Liberté - Patrie"
+        
+        center_align = Alignment(horizontal="center", vertical="center")
+        left_align = Alignment(horizontal="left", vertical="center")
+        right_align = Alignment(horizontal="right", vertical="center")
+        
+        # ========== EN-TÊTE EXCEL UNIFORMISÉ ==========
+        # Ligne 1: Ministère (gauche) et République (droite)
+        ws.merge_cells('A1:E1')
+        ws['A1'] = "MINISTÈRE DE L'EDUCATION NATIONALE"
+        ws['A1'].font = Font(bold=True, size=10)
+        ws['A1'].alignment = left_align
+        
+        ws.merge_cells('F1:J1')
+        ws['F1'] = "RÉPUBLIQUE TOGOLAISE"
+        ws['F1'].font = Font(bold=True, size=10)
+        ws['F1'].alignment = right_align
+        
+        # Ligne 2: DRE (gauche) et Devise (droite)
+        ws.merge_cells('A2:E2')
+        ws['A2'] = f"DIRECTION RÉGIONALE DE L'ÉDUCATION: {dre}"
+        ws['A2'].font = Font(size=9)
+        ws['A2'].alignment = left_align
+        
+        ws.merge_cells('F2:J2')
+        ws['F2'] = "Travail - Liberté - Patrie"
+        ws['F2'].font = Font(bold=True, size=9)
+        ws['F2'].alignment = right_align
+        
+        # Ligne 3: Inspection (gauche)
+        ws.merge_cells('A3:E3')
+        ws['A3'] = f"INSPECTION DE L'ENSEIGNEMENT SECONDAIRE GÉNÉRAL: {inspection}"
+        ws['A3'].font = Font(size=9)
+        ws['A3'].alignment = left_align
+        
+        # Ligne 4: Vide pour séparation
+        ws.merge_cells('A4:J4')
+        ws['A4'] = ""
+        
+        # Ligne 5: Logo et informations de l'école (CENTRÉ)
+        ws.merge_cells('A5:J5')
+        ws['A5'] = nom_ecole
+        ws['A5'].font = Font(bold=True, size=14, color="2C3E50")
+        ws['A5'].alignment = center_align
+        
+        # Ligne 6: Téléphone et devise (CENTRÉ)
+        ws.merge_cells('A6:J6')
+        ws['A6'] = f"Tél: {telephone} - {devise_ecole}"
+        ws['A6'].font = Font(size=10)
+        ws['A6'].alignment = center_align
+        
+        # Ligne 7: Séparation
+        ws.merge_cells('A7:J7')
+        ws['A7'] = "__________________________________________________________"
+        ws['A7'].alignment = center_align
+        
+        # Ligne 8: Vide
+        ws['A8'] = ""
+        
+        # Titre du document avec classe
+        ws.merge_cells('A9:J9')
+        ws['A9'] = titre
+        ws['A9'].font = Font(bold=True, size=16, color="2C3E50")
+        ws['A9'].alignment = center_align
+        
+        # Sous-titre
+        ws.merge_cells('A10:J10')
+        ws['A10'] = sous_titre
+        ws['A10'].font = Font(size=12)
+        ws['A10'].alignment = center_align
+        
+        # STATISTIQUES DE LA CLASSE
+        effectif_total = len(data)
+        ws.merge_cells('A11:J11')
+        ws['A11'] = f"Effectif: {effectif_total} élèves"
+        ws['A11'].font = Font(size=11, bold=True, color="2C3E50")
+        ws['A11'].alignment = center_align
+        
+        # Date de génération
+        ws.merge_cells('A12:J12')
+        ws['A12'] = f"Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}"
+        ws['A12'].font = Font(size=8, italic=True, color="666666")
+        ws['A12'].alignment = center_align
+        
+        # Ligne vide
+        ws['A13'] = ""
+        
+        # ========== TABLEAU DES DONNÉES ==========
+        headers = list(data[0].keys()) if data else []
+        
+        # Commencer à la ligne 14 pour les données
+        start_row = 14
+        
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=start_row, column=col)
+            cell.value = header
+            cell.fill = PatternFill(start_color="34495E", end_color="34495E", fill_type="solid")
+            cell.font = Font(color="FFFFFF", bold=True)
+            cell.alignment = center_align
+        
+        # Données des élèves
+        for index, row_data in enumerate(data, 1):
+            row_num = start_row + index
+            
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=row_num, column=col)
+                cell.value = row_data[header]
+                cell.alignment = center_align
+        
+        # ========== MISE EN FORME FINALE ==========
+        column_widths = {
+            'A': 6,    # N°
+            'B': 20,   # Nom
+            'C': 20,   # Prénom
+            'D': 12,   # Moyenne
+            'E': 10,   # Rang
+            'F': 15    # Mention
+        }
+        
+        # Ajouter la colonne moyenne générale selon le système
+        if (type_systeme == 'semestriel' and periode == 2) or (type_systeme == 'trimestriel' and periode == 3):
+            column_widths['G'] = 15  # Moyenne Générale
+        
+        for col, width in column_widths.items():
+            ws.column_dimensions[col].width = width
+        
+        # Ajouter des bordures au tableau
+        from openpyxl.styles import Border, Side
+        thin_border = Border(
+            left=Side(style='thin'), 
+            right=Side(style='thin'), 
+            top=Side(style='thin'), 
+            bottom=Side(style='thin')
+        )
+        
+        for row in range(start_row, ws.max_row + 1):
+            for col in range(1, len(headers) + 1):
+                ws.cell(row=row, column=col).border = thin_border
+        
+        # Sauvegarder
+        buffer = BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        
+        current_app.logger.info(f"DEBUG - Excel uniformisé généré avec succès pour système {type_systeme}")
+        
+        # Retourner le fichier
+        filename = f"moyennes_{classe_id}_{annee_scolaire}_{'S' if type_systeme == 'semestriel' else 'T'}{periode}.xlsx"
+        
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        
+    except Exception as e:
+        current_app.logger.error(f"DEBUG - Erreur génération Excel uniformisé: {str(e)}")
+        raise e
+
+# Les fonctions generate_pdf_export_uniforme et generate_csv_export_uniforme restent similaires...
+
+@moyennes_bp.route("/configurer-systeme", methods=["GET", "POST"])
+@login_required
+@ecole_required
+def configurer_systeme():
+    """Configure le système d'évaluation (trimestriel ou semestriel)"""
+    ecole_id = get_current_ecole_id()
+    
+    if request.method == "POST":
+        type_systeme = request.form.get("type_systeme", "trimestriel")
+        
+        # Récupérer ou créer la configuration
+        systeme_eval = SystemeEvaluation.query.filter_by(ecole_id=ecole_id).first()
+        if not systeme_eval:
+            systeme_eval = SystemeEvaluation(
+                id=str(uuid.uuid4()),
+                ecole_id=ecole_id,
+                type_systeme=type_systeme
+            )
+            db.session.add(systeme_eval)
+        else:
+            systeme_eval.type_systeme = type_systeme
+        
+        db.session.commit()
+        flash(f"Système d'évaluation configuré en mode {type_systeme}", "success")
+        return redirect(url_for('moyennes.liste_moyennes'))
+    
+    # GET: Afficher la page de configuration
+    systeme_eval = SystemeEvaluation.query.filter_by(ecole_id=ecole_id).first()
+    type_systeme = systeme_eval.type_systeme if systeme_eval else 'trimestriel'
+    
+    return render_template("moyennes/config_systeme.html", type_systeme=type_systeme)
 
 @moyennes_bp.route("/verifier-export")
 @login_required
@@ -710,206 +1097,36 @@ def diagnostic_doublons():
         current_app.logger.error(f"Erreur diagnostic doublons: {str(e)}")
         flash("Erreur lors du diagnostic des doublons", "error")
         return redirect(url_for('moyennes.liste_moyennes'))
-
-# ==================== FONCTIONS D'EXPORT (inchangées) ====================
-
-def generate_excel_export_uniforme(data, titre, sous_titre, classe_id, annee_scolaire, trimestre, ecole, classe):
-    """Génère un export Excel avec en-tête uniformisé CORRIGÉ"""
-    try:
-        print("DEBUG - Début génération Excel uniformisé")
-        
-        # Créer un nouveau workbook
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Moyennes"
-        
-        # UTILISER LES VALEURS DYNAMIQUES DE L'ÉCOLE COURANTE
-        nom_ecole = ecole.nom if ecole.nom else "École non renseignée"
-        dre = ecole.dre if ecole.dre else "DRE non renseignée"
-        inspection = ecole.inspection if ecole.inspection else "Inspection non renseignée"
-        telephone = ecole.telephone1 if ecole.telephone1 else "Téléphone non renseigné"
-        devise_ecole = ecole.devise if ecole.devise else "Travail - Liberté - Patrie"
-        
-        center_align = Alignment(horizontal="center", vertical="center")
-        left_align = Alignment(horizontal="left", vertical="center")
-        right_align = Alignment(horizontal="right", vertical="center")
-        
-        # ========== EN-TÊTE EXCEL UNIFORMISÉ CORRIGÉ ==========
-        # Ligne 1: Ministère (gauche) et République (droite)
-        ws.merge_cells('A1:E1')
-        ws['A1'] = "MINISTÈRE DE L'EDUCATION NATIONALE"
-        ws['A1'].font = Font(bold=True, size=10)
-        ws['A1'].alignment = left_align
-        
-        ws.merge_cells('F1:J1')
-        ws['F1'] = "RÉPUBLIQUE TOGOLAISE"
-        ws['F1'].font = Font(bold=True, size=10)
-        ws['F1'].alignment = right_align
-        
-        # Ligne 2: DRE (gauche) et Devise (droite)
-        ws.merge_cells('A2:E2')
-        ws['A2'] = f"DIRECTION RÉGIONALE DE L'ÉDUCATION: {dre}"
-        ws['A2'].font = Font(size=9)
-        ws['A2'].alignment = left_align
-        
-        ws.merge_cells('F2:J2')
-        ws['F2'] = "Travail - Liberté - Patrie"
-        ws['F2'].font = Font(bold=True, size=9)
-        ws['F2'].alignment = right_align
-        
-        # Ligne 3: Inspection (gauche)
-        ws.merge_cells('A3:E3')
-        ws['A3'] = f"INSPECTION DE L'ENSEIGNEMENT SECONDAIRE GÉNÉRAL: {inspection}"
-        ws['A3'].font = Font(size=9)
-        ws['A3'].alignment = left_align
-        
-        # Ligne 4: Vide pour séparation
-        ws.merge_cells('A4:J4')
-        ws['A4'] = ""
-        
-        # Ligne 5: Logo et informations de l'école (CENTRÉ)
-        ws.merge_cells('A5:J5')
-        ws['A5'] = nom_ecole
-        ws['A5'].font = Font(bold=True, size=14, color="2C3E50")
-        ws['A5'].alignment = center_align
-        
-        # Ligne 6: Téléphone et devise (CENTRÉ)
-        ws.merge_cells('A6:J6')
-        ws['A6'] = f"Tél: {telephone} - {devise_ecole}"
-        ws['A6'].font = Font(size=10)
-        ws['A6'].alignment = center_align
-        
-        # Ligne 7: Séparation
-        ws.merge_cells('A7:J7')
-        ws['A7'] = "__________________________________________________________"
-        ws['A7'].alignment = center_align
-        
-        # Ligne 8: Vide
-        ws['A8'] = ""
-        
-        # Titre du document avec classe
-        ws.merge_cells('A9:J9')
-        ws['A9'] = titre
-        ws['A9'].font = Font(bold=True, size=16, color="2C3E50")
-        ws['A9'].alignment = center_align
-        
-        # Sous-titre
-        ws.merge_cells('A10:J10')
-        ws['A10'] = sous_titre
-        ws['A10'].font = Font(size=12)
-        ws['A10'].alignment = center_align
-        
-        # STATISTIQUES DE LA CLASSE - MISE EN AVANT
-        effectif_total = len(data)
-        ws.merge_cells('A11:J11')
-        ws['A11'] = f"Effectif: {effectif_total} élèves"
-        ws['A11'].font = Font(size=11, bold=True, color="2C3E50")
-        ws['A11'].alignment = center_align
-        
-        # Date de génération
-        ws.merge_cells('A12:J12')
-        ws['A12'] = f"Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}"
-        ws['A12'].font = Font(size=8, italic=True, color="666666")
-        ws['A12'].alignment = center_align
-        
-        # Ligne vide
-        ws['A13'] = ""
-        
-        # ========== TABLEAU DES DONNÉES ==========
-        headers = list(data[0].keys()) if data else []
-        
-        # Commencer à la ligne 14 pour les données
-        start_row = 14
-        
-        for col, header in enumerate(headers, 1):
-            cell = ws.cell(row=start_row, column=col)
-            cell.value = header
-            cell.fill = PatternFill(start_color="34495E", end_color="34495E", fill_type="solid")
-            cell.font = Font(color="FFFFFF", bold=True)
-            cell.alignment = center_align
-        
-        # Données des élèves
-        for index, row_data in enumerate(data, 1):
-            row_num = start_row + index
-            
-            for col, header in enumerate(headers, 1):
-                cell = ws.cell(row=row_num, column=col)
-                cell.value = row_data[header]
-                cell.alignment = center_align
-        
-        # ========== MISE EN FORME FINALE ==========
-        column_widths = {
-            'A': 6,    # N°
-            'B': 20,   # Nom
-            'C': 20,   # Prénom
-            'D': 12,   # Moyenne
-            'E': 10,   # Rang
-            'F': 15    # Mention
-        }
-        
-        # Ajouter la colonne moyenne générale si trimestre 3
-        if trimestre == 3:
-            column_widths['G'] = 15  # Moyenne Générale
-        
-        for col, width in column_widths.items():
-            ws.column_dimensions[col].width = width
-        
-        # Ajouter des bordures au tableau
-        from openpyxl.styles import Border, Side
-        thin_border = Border(
-            left=Side(style='thin'), 
-            right=Side(style='thin'), 
-            top=Side(style='thin'), 
-            bottom=Side(style='thin')
+    
+def get_systeme_evaluation(ecole_id):
+    """Récupère la configuration du système d'évaluation de l'école"""
+    systeme = SystemeEvaluation.query.filter_by(ecole_id=ecole_id).first()
+    if not systeme:
+        # Créer une configuration par défaut
+        systeme = SystemeEvaluation(
+            id=str(uuid.uuid4()),
+            ecole_id=ecole_id,
+            type_systeme='trimestriel'
         )
-        
-        for row in range(start_row, ws.max_row + 1):
-            for col in range(1, len(headers) + 1):
-                ws.cell(row=row, column=col).border = thin_border
-        
-        # ========== STATISTIQUES FINALES ==========
-        stats_row = ws.max_row + 2
-        
-        ws.merge_cells(f'A{stats_row}:{chr(64 + len(headers))}{stats_row}')
-        ws[f'A{stats_row}'] = "RÉCAPITULATIF"
-        ws[f'A{stats_row}'].font = Font(bold=True, size=10)
-        
-        # Calcul des statistiques
-        moyennes = [float(row['Moyenne']) for row in data if row['Moyenne'] != "0.00"]
-        if moyennes:
-            moy_forte = max(moyennes)
-            moy_faible = min(moyennes)
-            moy_class = (moy_forte + moy_faible) / 2
-            
-            ws.merge_cells(f'A{stats_row + 1}:{chr(64 + len(headers))}{stats_row + 1}')
-            ws[f'A{stats_row + 1}'] = f"Moyenne classe: {moy_class:.2f} | Moyenne forte: {moy_forte:.2f} | Moyenne faible: {moy_faible:.2f}"
-            ws[f'A{stats_row + 1}'].font = Font(size=9)
-        
-        # Sauvegarder
-        buffer = BytesIO()
-        wb.save(buffer)
-        buffer.seek(0)
-        
-        print("DEBUG - Excel uniformisé généré avec succès")
-        
-        # Retourner le fichier
-        filename = f"moyennes_{classe_id}_{annee_scolaire}_T{trimestre}.xlsx"
-        
-        return send_file(
-            buffer,
-            as_attachment=True,
-            download_name=filename,
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        
-    except Exception as e:
-        print(f"DEBUG - Erreur génération Excel uniformisé: {str(e)}")
-        raise e
+        db.session.add(systeme)
+        db.session.commit()
+    return systeme
 
-def generate_pdf_export_uniforme(data, titre, sous_titre, classe_id, annee_scolaire, trimestre, ecole, classe):
-    """Génère un export PDF avec en-tête uniformisé CORRIGÉ"""
+def get_periodes_for_systeme(type_systeme):
+    """Retourne les périodes disponibles selon le système"""
+    if type_systeme == 'semestriel':
+        return [1, 2]
+    else:
+        return [1, 2, 3]
+
+
+
+
+
+def generate_pdf_export_uniforme(data, titre, sous_titre, classe_id, annee_scolaire, periode, type_systeme, ecole, classe):
+    """Génère un export PDF avec en-tête uniformisé CORRIGÉ - AVEC TYPE_SYSTEME"""
     try:
-        print("DEBUG - Début génération PDF uniformisé")
+        current_app.logger.info(f"DEBUG - Début génération PDF uniformisé (Système: {type_systeme}, Période: {periode})")
         
         # UTILISER LES VALEURS DYNAMIQUES DE L'ÉCOLE COURANTE
         nom_ecole = ecole.nom if ecole.nom else "École non renseignée"
@@ -954,7 +1171,7 @@ def generate_pdf_export_uniforme(data, titre, sous_titre, classe_id, annee_scola
                 logo = Image(logo_path, width=35*mm, height=35*mm)
                 logo.hAlign = 'CENTER'
             except Exception as e:
-                print(f"❌ Erreur chargement logo: {e}")
+                current_app.logger.error(f"❌ Erreur chargement logo: {e}")
                 logo = None
         
         # Style pour les en-têtes
@@ -1178,10 +1395,11 @@ def generate_pdf_export_uniforme(data, titre, sous_titre, classe_id, annee_scola
         doc.build(elements, onFirstPage=add_page_number, onLaterPages=add_page_number)
         buffer.seek(0)
         
-        print("DEBUG - PDF uniformisé généré avec succès")
+        current_app.logger.info("DEBUG - PDF uniformisé généré avec succès")
         
-        # Retourner le PDF
-        filename = f"moyennes_{classe_id}_{annee_scolaire}_T{trimestre}.pdf"
+        # Nom du fichier adapté au système
+        prefix = 'S' if type_systeme == 'semestriel' else 'T'
+        filename = f"moyennes_{classe_id}_{annee_scolaire}_{prefix}{periode}.pdf"
         
         return send_file(
             buffer,
@@ -1191,13 +1409,13 @@ def generate_pdf_export_uniforme(data, titre, sous_titre, classe_id, annee_scola
         )
         
     except Exception as e:
-        print(f"DEBUG - Erreur génération PDF uniformisé: {str(e)}")
+        current_app.logger.error(f"DEBUG - Erreur génération PDF uniformisé: {str(e)}")
         raise e
 
-def generate_csv_export_uniforme(data, titre, sous_titre, classe_id, annee_scolaire, trimestre, ecole, classe):
-    """Génère un export CSV avec en-tête uniformisé CORRIGÉ"""
+def generate_csv_export_uniforme(data, titre, sous_titre, classe_id, annee_scolaire, periode, type_systeme, ecole, classe):
+    """Génère un export CSV avec en-tête uniformisé CORRIGÉ - AVEC TYPE_SYSTEME"""
     try:
-        print("DEBUG - Début génération CSV uniformisé")
+        current_app.logger.info(f"DEBUG - Début génération CSV uniformisé (Système: {type_systeme}, Période: {periode})")
         
         output = StringIO()
         writer = csv.writer(output, delimiter=';')
@@ -1234,10 +1452,11 @@ def generate_csv_export_uniforme(data, titre, sous_titre, classe_id, annee_scola
         
         output.seek(0)
         
-        print("DEBUG - CSV uniformisé généré avec succès")
+        current_app.logger.info("DEBUG - CSV uniformisé généré avec succès")
         
-        # Retourner le fichier
-        filename = f"moyennes_{classe_id}_{annee_scolaire}_T{trimestre}.csv"
+        # Nom du fichier adapté au système
+        prefix = 'S' if type_systeme == 'semestriel' else 'T'
+        filename = f"moyennes_{classe_id}_{annee_scolaire}_{prefix}{periode}.csv"
         
         response = Response(
             output.getvalue(),
@@ -1252,7 +1471,7 @@ def generate_csv_export_uniforme(data, titre, sous_titre, classe_id, annee_scola
         return response
         
     except Exception as e:
-        print(f"DEBUG - Erreur génération CSV uniformisé: {str(e)}")
+        current_app.logger.error(f"DEBUG - Erreur génération CSV uniformisé: {str(e)}")
         raise e
 
 # ==================== ROUTES BATCH (restent identiques) ====================
@@ -1261,53 +1480,109 @@ def generate_csv_export_uniforme(data, titre, sous_titre, classe_id, annee_scola
 @login_required
 @ecole_required
 def lancer_batch():
-    """Lance le calcul des moyennes pour une classe - VERSION SÉCURISÉE"""
+    """Lance le calcul des moyennes pour une classe - VERSION CORRIGÉE"""
     try:
+        current_app.logger.info(f"[DEBUG] lancer_batch appelé par l'utilisateur {current_user.id}")
+        
+        # Journaliser toutes les données reçues
+        current_app.logger.info(f"[DEBUG] Données reçues: {request.form}")
+        
         if not rate_limit_check():
+            current_app.logger.warning("[DEBUG] Limite de requêtes dépassée")
             return jsonify({"status": "error", "message": "Trop de requêtes. Veuillez réessayer plus tard."}), 429
         
         ecole_id = get_current_ecole_id()
+        current_app.logger.info(f"[DEBUG] École ID: {ecole_id}")
         
+        # CORRECTION : Utiliser request.form.get() au lieu de form.get()
         classe_id = sanitize_input(request.form.get("classe_id"), max_length=36)
         annee_scolaire = sanitize_input(request.form.get("annee_scolaire"), max_length=9)
-        trimestre_str = request.form.get("trimestre", "1")
+        periode_str = request.form.get("periode", "1")
+        type_systeme = request.form.get("type_systeme", "trimestriel")
         
-        try:
-            trimestre = int(trimestre_str)
-        except ValueError:
-            return jsonify({"status": "error", "message": "Trimestre invalide"}), 400
+        # Log des paramètres reçus
+        current_app.logger.info(f"[DEBUG] Paramètres: classe_id={classe_id}, annee_scolaire={annee_scolaire}, "
+                               f"periode={periode_str}, type_systeme={type_systeme}")
         
-        if trimestre not in [1, 2, 3]:
-            return jsonify({"status": "error", "message": "Trimestre invalide"}), 400
-
+        # Validation des paramètres obligatoires
+        if not classe_id:
+            return jsonify({"status": "error", "message": "Classe requise"}), 400
+        
         if not annee_scolaire:
             return jsonify({"status": "error", "message": "Année scolaire requise"}), 400
         
-        if not validate_annee_scolaire_format(annee_scolaire):
-            return jsonify({"status": "error", "message": "Format d'année scolaire invalide"}), 400
+        # Validation de la période
+        try:
+            periode = int(periode_str)
+        except ValueError:
+            return jsonify({"status": "error", "message": "Période invalide"}), 400
+        
+        # Validation selon le système
+        if type_systeme == 'semestriel' and periode not in [1, 2]:
+            return jsonify({"status": "error", "message": "Période invalide pour système semestriel. Doit être 1 ou 2."}), 400
+        elif type_systeme == 'trimestriel' and periode not in [1, 2, 3]:
+            return jsonify({"status": "error", "message": "Période invalide pour système trimestriel. Doit être 1, 2 ou 3."}), 400
 
-        if classe_id and not validate_ecole_access_for_classe(classe_id, ecole_id):
+        # Validation de l'année scolaire
+        if not validate_annee_scolaire_format(annee_scolaire):
+            return jsonify({"status": "error", "message": "Format d'année scolaire invalide (doit être: 2024-2025)"}), 400
+
+        # Validation d'accès à la classe
+        if not validate_ecole_access_for_classe(classe_id, ecole_id):
             log_security_event("unauthorized_batch_access", f"classe_{classe_id}", "failed")
             return jsonify({"status": "error", "message": "Accès non autorisé à cette classe"}), 403
 
-        log_security_event("batch_calculation", f"classe_{classe_id or 'all'}", "started", {
+        # Journalisation du démarrage
+        log_security_event("batch_calculation", f"classe_{classe_id}", "started", {
             "annee_scolaire": annee_scolaire,
-            "trimestre": trimestre
+            "periode": periode,
+            "type_systeme": type_systeme,
+            "ecole_id": str(ecole_id)
         })
 
-        result = calculer_moyennes(classe_id, annee_scolaire, trimestre, ecole_id)
+        current_app.logger.info(f"[DEBUG] Lancement du calcul pour classe {classe_id}, période {periode}, système {type_systeme}")
+        
+        # Lancement du calcul des moyennes avec les paramètres adaptés
+        result = calculer_moyennes(
+            classe_id=classe_id,
+            annee_scolaire=annee_scolaire,
+            periode=periode,
+            ecole_id=ecole_id,
+            type_systeme=type_systeme
+        )
 
+        current_app.logger.info(f"[DEBUG] Résultat du calcul: {result}")
+        
+        # Vérification du résultat
+        if "errors" in result and result["errors"]:
+            current_app.logger.error(f"[DEBUG] Erreurs dans le calcul: {result['errors']}")
+            log_security_event("batch_calculation", f"classe_{classe_id}", "failed", {
+                "errors": result["errors"][:3],
+                "total_errors": len(result["errors"])
+            })
+            return jsonify({
+                "status": "error", 
+                "message": f"Erreurs lors du calcul: {', '.join(result['errors'][:3])}" + 
+                          (f" (+ {len(result['errors']) - 3} autres)" if len(result['errors']) > 3 else "")
+            }), 500
+
+        # Récupération des données mises à jour pour l'affichage
         items_query = (
             db.session.query(
-                Eleve.nom, Eleve.prenoms, Classe.nom.label("classe_nom"),
-                Moyenne.moy_trim, Moyenne.moy_gen, Moyenne.classement_str,
-                Appreciations.libelle.label("appreciation"), Moyenne.moy_class
+                Eleve.nom, 
+                Eleve.prenoms, 
+                Classe.nom.label("classe_nom"),
+                Moyenne.moy_periode.label("moy_trim"),
+                Moyenne.moy_gen,
+                Moyenne.classement_str,
+                Appreciations.libelle.label("appreciation"), 
+                Moyenne.moy_class
             )
             .join(Eleve, Eleve.id == Moyenne.eleve_id)
             .join(Classe, Classe.id == Eleve.classe_id)
             .outerjoin(Appreciations, Appreciations.id == Moyenne.appreciation_id)
             .filter(
-                Moyenne.trimestre == trimestre, 
+                Moyenne.periode == periode, 
                 Moyenne.annee_scolaire == annee_scolaire,
                 Classe.ecole_id == ecole_id
             )
@@ -1319,41 +1594,68 @@ def lancer_batch():
         items_data = items_query.all()
         items = [dict(row._mapping) for row in items_data]
 
+        current_app.logger.info(f"[DEBUG] {len(items)} éléments récupérés après calcul")
+        
+        # Calcul des statistiques de la classe
         valeurs_non_nulles = [i["moy_trim"] for i in items if i["moy_trim"] is not None and i["moy_trim"] > 0]
         if valeurs_non_nulles:
             classe_recap = {
                 "moy_class": round((max(valeurs_non_nulles) + min(valeurs_non_nulles))/2, 2),
                 "moy_forte": max(valeurs_non_nulles),
                 "moy_faible": min(valeurs_non_nulles),
-                "effectif_composants": len(valeurs_non_nulles)
+                "effectif_composants": len(valeurs_non_nulles),
+                "effectif_total": len(items)
             }
         else:
             classe_recap = {
                 "moy_class": 0,
                 "moy_forte": 0,
                 "moy_faible": 0,
-                "effectif_composants": 0
+                "effectif_composants": 0,
+                "effectif_total": len(items)
             }
 
-        log_security_event("batch_calculation", f"classe_{classe_id or 'all'}", "success", {
+        # Journalisation du succès
+        log_security_event("batch_calculation", f"classe_{classe_id}", "success", {
             "created": result.get("created", 0),
             "updated": result.get("updated", 0),
-            "total": result.get("total", 0)
+            "total": result.get("total", 0),
+            "periode": periode,
+            "type_systeme": type_systeme
         })
 
+        current_app.logger.info(f"[DEBUG] Batch terminé avec succès: {result.get('created', 0)} créés, {result.get('updated', 0)} mis à jour")
+        
+        # Réponse avec toutes les informations
         return jsonify({
             "status": "ok", 
-            **result, 
+            "message": "Calcul terminé avec succès",
+            "details": {
+                "created": result.get("created", 0),
+                "updated": result.get("updated", 0),
+                "total": result.get("total", 0),
+                "success_count": len(result.get("success", [])),
+                "periode": periode,
+                "type_systeme": type_systeme
+            },
             "items": items, 
             "classe_recap": classe_recap, 
-            "trimestre": trimestre
+            "periode": periode,
+            "type_systeme": type_systeme
         })
 
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Erreur batch moyennes: {str(e)}")
-        log_security_event("batch_calculation", "error", "failed", {"error": str(e)})
-        return jsonify({"status": "error", "message": "Erreur lors du calcul des moyennes"}), 500
+        current_app.logger.error(f"[ERROR] Erreur batch moyennes: {str(e)}", exc_info=True)
+        log_security_event("batch_calculation", "global_error", "failed", {
+            "error": str(e),
+            "ecole_id": str(ecole_id) if 'ecole_id' in locals() else "unknown"
+        })
+        return jsonify({
+            "status": "error", 
+            "message": "Erreur lors du calcul des moyennes",
+            "technical_error": str(e)[:200]  # Premiers 200 caractères seulement
+        }), 500
 
 # Les autres routes batch et middleware restent identiques...
 

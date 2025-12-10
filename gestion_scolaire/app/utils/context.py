@@ -5,14 +5,15 @@ from ..models import Ecole
 from flask_login import current_user
 from .permissions import is_system_admin, is_ecole_admin
 
+# context.py - MODIFICATIONS CRITIQUES
 def inject_ecole_context_global():
-    """Context processor corrigé"""
+    """Context processor corrigé - TOUJOURS fournir all_ecoles"""
     print("🎯 CONTEXT PROCESSOR EXÉCUTÉ!")
     
     context = {
         'is_system_admin': False,
         'is_ecole_admin': False,
-        'ecoles': [],
+        'all_ecoles': [],  # ← TOUJOURS initialiser
         'selected_ecole_id': None,
         'selected_ecole': None
     }
@@ -25,22 +26,24 @@ def inject_ecole_context_global():
         context['is_system_admin'] = is_system_admin()
         context['is_ecole_admin'] = is_ecole_admin()
         
-        # Récupération des écoles
+        # CORRECTION CRITIQUE : TOUJOURS peupler all_ecoles selon les droits
         if context['is_system_admin']:
             # Admin système voit toutes les écoles
-            context['ecoles'] = Ecole.query.order_by(Ecole.nom).all()
+            context['all_ecoles'] = Ecole.query.order_by(Ecole.nom).all()
+            print(f"✅ CONTEXT: Admin système - {len(context['all_ecoles'])} écoles chargées")
         else:
-            # CORRECTION CRITIQUE : Utilisateurs normaux voient leur école
+            # Utilisateurs normaux voient leur école
             user_ecole_id = getattr(current_user, 'ecole_id', None)
             if user_ecole_id:
                 user_ecole = Ecole.query.get(user_ecole_id)
                 if user_ecole:
-                    context['ecoles'] = [user_ecole]
+                    context['all_ecoles'] = [user_ecole]
+                    print(f"✅ CONTEXT: Utilisateur normal - école: {user_ecole.nom}")
                 else:
                     # Fallback sécurisé
                     fallback_ecole = Ecole.query.first()
                     if fallback_ecole:
-                        context['ecoles'] = [fallback_ecole]
+                        context['all_ecoles'] = [fallback_ecole]
         
         # Gestion de la sélection d'école
         selected_ecole_id = session.get('selected_ecole_id')
@@ -48,10 +51,13 @@ def inject_ecole_context_global():
         
         if selected_ecole_id:
             context['selected_ecole'] = Ecole.query.get(selected_ecole_id)
-        elif context['ecoles'] and not context['is_system_admin']:
-            # CORRECTION : Pour les non-admins, utiliser leur première école comme sélectionnée
-            context['selected_ecole'] = context['ecoles'][0]
-            context['selected_ecole_id'] = str(context['ecoles'][0].id)
+        elif context['all_ecoles'] and not context['is_system_admin']:
+            # Pour les non-admins, utiliser leur première école comme sélectionnée
+            context['selected_ecole'] = context['all_ecoles'][0]
+            context['selected_ecole_id'] = str(context['all_ecoles'][0].id)
+        
+        # Debug
+        print(f"📊 CONTEXT FINAL: is_system_admin={context['is_system_admin']}, all_ecoles={len(context['all_ecoles'])}, selected_ecole_id={context['selected_ecole_id']}")
         
     except Exception as e:
         print(f"❌ CONTEXT ERROR: {str(e)}")

@@ -21,6 +21,8 @@ from .routes.main import main_bp
 from .routes.ecoles import ecoles_bp
 from .utils.context import inject_ecole_context_global
 from .utils.permissions import is_system_admin, is_ecole_admin
+from .routes.admin import admin_bp
+
 
 load_dotenv()
 
@@ -63,6 +65,7 @@ def create_app():
     app.register_blueprint(moyennes_bp, url_prefix='/moyennes')
     app.register_blueprint(enseignements_bp, url_prefix='/enseignements')
     app.register_blueprint(ecoles_bp, url_prefix='/admin/ecoles')
+    app.register_blueprint(admin_bp)
     
     # app.register_blueprint(moyennes_export_bp, url_prefix='/moyennes')
     app.register_blueprint(bulletins_export_bp, url_prefix='/')

@@ -1530,36 +1530,45 @@ def get_notes_annees_scolaires():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
     
-# ========== EXPORT NOTES ==========
-def export_notes(type_export, classe_id=None, matiere_id=None, trimestre=None, annee_scolaire=None, ecole_id=None):
+# ========== EXPORT NOTES AVEC GESTION DES SEMESTRES ==========
+
+def export_notes(type_export, classe_id=None, matiere_id=None, ecole_type="college", 
+                periode=None, annee_scolaire=None, ecole_id=None):
     try:
-        print(f"🔍 EXPORT NOTES - type:{type_export}, classe:{classe_id}, matière:{matiere_id}, trimestre:{trimestre}, année:{annee_scolaire}, école:{ecole_id}")
+        print(f"🔍 EXPORT NOTES - type:{type_export}, classe:{classe_id}, matière:{matiere_id}")
+        print(f"🔍 École type:{ecole_type}, Période:{periode}, Année:{annee_scolaire}, École:{ecole_id}")
         
         # Validation
         if not ecole_id:
             return None, "ID de l'école manquant"
-        if not classe_id:
-            return None, "Veuillez sélectionner une classe"
-        if not trimestre:
-            return None, "Veuillez sélectionner un trimestre"
+        if not periode:
+            return None, "Veuillez sélectionner une période"
         if not annee_scolaire:
             return None, "Veuillez sélectionner une année scolaire"
         
-        print(f"🏫 Export des notes de l'école {ecole_id}")
+        print(f"🏫 Export des notes de l'école {ecole_id} (type: {ecole_type})")
         
-        # Vérifier la classe
-        classe = Classe.query.filter_by(id=classe_id, ecole_id=ecole_id).first()
-        if not classe:
-            return None, "Classe non trouvée dans cette école"
+        # Déterminer le nom de la classe
+        classe_nom = "Toutes les classes"
+        if classe_id and classe_id not in ['', 'null', 'undefined', 'toutes']:
+            # Vérifier la classe si spécifiée
+            classe = Classe.query.filter_by(id=classe_id, ecole_id=ecole_id).first()
+            if not classe:
+                return None, "Classe non trouvée dans cette école"
+            classe_nom = classe.nom
+            print(f"✅ Classe spécifique: {classe_nom}")
+        else:
+            print(f"✅ Export de toutes les classes")
         
-        print(f"✅ Classe trouvée: {classe.nom}")
+        # Déterminer si c'est un trimestre ou semestre selon le type d'établissement
+        type_periode = "trimestre" if ecole_type == "college" else "semestre"
+        print(f"📅 Type de période: {type_periode} (école type: {ecole_type})")
         
-        # ✅ NOUVELLE APPROCHE : Filtrage par NOM de matière plutôt que par ID
-        matiere_nom = "Toutes matières"
+        # Récupérer le nom de la matière
+        matiere_nom = "Toutes les matières"
         matiere_libelle_filtre = None
         
         if matiere_id and matiere_id not in ['', 'null', 'undefined', 'toutes']:
-            # Récupérer le nom de la matière depuis l'ID
             matiere = Matiere.query.get(matiere_id)
             if not matiere:
                 return None, f"Matière non trouvée (ID: {matiere_id})"
@@ -1570,82 +1579,73 @@ def export_notes(type_export, classe_id=None, matiere_id=None, trimestre=None, a
         else:
             print("✅ Export de toutes les matières")
         
-        # ✅ NOUVELLE REQUÊTE : Filtrage par nom de matière
-        print("🔍 Construction requête avec filtrage par NOM...")
-        
-        # Requête de base
+        # Construire la requête
         query = db.session.query(Note)\
             .join(Eleve, Note.eleve_id == Eleve.id)\
             .join(Matiere, Note.matiere_id == Matiere.id)\
-            .filter(Eleve.classe_id == classe_id)\
-            .filter(Note.trimestre == str(trimestre))\
+            .filter(Note.trimestre == periode)\
             .filter(Note.annee_scolaire == annee_scolaire)
         
-        # ✅ FILTRAGE PAR NOM plutôt que par ID
+        # Filtrer par école (important pour la sécurité)
+        if ecole_id:
+            query = query.join(Classe).filter(Classe.ecole_id == ecole_id)
+        
+        # Filtrer par classe seulement si une classe spécifique est choisie
+        if classe_id and classe_id not in ['', 'null', 'undefined', 'toutes']:
+            query = query.filter(Eleve.classe_id == classe_id)
+        
         if matiere_libelle_filtre:
             query = query.filter(Matiere.libelle == matiere_libelle_filtre)
-            print(f"✅ Filtre appliqué sur le nom: {matiere_libelle_filtre}")
         
-        # Charger les relations nécessaires
+        # ✅ IMPORTANT : Précharger la relation classe pour éviter les requêtes N+1
         query = query.options(
-            joinedload(Note.eleve),
+            joinedload(Note.eleve).joinedload(Eleve.classe),
             joinedload(Note.matiere)
         )
         
-        # Ordre de tri
-        query = query.order_by(
-            Matiere.libelle,
-            Eleve.nom,
-            Eleve.prenoms
-        )
+        # Tri amélioré pour toutes les classes
+        if classe_id and classe_id not in ['', 'null', 'undefined', 'toutes']:
+            # Si classe spécifique : trier par matière puis par élève
+            notes = query.order_by(
+                Matiere.libelle,
+                Eleve.nom,
+                Eleve.prenoms
+            ).all()
+        else:
+            # Si toutes les classes : trier par classe, puis matière, puis élève
+            notes = query.order_by(
+                Classe.nom,
+                Matiere.libelle,
+                Eleve.nom,
+                Eleve.prenoms
+            ).all()
         
-        notes = query.all()
         print(f"✅ Notes récupérées: {len(notes)}")
         
-        # Vérification détaillée en cas d'échec
         if not notes:
-            print("🔍 Aucune note trouvée - Investigation...")
+            error_msg = f"Aucune note trouvée pour {matiere_nom} "
+            if classe_id and classe_id not in ['', 'null', 'undefined', 'toutes']:
+                error_msg += f"dans {classe_nom} "
+            else:
+                error_msg += f"dans toutes les classes "
             
-            # Compter les élèves
-            eleves_count = Eleve.query.filter_by(classe_id=classe_id).count()
-            print(f"   Élèves dans la classe: {eleves_count}")
+            if ecole_type == "college":
+                error_msg += f"(Trimestre {periode}, {annee_scolaire})"
+            else:
+                error_msg += f"(Semestre {periode}, {annee_scolaire})"
             
-            # Vérifier les notes sans filtre
-            notes_sans_filtre = db.session.query(Note)\
-                .join(Eleve, Note.eleve_id == Eleve.id)\
-                .filter(Eleve.classe_id == classe_id)\
-                .filter(Note.trimestre == trimestre)\
-                .filter(Note.annee_scolaire == annee_scolaire)\
-                .count()
-            print(f"   Notes totales (sans filtre): {notes_sans_filtre}")
-            
-            # Si filtre matière, vérifier cette matière spécifiquement par NOM
-            if matiere_libelle_filtre:
-                notes_par_nom = db.session.query(Note)\
-                    .join(Eleve, Note.eleve_id == Eleve.id)\
-                    .join(Matiere, Note.matiere_id == Matiere.id)\
-                    .filter(Eleve.classe_id == classe_id)\
-                    .filter(Matiere.libelle == matiere_libelle_filtre)\
-                    .filter(Note.trimestre == trimestre)\
-                    .filter(Note.annee_scolaire == annee_scolaire)\
-                    .count()
-                print(f"   Notes pour '{matiere_libelle_filtre}' (par nom): {notes_par_nom}")
-            
-            error_msg = f"Aucune note trouvée pour {matiere_nom} dans {classe.nom} (T{trimestre}, {annee_scolaire})"
             return None, error_msg
-        
-        # Filtrer les notes avec données
-        notes_avec_donnees = [n for n in notes if n.note1 is not None or n.note2 is not None or n.note3 is not None or n.note_comp is not None]
-        print(f"✅ Notes avec données: {len(notes_avec_donnees)}")
-        
-        if not notes_avec_donnees:
-            return None, f"Notes trouvées mais aucune valeur renseignée pour {matiere_nom}"
         
         # Génération de l'export
         if type_export == 'pdf':
             try:
-                pdf_buffer = generate_notes_pdf_buffer(notes_avec_donnees, ecole_id, classe.nom, matiere_nom, trimestre, annee_scolaire)
-                nom_fichier = f"notes_{classe.nom.replace(' ', '_')}_{matiere_nom.replace(' ', '_')}_T{trimestre}_{annee_scolaire.replace('-', '_')}.pdf"
+                pdf_buffer = generate_notes_pdf_buffer_periode(
+                    notes, ecole_id, classe_nom, matiere_nom, 
+                    ecole_type, periode, annee_scolaire
+                )
+                nom_fichier = generer_nom_fichier_notes_periode(
+                    classe_nom, matiere_nom, ecole_type, periode, annee_scolaire, 'pdf'
+                )
                 print(f"✅ PDF généré: {nom_fichier}")
                 return pdf_buffer, nom_fichier
             except Exception as e:
@@ -1655,8 +1655,13 @@ def export_notes(type_export, classe_id=None, matiere_id=None, trimestre=None, a
         
         elif type_export == 'excel':
             try:
-                excel_buffer = generate_notes_excel_buffer(notes_avec_donnees, ecole_id, classe.nom, matiere_nom, trimestre, annee_scolaire)
-                nom_fichier = f"notes_{classe.nom.replace(' ', '_')}_{matiere_nom.replace(' ', '_')}_T{trimestre}_{annee_scolaire.replace('-', '_')}.xlsx"
+                excel_buffer = generate_notes_excel_buffer_periode(
+                    notes, ecole_id, classe_nom, matiere_nom,
+                    ecole_type, periode, annee_scolaire
+                )
+                nom_fichier = generer_nom_fichier_notes_periode(
+                    classe_nom, matiere_nom, ecole_type, periode, annee_scolaire, 'xlsx'
+                )
                 print(f"✅ Excel généré: {nom_fichier}")
                 return excel_buffer, nom_fichier
             except Exception as e:
@@ -1672,35 +1677,820 @@ def export_notes(type_export, classe_id=None, matiere_id=None, trimestre=None, a
         traceback.print_exc()
         return None, f"Erreur lors de l'export: {str(e)}"
     
+def generer_nom_fichier_notes_periode(classe_nom, matiere_nom, ecole_type, periode, annee_scolaire, extension):
+    """Génère un nom de fichier pour l'export des notes"""
+    prefixe_periode = "T" if ecole_type == "college" else "S"
+    
+    # ✅ CORRECTION : Gestion complète du nom de fichier
+    nom_fichier = ""
+    
+    if classe_nom == "Toutes les classes":
+        nom_fichier = f"notes_toutes_classes"
+    else:
+        nom_fichier = f"notes_{classe_nom.replace(' ', '_')}"
+    
+    if matiere_nom == "Toutes les matières":
+        nom_fichier += "_toutes_matieres"
+    else:
+        nom_fichier += f"_{matiere_nom.replace(' ', '_')}"
+    
+    nom_fichier += f"_{prefixe_periode}{periode}"
+    nom_fichier += f"_{annee_scolaire.replace('-', '_')}"
+    nom_fichier += f"_{datetime.now().strftime('%Y%m%d_%H%M')}.{extension}"
+    
+    return nom_fichier
+
+def generate_notes_pdf_buffer_periode(notes, ecole_id, classe_nom, matiere_nom, ecole_type, periode, annee_scolaire):
+    """Génère un buffer PDF avec gestion correcte des périodes et colonnes dynamiques"""
+    try:
+        print(f"📊 DEBUT generate_notes_pdf_buffer_periode - Type école: {ecole_type}")
+        print(f"   Matière: {matiere_nom}, Classe: {classe_nom}")
+        
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buffer, 
+            pagesize=A4,
+            topMargin=15*mm,
+            bottomMargin=15*mm,
+            leftMargin=8*mm,
+            rightMargin=8*mm
+        )
+        elements = []
+        
+        # Titre principal adapté
+        ecole_nom = "TOUTES LES ÉCOLES"
+        if ecole_id:
+            ecole = Ecole.query.get(ecole_id)
+            if ecole:
+                ecole_nom = ecole.nom
+        
+        # Déterminer le titre de période
+        titre_periode = f"TRIMESTRE {periode}" if ecole_type == "college" else f"SEMESTRE {periode}"
+        
+        # Titre différent selon le type d'export
+        if classe_nom == "Toutes les classes" and matiere_nom == "Toutes les matières":
+            titre_principal = f"LISTE DES NOTES - TOUTES CLASSES & MATIÈRES"
+        elif classe_nom == "Toutes les classes":
+            titre_principal = f"LISTE DES NOTES - TOUTES CLASSES"
+        elif matiere_nom == "Toutes les matières":
+            titre_principal = f"LISTE DES NOTES - TOUTES MATIÈRES"
+        else:
+            titre_principal = f"LISTE DES NOTES - {matiere_nom.upper()}"
+        
+        elements = add_pdf_header(elements, doc, ecole_id, titre_principal)
+        
+        styles = getSampleStyleSheet()
+        
+        # Informations des filtres avec période correcte
+        info_style = ParagraphStyle(
+            'InfoStyle',
+            parent=styles['Normal'],
+            fontSize=10,
+            alignment=1,
+            spaceAfter=8,
+            textColor=colors.HexColor('#34495E')
+        )
+        
+        info_parts = [
+            f"Classe: {classe_nom}",
+            f"Matière: {matiere_nom}",
+            f"Période: {titre_periode}",
+            f"Année: {annee_scolaire}",
+            f"Total: {len(notes)} notes"
+        ]
+        
+        info_text = " | ".join(info_parts)
+        elements.append(Paragraph(f"<b>{info_text}</b>", info_style))
+        
+        # Tableau des notes - AVEC COLONNES DYNAMIQUES
+        if notes:
+            # ✅ AMÉLIORATION : Déterminer les en-têtes dynamiquement
+            headers = ['N°', 'Élève']
+            
+            # Ajouter colonne "Classe" si on exporte toutes les classes
+            if classe_nom == "Toutes les classes":
+                headers.append('Classe')
+            
+            # Ajouter colonne "Matière" si on exporte toutes les matières
+            if matiere_nom == "Toutes les matières":
+                headers.append('Matière')
+            
+            # Ajouter les colonnes de notes
+            headers.extend(['Note 1', 'Note 2', 'Note 3', 'Note Comp', 'Coeff'])
+            
+            table_data = [headers]
+            
+            for index, note in enumerate(notes, 1):
+                eleve = note.eleve
+                matiere = note.matiere
+                
+                # Récupérer le nom de la classe de l'élève
+                classe_eleve = note.eleve.classe.nom if note.eleve and note.eleve.classe else '-'
+                
+                note1 = f"{note.note1}/20" if note.note1 is not None else "-"
+                note2 = f"{note.note2}/20" if note.note2 is not None else "-"
+                note3 = f"{note.note3}/20" if note.note3 is not None else "-"
+                note_comp = f"{note.note_comp}/20" if note.note_comp is not None else "-"
+                
+                # Construire la ligne dynamiquement
+                row_data = [str(index), f"{eleve.nom} {eleve.prenoms}" if eleve else '-']
+                
+                # Ajouter colonne "Classe" si nécessaire
+                if classe_nom == "Toutes les classes":
+                    row_data.append(classe_eleve)
+                
+                # Ajouter colonne "Matière" si nécessaire
+                if matiere_nom == "Toutes les matières":
+                    row_data.append(matiere.libelle if matiere else '-')
+                
+                # Ajouter les notes
+                row_data.extend([note1, note2, note3, note_comp, str(note.coefficient) if note.coefficient else "1"])
+                
+                table_data.append(row_data)
+            
+            # ✅ AMÉLIORATION : Calculer les largeurs de colonnes dynamiquement
+            total_width = doc.width
+            column_widths = []
+            
+            # Largeur fixe pour N°
+            column_widths.append(total_width * 0.04)
+            
+            # Largeur pour Élève
+            if classe_nom == "Toutes les classes" and matiere_nom == "Toutes les matières":
+                column_widths.append(total_width * 0.20)  # Élève moins large
+            elif classe_nom == "Toutes les classes" or matiere_nom == "Toutes les matières":
+                column_widths.append(total_width * 0.25)  # Élève moyennement large
+            else:
+                column_widths.append(total_width * 0.30)  # Élève large
+            
+            # Largeur pour Classe (si présente)
+            if classe_nom == "Toutes les classes":
+                column_widths.append(total_width * 0.15)
+            
+            # Largeur pour Matière (si présente)
+            if matiere_nom == "Toutes les matières":
+                column_widths.append(total_width * 0.20)
+            
+            # Largeurs pour les notes (toujours présentes)
+            notes_width = total_width - sum(column_widths)
+            note_columns = 5  # Note 1, Note 2, Note 3, Note Comp, Coeff
+            note_width = notes_width / note_columns
+            
+            for _ in range(5):
+                column_widths.append(note_width)
+            
+            table = Table(table_data, colWidths=column_widths, repeatRows=1)
+            
+            # Styles de base
+            style_commands = [
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2C3E50')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+                ('TOPPADDING', (0, 0), (-1, 0), 4),
+                
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 7),
+                ('ALIGN', (0, 1), (0, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CCCCCC')),
+            ]
+            
+            # Calculer les indices des colonnes
+            col_count = len(headers)
+            eleve_col_index = 1
+            last_text_col_index = eleve_col_index
+            
+            # Déterminer les colonnes de texte
+            text_columns = [1]  # Élève est toujours une colonne texte
+            
+            if classe_nom == "Toutes les classes":
+                text_columns.append(2)
+                last_text_col_index = 2
+            
+            if matiere_nom == "Toutes les matières":
+                matiere_col_index = 3 if classe_nom == "Toutes les classes" else 2
+                text_columns.append(matiere_col_index)
+                last_text_col_index = matiere_col_index
+            
+            # Alignement des colonnes de texte
+            for col in text_columns:
+                style_commands.append(('ALIGN', (col, 1), (col, -1), 'LEFT'))
+                style_commands.append(('WORDWRAP', (col, 1), (col, -1), True))
+            
+            # Alignement des colonnes de notes (colonnes numériques)
+            notes_start_col = last_text_col_index + 1
+            style_commands.append(('ALIGN', (notes_start_col, 1), (-1, -1), 'CENTER'))
+            
+            # Alternance des couleurs
+            style_commands.append(('ROWBACKGROUNDS', (0, 1), (-1, -1), [
+                colors.HexColor('#FFFFFF'), 
+                colors.HexColor('#F8F9FA')
+            ]))
+            
+            # Padding
+            style_commands.extend([
+                ('LEFTPADDING', (0, 0), (-1, -1), 2),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+                ('TOPPADDING', (0, 0), (-1, -1), 2),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ])
+            
+            table.setStyle(TableStyle(style_commands))
+            elements.append(table)
+        else:
+            no_data_style = ParagraphStyle(
+                'NoDataStyle',
+                parent=styles['Normal'],
+                fontSize=12,
+                alignment=1,
+                textColor=colors.gray,
+                spaceAfter=20
+            )
+            elements.append(Paragraph("Aucune note trouvée", no_data_style))
+        
+        # Date de génération
+        date_style = ParagraphStyle(
+            'DateStyle',
+            parent=styles['Normal'],
+            fontSize=8,
+            alignment=1,
+            spaceAfter=8,
+            textColor=colors.gray
+        )
+        elements.append(Paragraph(f"Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}", date_style))
+        
+        doc.build(elements)
+        buffer.seek(0)
+        
+        print(f"✅ Buffer PDF généré avec {len(notes)} notes, {len(headers)} colonnes")
+        print(f"   Colonnes: {headers}")
+        return buffer
+        
+    except Exception as e:
+        print(f"❌ Erreur génération PDF notes: {str(e)}")
+        traceback.print_exc()
+        raise
+
+def get_trimestres_for_periode(type_periode, periode, ecole_type):
+    """Détermine les trimestres à inclure selon la période et le type d'établissement"""
+    if type_periode == "trimestre":
+        return [periode]
+    elif type_periode == "semestre":
+        if ecole_type == "lycee":
+            # Lycée: Semestre 1 = T1, Semestre 2 = T2
+            if periode == "1":
+                return ["1"]
+            elif periode == "2":
+                return ["2"]
+        else:
+            # Collège: Semestre 1 = T1+T2, Semestre 2 = T3
+            if periode == "1":
+                return ["1", "2"]
+            elif periode == "2":
+                return ["3"]
+    return [periode]
+
+def generer_nom_fichier_notes(classe_nom, matiere_nom, type_periode, periode, annee_scolaire, extension):
+    """Génère un nom de fichier pour l'export des notes"""
+    prefixe = "trimestre" if type_periode == "trimestre" else "semestre"
+    nom_fichier = f"notes_{classe_nom.replace(' ', '_')}_{matiere_nom.replace(' ', '_')}_{prefixe}{periode}"
+    nom_fichier += f"_{annee_scolaire.replace('-', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.{extension}"
+    return nom_fichier
+
+def generate_notes_pdf_buffer_semestre(notes, ecole_id, classe_nom, matiere_nom, 
+                                     type_periode, periode, annee_scolaire, ecole_type):
+    """Génère un buffer PDF avec gestion des semestres"""
+    try:
+        print(f"📊 DEBUT generate_notes_pdf_buffer_semestre - Type période: {type_periode}")
+        
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buffer, 
+            pagesize=A4,
+            topMargin=15*mm,
+            bottomMargin=15*mm,
+            leftMargin=8*mm,
+            rightMargin=8*mm
+        )
+        elements = []
+        
+        # Titre principal avec gestion des périodes
+        ecole_nom = "TOUTES LES ÉCOLES"
+        if ecole_id:
+            ecole = Ecole.query.get(ecole_id)
+            if ecole:
+                ecole_nom = ecole.nom
+        
+        titre_prefixe = "SEMESTRE" if type_periode == "semestre" else "TRIMESTRE"
+        titre_principal = f"LISTE DES NOTES"
+        
+        elements = add_pdf_header(elements, doc, ecole_id, titre_principal)
+        
+        styles = getSampleStyleSheet()
+        
+        # Informations des filtres avec période adaptée
+        info_style = ParagraphStyle(
+            'InfoStyle',
+            parent=styles['Normal'],
+            fontSize=10,
+            alignment=1,
+            spaceAfter=8,
+            textColor=colors.HexColor('#34495E')
+        )
+        
+        periode_texte = f"{titre_prefixe} {periode}"
+        if type_periode == "semestre" and ecole_type == "college":
+            if periode == "1":
+                periode_texte += " (regroupe T1 + T2)"
+            elif periode == "2":
+                periode_texte += " (T3)"
+        
+        info_parts = [
+            f"Classe: {classe_nom}",
+            f"Matière: {matiere_nom}",
+            f"Période: {periode_texte}",
+            f"Année: {annee_scolaire}",
+            f"Total: {len(notes)} notes"
+        ]
+        
+        info_text = " | ".join(info_parts)
+        elements.append(Paragraph(f"<b>{info_text}</b>", info_style))
+        
+        # Grouper les notes par élève et trimestre pour affichage
+        notes_par_eleve = {}
+        for note in notes:
+            eleve_id = note.eleve_id
+            if eleve_id not in notes_par_eleve:
+                notes_par_eleve[eleve_id] = {
+                    'eleve': note.eleve,
+                    'notes_par_trimestre': {}
+                }
+            
+            trimestre = note.trimestre
+            if trimestre not in notes_par_eleve[eleve_id]['notes_par_trimestre']:
+                notes_par_eleve[eleve_id]['notes_par_trimestre'][trimestre] = []
+            
+            notes_par_eleve[eleve_id]['notes_par_trimestre'][trimestre].append(note)
+        
+        # Tableau des notes
+        if notes_par_eleve:
+            headers = ['N°', 'Élève', 'Trimestre', 'Note 1', 'Note 2', 'Note 3', 'Note Comp', 'Coeff']
+            table_data = [headers]
+            
+            index = 1
+            for eleve_id, data in notes_par_eleve.items():
+                eleve = data['eleve']
+                
+                for trimestre, notes_trimestre in sorted(data['notes_par_trimestre'].items()):
+                    for note in notes_trimestre:
+                        # Formatage des notes
+                        note1 = f"{note.note1}/20" if note.note1 is not None else "-"
+                        note2 = f"{note.note2}/20" if note.note2 is not None else "-"
+                        note3 = f"{note.note3}/20" if note.note3 is not None else "-"
+                        note_comp = f"{note.note_comp}/20" if note.note_comp is not None else "-"
+                        
+                        table_data.append([
+                            str(index),
+                            f"{eleve.nom} {eleve.prenoms}" if eleve else '-',
+                            f"T{trimestre}",
+                            note1,
+                            note2,
+                            note3,
+                            note_comp,
+                            str(note.coefficient) if note.coefficient else "1"
+                        ])
+                        index += 1
+                
+                # Ajouter une ligne de séparation entre les élèves
+                if index < len(notes_par_eleve) * 2:  # Pas après le dernier élève
+                    table_data.append(['', '', '', '', '', '', '', ''])
+            
+            total_width = doc.width
+            column_widths = [
+                total_width * 0.04,
+                total_width * 0.25,
+                total_width * 0.08,
+                total_width * 0.08,
+                total_width * 0.08,
+                total_width * 0.08,
+                total_width * 0.11,
+                total_width * 0.08
+            ]
+            
+            table = Table(table_data, colWidths=column_widths, repeatRows=1)
+            
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2C3E50')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 7),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+                ('TOPPADDING', (0, 0), (-1, 0), 4),
+                
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 6),
+                ('ALIGN', (0, 1), (0, -1), 'CENTER'),
+                ('ALIGN', (1, 1), (1, -1), 'LEFT'),
+                ('ALIGN', (2, 1), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('WORDWRAP', (1, 1), (1, -1), True),
+                
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CCCCCC')),
+                
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [
+                    colors.HexColor('#FFFFFF'), 
+                    colors.HexColor('#F8F9FA')
+                ]),
+                
+                ('LEFTPADDING', (0, 0), (-1, -1), 1),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+                ('TOPPADDING', (0, 0), (-1, -1), 1),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+            ]))
+            
+            elements.append(table)
+        else:
+            no_data_style = ParagraphStyle(
+                'NoDataStyle',
+                parent=styles['Normal'],
+                fontSize=12,
+                alignment=1,
+                textColor=colors.gray,
+                spaceAfter=20
+            )
+            elements.append(Paragraph("Aucune note trouvée", no_data_style))
+        
+        # Date de génération
+        date_style = ParagraphStyle(
+            'DateStyle',
+            parent=styles['Normal'],
+            fontSize=8,
+            alignment=1,
+            spaceAfter=8,
+            textColor=colors.gray
+        )
+        elements.append(Paragraph(f"Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}", date_style))
+        
+        doc.build(elements)
+        buffer.seek(0)
+        
+        print("✅ Buffer PDF généré avec succès")
+        return buffer
+        
+    except Exception as e:
+        print(f"❌ Erreur génération PDF notes: {str(e)}")
+        traceback.print_exc()
+        raise
+
+def generate_notes_excel_buffer_semestre(notes, ecole_id, classe_nom, matiere_nom, 
+                                        type_periode, periode, annee_scolaire, ecole_type):
+    """Génère un buffer Excel avec gestion des semestres"""
+    try:
+        buffer = io.BytesIO()
+        wb = Workbook()
+        ws = wb.active
+        
+        ecole_nom = "Toutes écoles"
+        if ecole_id:
+            ecole = Ecole.query.get(ecole_id)
+            if ecole:
+                ecole_nom = ecole.nom
+        
+        ws.title = f"Notes {ecole_nom}"[:31]
+        
+        # Informations avec période adaptée
+        periode_texte = f"Semestre {periode}" if type_periode == "semestre" else f"Trimestre {periode}"
+        if type_periode == "semestre" and ecole_type == "college":
+            if periode == "1":
+                periode_texte += " (T1+T2)"
+            elif periode == "2":
+                periode_texte += " (T3)"
+        
+        infos_parts = [
+            f"Classe: {classe_nom}",
+            f"Matière: {matiere_nom}",
+            f"Période: {periode_texte}",
+            f"Année: {annee_scolaire}",
+            f"Total: {len(notes)} notes"
+        ]
+        
+        infos_supp = " | ".join(infos_parts)
+        
+        # Ajouter l'en-tête
+        start_row = add_excel_header(ws, ecole_id, "LISTE DES NOTES", infos_supp)
+        
+        # Style des bordures
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # En-têtes adaptés
+        headers = ['N°', 'Élève', 'Trimestre', 'Note 1', 'Note 2', 'Note 3', 'Note Comp', 'Coefficient']
+        
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=start_row, column=col)
+            cell.value = header
+            cell.fill = PatternFill(start_color="34495E", end_color="34495E", fill_type="solid")
+            cell.font = Font(color="FFFFFF", bold=True, size=9)
+            cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            cell.border = thin_border
+        
+        # Organiser les notes par élève
+        notes_par_eleve = {}
+        for note in notes:
+            eleve_id = note.eleve_id
+            if eleve_id not in notes_par_eleve:
+                notes_par_eleve[eleve_id] = {
+                    'eleve': note.eleve,
+                    'notes': []
+                }
+            notes_par_eleve[eleve_id]['notes'].append(note)
+        
+        # Données des notes
+        index = 1
+        for eleve_id, data in notes_par_eleve.items():
+            eleve = data['eleve']
+            
+            for note in sorted(data['notes'], key=lambda x: x.trimestre):
+                row_num = start_row + index
+                
+                # Formatage des notes
+                note1 = note.note1 if note.note1 is not None else "-"
+                note2 = note.note2 if note.note2 is not None else "-"
+                note3 = note.note3 if note.note3 is not None else "-"
+                note_comp = note.note_comp if note.note_comp is not None else "-"
+                
+                row_data = [
+                    index,
+                    f"{eleve.nom} {eleve.prenoms}" if eleve else '-',
+                    f"T{note.trimestre}",
+                    note1,
+                    note2,
+                    note3,
+                    note_comp,
+                    note.coefficient if note.coefficient else 1
+                ]
+                
+                for col, value in enumerate(row_data, 1):
+                    cell = ws.cell(row=row_num, column=col)
+                    cell.value = value
+                    cell.font = Font(size=9)
+                    cell.border = thin_border
+                
+                index += 1
+            
+            # Ajouter une ligne vide entre les élèves (sauf après le dernier)
+            if index <= len(notes_par_eleve) * 2:
+                row_num = start_row + index
+                for col in range(1, len(headers) + 1):
+                    cell = ws.cell(row=row_num, column=col)
+                    cell.border = thin_border
+                index += 1
+        
+        # Largeurs de colonnes
+        column_widths = {
+            'A': 6,
+            'B': 28,
+            'C': 10,
+            'D': 8,
+            'E': 8,
+            'F': 8,
+            'G': 10,
+            'H': 10
+        }
+        
+        for col, width in column_widths.items():
+            ws.column_dimensions[col].width = width
+        
+        # Alignement
+        for row in range(start_row, ws.max_row + 1):
+            for col in ['A', 'C', 'D', 'E', 'F', 'G', 'H']:
+                ws[f'{col}{row}'].alignment = Alignment(horizontal='center', vertical='center')
+            ws[f'B{row}'].alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+        
+        # Alternance des couleurs
+        for row in range(start_row + 1, ws.max_row + 1):
+            if row % 2 == 0:
+                for col in range(1, len(headers) + 1):
+                    ws.cell(row=row, column=col).fill = PatternFill(
+                        start_color="F8F9FA", end_color="F8F9FA", fill_type="solid"
+                    )
+        
+        # Hauteur des lignes
+        for row in range(start_row, ws.max_row + 1):
+            ws.row_dimensions[row].height = 20
+        
+        wb.save(buffer)
+        buffer.seek(0)
+        
+        print("✅ Buffer Excel notes semestre généré avec succès")
+        return buffer
+        
+    except Exception as e:
+        print(f"❌ Erreur génération Excel notes semestre: {str(e)}")
+        traceback.print_exc()
+        raise
+
+def generate_moyennes_excel_buffer_semestre(donnees_moyennes, ecole_id, classe_nom, matiere_id,
+                                           type_periode, periode, annee_scolaire, mention, ecole_type):
+    """Génère un buffer Excel avec les moyennes pour semestres"""
+    try:
+        buffer = io.BytesIO()
+        wb = Workbook()
+        ws = wb.active
+        
+        ecole_nom = "Toutes écoles"
+        if ecole_id:
+            ecole = Ecole.query.get(ecole_id)
+            if ecole:
+                ecole_nom = ecole.nom
+        
+        ws.title = f"Moyennes {ecole_nom}"[:31]
+        
+        # Informations avec période adaptée
+        periode_texte = f"Semestre {periode}" if type_periode == "semestre" else f"Trimestre {periode}"
+        if type_periode == "semestre" and ecole_type == "college":
+            if periode == "1":
+                periode_texte += " (T1+T2)"
+            elif periode == "2":
+                periode_texte += " (T3)"
+        
+        infos_parts = [
+            f"Classe: {classe_nom}",
+            f"Période: {periode_texte}",
+            f"Année: {annee_scolaire}",
+            f"Effectif: {len(donnees_moyennes)} élèves"
+        ]
+        
+        if matiere_id:
+            matiere = Matiere.query.get(matiere_id)
+            if matiere:
+                infos_parts.insert(1, f"Matière: {matiere.libelle}")
+        
+        if mention:
+            infos_parts.append(f"Mention: {mention}")
+        
+        infos_supp = " | ".join(infos_parts)
+        
+        start_row = add_excel_header(ws, ecole_id, "CLASSEMENT DES MOYENNES", infos_supp)
+        
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        headers = ['Rang', 'Nom', 'Prénoms', 'Moyenne', 'Mention', 'Appréciation']
+        
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=start_row, column=col)
+            cell.value = header
+            cell.fill = PatternFill(start_color="34495E", end_color="34495E", fill_type="solid")
+            cell.font = Font(color="FFFFFF", bold=True, size=11)
+            cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            cell.border = thin_border
+        
+        for index, donnee in enumerate(donnees_moyennes, 1):
+            eleve = donnee['eleve']
+            row_num = start_row + index
+            
+            is_ex_aequo = donnee.get('ex_aequo', False)
+            rang_texte = get_rang_avec_suffixe(
+                donnee['classement'], 
+                eleve.sexe,
+                is_ex_aequo
+            )
+            
+            row_data = [
+                rang_texte,
+                eleve.nom or '-',
+                eleve.prenoms or '-',
+                round(donnee['moyenne_generale'], 2),
+                donnee['mention'],
+                donnee['appreciation']
+            ]
+            
+            for col, value in enumerate(row_data, 1):
+                cell = ws.cell(row=row_num, column=col)
+                cell.value = value
+                
+                if is_ex_aequo:
+                    cell.font = Font(size=10, italic=True, color="666666")
+                else:
+                    cell.font = Font(size=10)
+                    
+                cell.border = thin_border
+                
+                if col == 4:
+                    cell.fill = PatternFill(
+                        start_color="F0F8FF",
+                        end_color="F0F8FF", 
+                        fill_type="solid"
+                    )
+        
+        column_widths = {
+            'A': 14,
+            'B': 25,
+            'C': 25,
+            'D': 12,
+            'E': 15,
+            'F': 35
+        }
+        
+        for col, width in column_widths.items():
+            ws.column_dimensions[col].width = width
+        
+        for row in range(start_row, ws.max_row + 1):
+            for col in ['A', 'D', 'E']:
+                ws[f'{col}{row}'].alignment = Alignment(horizontal='center', vertical='center')
+            for col in ['B', 'C', 'F']:
+                ws[f'{col}{row}'].alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+        
+        for row in range(start_row + 1, ws.max_row + 1):
+            if row % 2 == 0:
+                for col in range(1, len(headers) + 1):
+                    if col != 4:
+                        current_cell = ws.cell(row=row, column=col)
+                        if not current_cell.font.italic:
+                            current_cell.fill = PatternFill(
+                                start_color="F8F9FA", end_color="F8F9FA", fill_type="solid"
+                            )
+        
+        for row in range(start_row, ws.max_row + 1):
+            ws.row_dimensions[row].height = 22
+        
+        # Légende
+        nb_ex_aequo = sum(1 for d in donnees_moyennes if d.get('ex_aequo', False))
+        if nb_ex_aequo > 0:
+            legende_row = ws.max_row + 2
+            ws.merge_cells(f'A{legende_row}:F{legende_row}')
+            ws[f'A{legende_row}'] = "* Les suffixes '-ex' indiquent des élèves ex-aequo (même moyenne), classés par ordre alphabétique du nom."
+            ws[f'A{legende_row}'].font = Font(size=9, italic=True, color="666666")
+            ws[f'A{legende_row}'].alignment = Alignment(horizontal='left')
+            
+            if type_periode == "semestre":
+                semestre_row = legende_row + 1
+                ws.merge_cells(f'A{semestre_row}:F{semestre_row}')
+                if ecole_type == "college":
+                    if periode == "1":
+                        ws[f'A{semestre_row}'] = "** Le semestre 1 regroupe les notes des trimestres 1 et 2."
+                    elif periode == "2":
+                        ws[f'A{semestre_row}'] = "** Le semestre 2 correspond au trimestre 3."
+                else:
+                    ws[f'A{semestre_row}'] = "** En lycée, les semestres correspondent aux trimestres 1 et 2."
+                
+                ws[f'A{semestre_row}'].font = Font(size=9, italic=True, color="2C3E50")
+                ws[f'A{semestre_row}'].alignment = Alignment(horizontal='left')
+        
+        wb.save(buffer)
+        buffer.seek(0)
+        
+        print("✅ Buffer Excel moyennes semestre généré avec succès")
+        return buffer
+        
+    except Exception as e:
+        print(f"❌ Erreur génération Excel moyennes semestre: {str(e)}")
+        traceback.print_exc()
+        raise
+
+
 @services_bp.route("/export/notes")
 @login_required
 def export_notes_route():
     """Route pour exporter les notes en PDF ou Excel"""
     try:
-        # Récupération des paramètres
         type_export = request.args.get('type', 'pdf')
         classe_id = request.args.get('classe_id')
         matiere_id = request.args.get('matiere_id')
-        trimestre = request.args.get('trimestre')
+        ecole_type = request.args.get('ecole_type', 'college')
+        periode = request.args.get('periode')
         annee_scolaire = request.args.get('annee_scolaire')
         ecole_id = get_ecole_id_courante()
         
-        print(f"📥 REQUÊTE EXPORT NOTES - Type: {type_export}")
+        print(f"📥 REQUÊTE EXPORT NOTES - Type école: {ecole_type}, Période: {periode}")
         print(f"📥 Classe: {classe_id}, Matière: {matiere_id}")
-        print(f"📥 Trimestre: {trimestre}, Année: {annee_scolaire}")
-        print(f"📥 École: {ecole_id}")
         
-        # Validation
-        if not classe_id:
-            return jsonify({"error": "Veuillez sélectionner une classe"}), 400
-        if not trimestre:
-            return jsonify({"error": "Veuillez sélectionner un trimestre"}), 400
+        # ✅ CORRECTION : Validation modifiée - la classe n'est plus obligatoire
+        if not periode:
+            return jsonify({"error": "Veuillez sélectionner une période"}), 400
         if not annee_scolaire:
             return jsonify({"error": "Veuillez sélectionner une année scolaire"}), 400
         if not ecole_id:
             return jsonify({"error": "ID de l'école manquant"}), 400
         
         # Nettoyer les paramètres
+        if classe_id in ['', 'null', 'undefined', 'toutes']:
+            classe_id = None  # Permet l'export de toutes les classes
+        
         if matiere_id in ['', 'null', 'undefined', 'toutes']:
             matiere_id = None
         
@@ -1709,7 +2499,8 @@ def export_notes_route():
             type_export=type_export,
             classe_id=classe_id,
             matiere_id=matiere_id,
-            trimestre=trimestre,
+            ecole_type=ecole_type,
+            periode=periode,
             annee_scolaire=annee_scolaire,
             ecole_id=ecole_id
         )
@@ -1739,6 +2530,79 @@ def export_notes_route():
         print(f"❌ ERREUR route export notes: {str(e)}")
         traceback.print_exc()
         return jsonify({"error": f"Erreur serveur: {str(e)}"}), 500
+
+@services_bp.route("/export/moyennes")
+@login_required
+def export_moyennes_route():
+    """Route pour exporter les moyennes en PDF ou Excel"""
+    try:
+        export_type = request.args.get('type', 'pdf')
+        classe_id = request.args.get('classe_id')
+        matiere_id = request.args.get('matiere_id')
+        ecole_type = request.args.get('ecole_type', 'college')
+        periode = request.args.get('periode')
+        annee_scolaire = request.args.get('annee_scolaire')
+        mention = request.args.get('mention')
+        ecole_id = get_ecole_id_courante()
+        
+        print(f"📥 REQUÊTE EXPORT MOYENNES - Type école: {ecole_type}, Période: {periode}")
+        print(f"📥 Classe: {classe_id}, Matière: {matiere_id}")
+        
+        # Validation
+        if not periode:
+            return jsonify({"error": "Veuillez sélectionner une période"}), 400
+        if not annee_scolaire:
+            return jsonify({"error": "Veuillez sélectionner une année scolaire"}), 400
+        if not ecole_id:
+            return jsonify({"error": "ID de l'école manquant"}), 400
+        
+        # Nettoyer les paramètres
+        if classe_id in ['', 'null', 'undefined', 'toutes']:
+            classe_id = 'toutes'  # Permet l'export de toutes les classes
+        
+        if matiere_id in ['', 'null', 'undefined', 'toutes']:
+            matiere_id = None
+        
+        if mention in ['', 'null', 'undefined', 'toutes']:
+            mention = None
+        
+        # Appel de la fonction d'export
+        result, filename_or_error = export_moyennes_data(
+            type_export=export_type,
+            classe_id=classe_id,
+            matiere_id=matiere_id,
+            ecole_type=ecole_type,
+            periode=periode,
+            annee_scolaire=annee_scolaire,
+            mention=mention,
+            ecole_id=ecole_id
+        )
+        
+        if result is None:
+            return jsonify({"error": filename_or_error}), 400
+        
+        # Retour du fichier
+        if export_type == 'pdf':
+            return send_file(
+                result,
+                as_attachment=True,
+                download_name=filename_or_error,
+                mimetype='application/pdf'
+            )
+        elif export_type == 'excel':
+            return send_file(
+                result,
+                as_attachment=True,
+                download_name=filename_or_error,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+        else:
+            return jsonify({"error": "Type d'export non supporté"}), 400
+            
+    except Exception as e:
+        print(f"❌ ERREUR route export moyennes: {str(e)}")
+        traceback.print_exc()
+        return jsonify({"error": f"Erreur serveur: {str(e)}"}), 500
     
 def generate_notes_pdf(notes, ecole_id, classe_nom, matiere_nom, trimestre, annee_scolaire):
     """Génère un PDF avec la liste des notes"""
@@ -1764,7 +2628,7 @@ def generate_notes_pdf(notes, ecole_id, classe_nom, matiere_nom, trimestre, anne
             if ecole:
                 ecole_nom = ecole.nom
         
-        titre_principal = f"LISTE DES NOTES - {ecole_nom.upper()}"
+        titre_principal = f"LISTE DES NOTES"
         print(f"🎯 Titre PDF notes: {titre_principal}")
         
         # Ajouter l'en-tête
@@ -2124,7 +2988,7 @@ def generate_notes_pdf_buffer(notes, ecole_id, classe_nom, matiere_nom, trimestr
             if ecole:
                 ecole_nom = ecole.nom
         
-        titre_principal = f"LISTE DES NOTES - {ecole_nom.upper()}"
+        titre_principal = f"LISTE DES NOTES"
         print(f"🎯 Titre PDF notes: {titre_principal}")
         
         # Ajouter l'en-tête
@@ -2739,104 +3603,93 @@ def export_moyennes():
         traceback.print_exc()
         return jsonify({"error": f"Erreur serveur: {str(e)}"}), 500
 
-def export_moyennes_data(type_export, classe_id, matiere_id, trimestre, annee_scolaire, mention, ecole_id):
-    """Fonction principale pour exporter les moyennes - VERSION CORRIGÉE"""
+# ========== EXPORT MOYENNES AVEC GESTION CORRECTE DES PÉRIODES ==========
+
+def export_moyennes_data(type_export, classe_id, matiere_id, ecole_type, periode, 
+                        annee_scolaire, mention, ecole_id):
+    """Fonction principale pour exporter les moyennes avec gestion correcte"""
     try:
-        print(f"🔍 EXPORT MOYENNES - type:{type_export}, classe:{classe_id}, matière:{matiere_id}, trimestre:{trimestre}, année:{annee_scolaire}, mention:{mention}, école:{ecole_id}")
+        print(f"🔍 EXPORT MOYENNES - Type école: {ecole_type}, Période: {periode}")
         
         # Validation
         if not ecole_id:
             return None, "ID de l'école manquant"
-        if not classe_id:
-            return None, "Veuillez sélectionner une classe"
-        if not trimestre:
-            return None, "Veuillez sélectionner un trimestre"
+        if not periode:
+            return None, "Veuillez sélectionner une période"
         if not annee_scolaire:
             return None, "Veuillez sélectionner une année scolaire"
         
-        # Vérifier la classe
-        classe = Classe.query.filter_by(id=classe_id, ecole_id=ecole_id).first()
-        if not classe:
-            return None, "Classe non trouvée dans cette école"
-        
-        print(f"✅ Classe trouvée: {classe.nom}")
-        
-        # Récupérer les élèves de la classe
-        eleves = Eleve.query.filter_by(classe_id=classe_id).order_by(Eleve.nom, Eleve.prenoms).all()
-        if not eleves:
-            return None, "Aucun élève trouvé dans cette classe"
-        
-        print(f"✅ {len(eleves)} élève(s) trouvé(s) dans la classe")
-        
-        # Récupérer le nom de la matière si spécifiée
-        matiere_nom = None
-        matiere_libelle_filtre = None
-        
-        if matiere_id and matiere_id not in ['', 'null', 'undefined', 'toutes']:
-            matiere = Matiere.query.get(matiere_id)
-            if not matiere:
-                return None, f"Matière non trouvée (ID: {matiere_id})"
+        # ✅ NOUVELLE LOGIQUE : Gestion de "toutes les classes"
+        if classe_id in ['', 'null', 'undefined', 'toutes']:
+            # Export pour toutes les classes de l'école
+            classes = Classe.query.filter_by(ecole_id=ecole_id).all()
+            if not classes:
+                return None, "Aucune classe trouvée dans cette école"
             
-            matiere_nom = matiere.libelle
-            matiere_libelle_filtre = matiere.libelle
-            print(f"✅ Filtre matière par NOM: {matiere_nom}")
+            classe_nom = "Toutes les classes"
+            print(f"✅ Export pour TOUTES les classes ({len(classes)} classes)")
+            
+            # Récupérer tous les élèves de toutes les classes
+            donnees_moyennes = []
+            
+            for classe in classes:
+                eleves = Eleve.query.filter_by(classe_id=classe.id).all()
+                print(f"  📊 Classe {classe.nom}: {len(eleves)} élève(s)")
+                
+                for eleve in eleves:
+                    donnee_eleve = calculer_moyenne_eleve_periode(eleve.id, matiere_id, ecole_type, periode, annee_scolaire)
+                    if donnee_eleve:
+                        # Filtrer par mention si spécifié
+                        if mention and mention != donnee_eleve['mention']:
+                            continue
+                        
+                        donnee_eleve['eleve'] = eleve
+                        donnee_eleve['classe_nom'] = classe.nom  # Ajouter le nom de la classe
+                        donnees_moyennes.append(donnee_eleve)
+            
+            if not donnees_moyennes:
+                return None, f"Aucune moyenne trouvée pour les critères sélectionnés dans toutes les classes"
+            
         else:
-            print("✅ Export de toutes les matières")
-        
-        # Préparer les données des moyennes
-        donnees_moyennes = []
-        
-        for eleve in eleves:
-            # ✅ CORRECTION : Requête avec filtrage par ÉLÈVE et par NOM de matière
-            query = db.session.query(Note)\
-                .join(Eleve, Note.eleve_id == Eleve.id)\
-                .join(Matiere, Note.matiere_id == Matiere.id)\
-                .filter(Eleve.id == eleve.id)\
-                .filter(Eleve.classe_id == classe_id)\
-                .filter(Note.trimestre == str(trimestre))\
-                .filter(Note.annee_scolaire == annee_scolaire)
+            # Export pour une classe spécifique (logique existante)
+            classe = Classe.query.filter_by(id=classe_id, ecole_id=ecole_id).first()
+            if not classe:
+                return None, "Classe non trouvée dans cette école"
             
-            # Filtrer par NOM de matière
-            if matiere_libelle_filtre:
-                query = query.filter(Matiere.libelle == matiere_libelle_filtre)
+            classe_nom = classe.nom
+            print(f"✅ Classe spécifique: {classe_nom}")
             
-            notes_eleve = query.all()
+            # Récupérer les élèves de la classe
+            eleves = Eleve.query.filter_by(classe_id=classe_id).order_by(Eleve.nom, Eleve.prenoms).all()
+            if not eleves:
+                return None, "Aucun élève trouvé dans cette classe"
             
-            # DEBUG
-            print(f"🔍 {eleve.nom} {eleve.prenoms}: {len(notes_eleve)} note(s) personnelle(s) trouvée(s)")
+            print(f"✅ {len(eleves)} élève(s) trouvé(s) dans la classe")
             
-            if not notes_eleve:
-                print(f"   ❌ Aucune note personnelle trouvée pour cet élève")
-                continue
+            # Calcul des moyennes pour chaque élève
+            donnees_moyennes = []
             
-            # Calculer la moyenne
-            moyenne = calculer_moyenne_eleve(notes_eleve)
-            mention_eleve = get_mention(moyenne)
-            appreciation = get_appreciation(moyenne)
-            
-            print(f"   📊 Moyenne calculée: {moyenne:.2f} → {mention_eleve}")
-            
-            # Filtrer par mention si spécifié
-            if mention and mention != mention_eleve:
-                print(f"   🚫 Filtré par mention: {mention_eleve} != {mention}")
-                continue
-            
-            donnees_moyennes.append({
-                'eleve': eleve,
-                'moyenne_generale': moyenne,
-                'mention': mention_eleve,
-                'appreciation': appreciation,
-                'notes_count': len(notes_eleve)
-            })
-            print(f"   ✅ Ajouté aux données d'export")
+            for eleve in eleves:
+                donnee_eleve = calculer_moyenne_eleve_periode(eleve.id, matiere_id, ecole_type, periode, annee_scolaire)
+                if donnee_eleve:
+                    # Filtrer par mention si spécifié
+                    if mention and mention != donnee_eleve['mention']:
+                        continue
+                    
+                    donnee_eleve['eleve'] = eleve
+                    donnee_eleve['classe_nom'] = classe_nom
+                    donnees_moyennes.append(donnee_eleve)
         
         if not donnees_moyennes:
+            periode_texte = f"Trimestre {periode}" if ecole_type == "college" else f"Semestre {periode}"
             error_msg = f"Aucune moyenne trouvée pour "
-            if matiere_libelle_filtre:
-                error_msg += f"la matière '{matiere_libelle_filtre}' "
+            if matiere_id and matiere_id not in ['', 'null', 'undefined', 'toutes']:
+                matiere = Matiere.query.get(matiere_id)
+                error_msg += f"la matière '{matiere.libelle}' "
             else:
                 error_msg += "les matières sélectionnées "
-            error_msg += f"dans la classe {classe.nom} (Trimestre {trimestre}, {annee_scolaire})"
+            
+            error_msg += f"dans {classe_nom} ({periode_texte}, {annee_scolaire})"
             
             print(f"❌ {error_msg}")
             return None, error_msg
@@ -2846,27 +3699,15 @@ def export_moyennes_data(type_export, classe_id, matiere_id, trimestre, annee_sc
         
         print(f"✅ {len(donnees_moyennes)} moyenne(s) calculée(s) et classée(s)")
         
-        # DEBUG : Afficher les classements pour vérification
-        print("📊 VERIFICATION DES CLASSEMENTS :")
-        for i, donnee in enumerate(donnees_moyennes[:10]):  # Afficher les 10 premiers
-            eleve = donnee['eleve']
-            rang_texte = get_rang_avec_suffixe(donnee['classement'], eleve.sexe, donnee.get('ex_aequo', False))
-            print(f"   {i+1}. {eleve.nom} {eleve.prenoms} - Moyenne: {donnee['moyenne_generale']:.2f} - Rang: {rang_texte}")
-        
-        # COMPTAGE DES EX-AEQUO POUR LES STATISTIQUES
-        nb_ex_aequo = sum(1 for d in donnees_moyennes if d.get('ex_aequo', False))
-        if nb_ex_aequo > 0:
-            print(f"📊 {nb_ex_aequo} élève(s) marqué(s) comme ex-aequo")
-        
         # Génération de l'export
         if type_export == 'pdf':
             try:
-                pdf_buffer = generate_moyennes_pdf_buffer(
-                    donnees_moyennes, ecole_id, classe.nom, 
-                    matiere_id, trimestre, annee_scolaire, mention
+                pdf_buffer = generate_moyennes_pdf_buffer_periode(
+                    donnees_moyennes, ecole_id, classe_nom, matiere_id,
+                    ecole_type, periode, annee_scolaire, mention
                 )
-                nom_fichier = generer_nom_fichier_moyennes(
-                    classe.nom, matiere_id, trimestre, annee_scolaire, mention, 'pdf'
+                nom_fichier = generer_nom_fichier_moyennes_periode(
+                    classe_nom, matiere_id, ecole_type, periode, annee_scolaire, mention, 'pdf'
                 )
                 print(f"✅ PDF généré: {nom_fichier}")
                 return pdf_buffer, nom_fichier
@@ -2877,12 +3718,12 @@ def export_moyennes_data(type_export, classe_id, matiere_id, trimestre, annee_sc
         
         elif type_export == 'excel':
             try:
-                excel_buffer = generate_moyennes_excel_buffer(
-                    donnees_moyennes, ecole_id, classe.nom,
-                    matiere_id, trimestre, annee_scolaire, mention
+                excel_buffer = generate_moyennes_excel_buffer_periode(
+                    donnees_moyennes, ecole_id, classe_nom, matiere_id,
+                    ecole_type, periode, annee_scolaire, mention
                 )
-                nom_fichier = generer_nom_fichier_moyennes(
-                    classe.nom, matiere_id, trimestre, annee_scolaire, mention, 'xlsx'
+                nom_fichier = generer_nom_fichier_moyennes_periode(
+                    classe_nom, matiere_id, ecole_type, periode, annee_scolaire, mention, 'xlsx'
                 )
                 print(f"✅ Excel généré: {nom_fichier}")
                 return excel_buffer, nom_fichier
@@ -2898,6 +3739,783 @@ def export_moyennes_data(type_export, classe_id, matiere_id, trimestre, annee_sc
         print(f"❌ ERREUR export_moyennes_data: {str(e)}")
         traceback.print_exc()
         return None, f"Erreur lors de l'export: {str(e)}"
+
+def calculer_moyenne_eleve_periode(eleve_id, matiere_id, ecole_type, periode, annee_scolaire):
+    """Calcule la moyenne d'un élève pour une période spécifique"""
+    try:
+        # Construire la requête des notes
+        query = db.session.query(Note)\
+            .join(Eleve, Note.eleve_id == Eleve.id)\
+            .join(Matiere, Note.matiere_id == Matiere.id)\
+            .filter(Eleve.id == eleve_id)\
+            .filter(Note.trimestre == periode)\
+            .filter(Note.annee_scolaire == annee_scolaire)
+        
+        if matiere_id and matiere_id not in ['', 'null', 'undefined', 'toutes']:
+            query = query.filter(Matiere.id == matiere_id)
+        
+        notes_eleve = query.all()
+        
+        if not notes_eleve:
+            return None
+        
+        # Calculer la moyenne
+        moyenne = calculer_moyenne_eleve(notes_eleve)
+        mention_eleve = get_mention(moyenne)
+        appreciation = get_appreciation(moyenne)
+        
+        return {
+            'moyenne_generale': moyenne,
+            'mention': mention_eleve,
+            'appreciation': appreciation,
+            'notes_count': len(notes_eleve)
+        }
+        
+    except Exception as e:
+        print(f"❌ Erreur calcul moyenne élève {eleve_id}: {str(e)}")
+        return None
+
+def generate_moyennes_pdf_buffer_periode(donnees_moyennes, ecole_id, classe_nom, matiere_id, 
+                                        ecole_type, periode, annee_scolaire, mention):
+    """Génère un buffer PDF avec les moyennes pour la période correcte"""
+    try:
+        print(f"📊 DEBUT generate_moyennes_pdf_buffer_periode - Type école: {ecole_type}")
+        print(f"   Classe: {classe_nom}, Toutes classes: {'toutes' in classe_nom.lower()}")
+        
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buffer, 
+            pagesize=A4,
+            topMargin=15*mm,
+            bottomMargin=15*mm,
+            leftMargin=10*mm,
+            rightMargin=10*mm
+        )
+        elements = []
+        
+        # Titre principal adapté
+        ecole_nom = "TOUTES LES ÉCOLES"
+        if ecole_id:
+            ecole = Ecole.query.get(ecole_id)
+            if ecole:
+                ecole_nom = ecole.nom
+        
+        # Déterminer le titre de période
+        titre_periode = f"TRIMESTRE {periode}" if ecole_type == "college" else f"SEMESTRE {periode}"
+        
+        # CORRECTION: Utiliser titre_periode dans le titre principal
+        titre_principal = f"CLASSEMENT DES MOYENNES - {titre_periode}"
+        
+        elements = add_pdf_header(elements, doc, ecole_id, titre_principal)
+        
+        styles = getSampleStyleSheet()
+        
+        info_style = ParagraphStyle(
+            'InfoStyle',
+            parent=styles['Normal'],
+            fontSize=11,
+            alignment=1,
+            spaceAfter=10,
+            textColor=colors.HexColor('#34495E')
+        )
+        
+        # Informations avec gestion "toutes classes"
+        type_etablissement = "Collège" if ecole_type == "college" else "Lycée"
+        
+        info_parts = [
+            f"Type: {type_etablissement}",
+            f"Classe: {classe_nom}",
+            f"Période: {titre_periode}",
+            f"Année: {annee_scolaire}",
+            f"Effectif: {len(donnees_moyennes)} élèves"
+        ]
+        
+        # Ajouter la matière si spécifiée
+        if matiere_id and matiere_id not in ['', 'null', 'undefined', 'toutes']:
+            matiere = Matiere.query.get(matiere_id)
+            if matiere:
+                info_parts.insert(2, f"Matière: {matiere.libelle}")
+        
+        if mention:
+            info_parts.append(f"Mention: {mention}")
+        
+        info_text = " | ".join(info_parts)
+        elements.append(Paragraph(f"<b>{info_text}</b>", info_style))
+        
+        # Statistiques
+        if donnees_moyennes:
+            moyennes = [d['moyenne_generale'] for d in donnees_moyennes]
+            moyenne_classe = sum(moyennes) / len(moyennes) if moyennes else 0
+            max_moyenne = max(moyennes) if moyennes else 0
+            min_moyenne = min(moyennes) if moyennes else 0
+            
+            stats_style = ParagraphStyle(
+                'StatsStyle',
+                parent=styles['Normal'],
+                fontSize=10,
+                alignment=1,
+                spaceAfter=12,
+                textColor=colors.HexColor('#2C3E50')
+            )
+            
+            stats_text = f"Moyenne générale: {moyenne_classe:.2f}/20 | Max: {max_moyenne:.2f}/20 | Min: {min_moyenne:.2f}/20"
+            elements.append(Paragraph(f"<i>{stats_text}</i>", stats_style))
+        
+        # Date de génération
+        date_style = ParagraphStyle(
+            'DateStyle',
+            parent=styles['Normal'],
+            fontSize=9,
+            alignment=1,
+            spaceAfter=8,
+            textColor=colors.gray
+        )
+        
+        elements.append(Paragraph(f"Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}", date_style))
+        elements.append(Spacer(1, 10))
+        
+        # Tableau des moyennes avec colonne "Classe" si nécessaire
+        if donnees_moyennes:
+            # ✅ DÉTERMINER LES EN-TÊTES DYNAMIQUEMENT
+            headers = ['Rang', 'Nom et Prénoms']
+            
+            # Ajouter colonne "Classe" si on exporte toutes les classes
+            if 'toutes' in classe_nom.lower():
+                headers.append('Classe')
+            
+            headers.extend(['Moyenne', 'Mention', 'Appréciation'])
+            
+            table_data = [headers]
+            
+            style_commands = []
+            
+            for row_index, donnee in enumerate(donnees_moyennes, 1):
+                eleve = donnee['eleve']
+                is_ex_aequo = donnee.get('ex_aequo', False)
+                
+                rang_texte = get_rang_avec_suffixe(
+                    donnee['classement'], 
+                    eleve.sexe,
+                    is_ex_aequo
+                )
+                
+                # Construire la ligne dynamiquement
+                row_data = [rang_texte, f"{eleve.nom} {eleve.prenoms}" if eleve else '-']
+                
+                # Ajouter colonne "Classe" si nécessaire
+                if 'toutes' in classe_nom.lower():
+                    row_data.append(donnee.get('classe_nom', '-'))
+                
+                row_data.extend([
+                    f"{donnee['moyenne_generale']:.2f}/20",
+                    donnee['mention'],
+                    donnee['appreciation']
+                ])
+                
+                table_data.append(row_data)
+                
+                if is_ex_aequo:
+                    style_commands.append(('FONTNAME', (0, row_index), (0, row_index), 'Helvetica-Oblique'))
+                    style_commands.append(('TEXTCOLOR', (0, row_index), (0, row_index), colors.HexColor('#666666')))
+            
+            # ✅ CALCULER LES LARGEURS DE COLONNES DYNAMIQUES
+            total_width = doc.width
+            column_widths = []
+            
+            # Largeur fixe pour Rang
+            column_widths.append(total_width * 0.10)
+            
+            # Largeur pour Nom et Prénoms
+            if 'toutes' in classe_nom.lower():
+                column_widths.append(total_width * 0.25)  # Moins large
+            else:
+                column_widths.append(total_width * 0.35)  # Plus large
+            
+            # Largeur pour Classe (si présente)
+            if 'toutes' in classe_nom.lower():
+                column_widths.append(total_width * 0.15)
+            
+            # Largeurs restantes pour les autres colonnes
+            columns_left = len(headers) - len(column_widths)
+            remaining_width = total_width - sum(column_widths)
+            base_width = remaining_width / columns_left
+            
+            for _ in range(columns_left):
+                column_widths.append(base_width)
+            
+            table = Table(table_data, colWidths=column_widths, repeatRows=1)
+            
+            # Styles de base
+            base_style = [
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2C3E50')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                ('TOPPADDING', (0, 0), (-1, 0), 6),
+                
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 9),
+                ('ALIGN', (0, 1), (0, -1), 'CENTER'),  # Rang
+                ('ALIGN', (1, 1), (1, -1), 'LEFT'),     # Nom et Prénoms
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('WORDWRAP', (1, 1), (1, -1), True),    # Nom et Prénoms
+                
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CCCCCC')),
+                
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [
+                    colors.HexColor('#FFFFFF'), 
+                    colors.HexColor('#F5F5F5')
+                ]),
+                
+                ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ]
+            
+            # Alignement des colonnes dynamiques
+            # Colonne "Classe" si présente
+            if 'toutes' in classe_nom.lower():
+                base_style.append(('ALIGN', (2, 1), (2, -1), 'CENTER'))  # Classe
+                base_style.append(('WORDWRAP', (2, 1), (2, -1), True))   # Classe
+                
+                # Moyenne, Mention, Appréciation
+                base_style.append(('ALIGN', (3, 1), (3, -1), 'CENTER'))  # Moyenne
+                base_style.append(('ALIGN', (4, 1), (4, -1), 'CENTER'))  # Mention
+                base_style.append(('ALIGN', (5, 1), (5, -1), 'LEFT'))    # Appréciation
+                base_style.append(('WORDWRAP', (5, 1), (5, -1), True))   # Appréciation
+                
+                # Couleur de fond pour la colonne Moyenne
+                base_style.append(('BACKGROUND', (3, 1), (3, -1), colors.HexColor('#F8F9FA')))
+            else:
+                # Pas de colonne "Classe"
+                base_style.append(('ALIGN', (2, 1), (2, -1), 'CENTER'))  # Moyenne
+                base_style.append(('ALIGN', (3, 1), (3, -1), 'CENTER'))  # Mention
+                base_style.append(('ALIGN', (4, 1), (4, -1), 'LEFT'))    # Appréciation
+                base_style.append(('WORDWRAP', (4, 1), (4, -1), True))   # Appréciation
+                
+                # Couleur de fond pour la colonne Moyenne
+                base_style.append(('BACKGROUND', (2, 1), (2, -1), colors.HexColor('#F8F9FA')))
+            
+            table_style = TableStyle(base_style + style_commands)
+            table.setStyle(table_style)
+            
+            elements.append(table)
+            
+            # Légende pour les ex-aequo
+            nb_ex_aequo = sum(1 for d in donnees_moyennes if d.get('ex_aequo', False))
+            if nb_ex_aequo > 0:
+                legende_style = ParagraphStyle(
+                    'LegendeStyle',
+                    parent=styles['Normal'],
+                    fontSize=8,
+                    alignment=0,
+                    spaceBefore=8,
+                    textColor=colors.gray
+                )
+                elements.append(Spacer(1, 4))
+                elements.append(Paragraph(
+                    "<i>* Les suffixes '-ex' indiquent des élèves ex-aequo (même moyenne), classés par ordre alphabétique du nom.</i>", 
+                    legende_style
+                ))
+        
+        else:
+            no_data_style = ParagraphStyle(
+                'NoDataStyle',
+                parent=styles['Normal'],
+                fontSize=14,
+                alignment=1,
+                textColor=colors.gray,
+                spaceAfter=20
+            )
+            elements.append(Paragraph("Aucune moyenne trouvée", no_data_style))
+        
+        doc.build(elements)
+        buffer.seek(0)
+        
+        print("✅ Buffer PDF moyennes période généré avec succès")
+        return buffer
+        
+    except Exception as e:
+        print(f"❌ Erreur génération PDF moyennes: {str(e)}")
+        traceback.print_exc()
+        raise
+    
+def generate_moyennes_excel_buffer_periode(donnees_moyennes, ecole_id, classe_nom, matiere_id, 
+                                          ecole_type, periode, annee_scolaire, mention):
+    """Génère un buffer Excel avec les moyennes pour une période spécifique"""
+    try:
+        buffer = io.BytesIO()
+        wb = Workbook()
+        ws = wb.active
+        
+        ecole_nom = "Toutes écoles"
+        if ecole_id:
+            ecole = Ecole.query.get(ecole_id)
+            if ecole:
+                ecole_nom = ecole.nom
+        
+        ws.title = f"Moyennes {ecole_nom}"[:31]
+        
+        # Informations avec période adaptée
+        titre_periode = f"Semestre {periode}" if ecole_type != "college" else f"Trimestre {periode}"
+        
+        info_parts = [
+            f"Classe: {classe_nom}",
+            f"Période: {titre_periode}",
+            f"Année: {annee_scolaire}",
+            f"Effectif: {len(donnees_moyennes)} élèves"
+        ]
+        
+        if matiere_id and matiere_id not in ['', 'null', 'undefined', 'toutes']:
+            matiere = Matiere.query.get(matiere_id)
+            if matiere:
+                info_parts.insert(1, f"Matière: {matiere.libelle}")
+        
+        if mention:
+            info_parts.append(f"Mention: {mention}")
+        
+        infos_supp = " | ".join(info_parts)
+        
+        # Ajouter l'en-tête
+        start_row = add_excel_header(ws, ecole_id, "CLASSEMENT DES MOYENNES", infos_supp)
+        
+        # Style des bordures
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # ✅ EN-TÊTES DYNAMIQUES avec colonne "Classe" si nécessaire
+        headers = ['Rang', 'Nom', 'Prénoms']
+        
+        # Ajouter colonne "Classe" si on exporte toutes les classes
+        if 'toutes' in classe_nom.lower():
+            headers.append('Classe')
+        
+        headers.extend(['Moyenne', 'Mention', 'Appréciation'])
+        
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=start_row, column=col)
+            cell.value = header
+            cell.fill = PatternFill(start_color="34495E", end_color="34495E", fill_type="solid")
+            cell.font = Font(color="FFFFFF", bold=True, size=11)
+            cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            cell.border = thin_border
+        
+        # Données des moyennes avec gestion dynamique
+        for index, donnee in enumerate(donnees_moyennes, 1):
+            eleve = donnee['eleve']
+            row_num = start_row + index
+            
+            is_ex_aequo = donnee.get('ex_aequo', False)
+            
+            # Rang avec suffixe approprié
+            rang_texte = get_rang_avec_suffixe(
+                donnee['classement'], 
+                eleve.sexe,
+                is_ex_aequo
+            )
+            
+            # Construire la ligne dynamiquement
+            col_index = 1
+            ws.cell(row=row_num, column=col_index, value=rang_texte)
+            col_index += 1
+            
+            ws.cell(row=row_num, column=col_index, value=eleve.nom or '-')
+            col_index += 1
+            
+            ws.cell(row=row_num, column=col_index, value=eleve.prenoms or '-')
+            col_index += 1
+            
+            # Ajouter colonne "Classe" si nécessaire
+            if 'toutes' in classe_nom.lower():
+                ws.cell(row=row_num, column=col_index, value=donnee.get('classe_nom', '-'))
+                col_index += 1
+            
+            # Ajouter les autres colonnes
+            ws.cell(row=row_num, column=col_index, value=round(donnee['moyenne_generale'], 2))
+            col_index += 1
+            
+            ws.cell(row=row_num, column=col_index, value=donnee['mention'])
+            col_index += 1
+            
+            ws.cell(row=row_num, column=col_index, value=donnee['appreciation'])
+            
+            # Appliquer les styles
+            for col in range(1, len(headers) + 1):
+                cell = ws.cell(row=row_num, column=col)
+                
+                # Style spécial pour les ex-aequo
+                if is_ex_aequo:
+                    cell.font = Font(size=10, italic=True, color="666666")
+                else:
+                    cell.font = Font(size=10)
+                    
+                cell.border = thin_border
+                
+                # Couleur de fond pour la colonne Moyenne
+                moyenne_col = 4 if 'toutes' in classe_nom.lower() else 3
+                if col == moyenne_col:
+                    cell.fill = PatternFill(
+                        start_color="F0F8FF",
+                        end_color="F0F8FF", 
+                        fill_type="solid"
+                    )
+        
+        # ✅ LARGEURS DE COLONNES DYNAMIQUES
+        column_widths = {
+            'A': 14,  # Rang
+            'B': 20,  # Nom
+            'C': 20,  # Prénoms
+        }
+        
+        current_col = 'D'
+        if 'toutes' in classe_nom.lower():
+            column_widths[current_col] = 15  # Classe
+            current_col = chr(ord(current_col) + 1)
+        
+        # Les colonnes restantes
+        column_widths[current_col] = 12  # Moyenne
+        current_col = chr(ord(current_col) + 1)
+        
+        column_widths[current_col] = 15  # Mention
+        current_col = chr(ord(current_col) + 1)
+        
+        column_widths[current_col] = 35  # Appréciation
+        
+        for col, width in column_widths.items():
+            ws.column_dimensions[col].width = width
+        
+        # Alignement dynamique
+        for row in range(start_row, ws.max_row + 1):
+            # Colonnes à centrer : Rang, Moyenne, Mention
+            ws[f'A{row}'].alignment = Alignment(horizontal='center', vertical='center')
+            
+            # Déterminer la colonne Moyenne
+            moyenne_col = 'D' if 'toutes' in classe_nom.lower() else 'C'
+            ws[f'{moyenne_col}{row}'].alignment = Alignment(horizontal='center', vertical='center')
+            
+            # Colonne Mention
+            mention_col = 'E' if 'toutes' in classe_nom.lower() else 'D'
+            ws[f'{mention_col}{row}'].alignment = Alignment(horizontal='center', vertical='center')
+            
+            # Colonnes texte alignées à gauche
+            ws[f'B{row}'].alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+            ws[f'C{row}'].alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+            
+            # Colonne Classe si présente
+            if 'toutes' in classe_nom.lower():
+                ws[f'D{row}'].alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            
+            # Colonne Appréciation
+            appreciation_col = 'G' if 'toutes' in classe_nom.lower() else 'F'
+            ws[f'{appreciation_col}{row}'].alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+        
+        # Alternance des couleurs
+        for row in range(start_row + 1, ws.max_row + 1):
+            if row % 2 == 0:
+                for col in range(1, len(headers) + 1):
+                    current_cell = ws.cell(row=row, column=col)
+                    if not current_cell.font.italic:
+                        current_cell.fill = PatternFill(
+                            start_color="F8F9FA", end_color="F8F9FA", fill_type="solid"
+                        )
+        
+        # Hauteur des lignes
+        for row in range(start_row, ws.max_row + 1):
+            ws.row_dimensions[row].height = 22
+        
+        # Légende pour les ex-aequo
+        nb_ex_aequo = sum(1 for d in donnees_moyennes if d.get('ex_aequo', False))
+        if nb_ex_aequo > 0:
+            legende_row = ws.max_row + 2
+            ws.merge_cells(f'A{legende_row}:{chr(64 + len(headers))}{legende_row}')
+            ws[f'A{legende_row}'] = "* Les suffixes '-ex' indiquent des élèves ex-aequo (même moyenne), classés par ordre alphabétique du nom."
+            ws[f'A{legende_row}'].font = Font(size=9, italic=True, color="666666")
+            ws[f'A{legende_row}'].alignment = Alignment(horizontal='left')
+        
+        wb.save(buffer)
+        buffer.seek(0)
+        
+        print("✅ Buffer Excel moyennes période généré avec succès")
+        return buffer
+        
+    except Exception as e:
+        print(f"❌ Erreur génération Excel moyennes période: {str(e)}")
+        traceback.print_exc()
+        raise
+
+
+def generer_nom_fichier_moyennes_periode(classe_nom, matiere_id, ecole_type, periode, annee_scolaire, mention, extension):
+    """Génère un nom de fichier pour l'export des moyennes"""
+    prefixe_periode = "T" if ecole_type == "college" else "S"
+    nom_fichier = f"moyennes_{classe_nom.replace(' ', '_')}_{prefixe_periode}{periode}"
+    
+    if matiere_id:
+        matiere = Matiere.query.get(matiere_id)
+        if matiere:
+            nom_fichier += f"_{matiere.libelle.replace(' ', '_')}"
+    else:
+        nom_fichier += "_general"
+    
+    if mention:
+        nom_fichier += f"_{mention}"
+    
+    nom_fichier += f"_{annee_scolaire.replace('-', '_')}_{datetime.now().strftime('%Y%m%d_%H%M')}.{extension}"
+    
+    return nom_fichier
+
+def generate_moyennes_pdf_buffer_semestre(donnees_moyennes, ecole_id, classe_nom, matiere_id, 
+                                         type_periode, periode, annee_scolaire, mention, ecole_type):
+    """Génère un buffer PDF avec les moyennes pour semestres"""
+    try:
+        print(f"📊 DEBUT generate_moyennes_pdf_buffer_semestre - Type période: {type_periode}")
+        
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buffer, 
+            pagesize=A4,
+            topMargin=15*mm,
+            bottomMargin=15*mm,
+            leftMargin=10*mm,
+            rightMargin=10*mm
+        )
+        elements = []
+        
+        # Titre principal adapté
+        ecole_nom = "TOUTES LES ÉCOLES"
+        if ecole_id:
+            ecole = Ecole.query.get(ecole_id)
+            if ecole:
+                ecole_nom = ecole.nom
+        
+        titre_prefixe = "SEMESTRE" if type_periode == "semestre" else "TRIMESTRE"
+        titre_principal = f"CLASSEMENT DES MOYENNES"
+        
+        elements = add_pdf_header(elements, doc, ecole_id, titre_principal)
+        
+        styles = getSampleStyleSheet()
+        
+        info_style = ParagraphStyle(
+            'InfoStyle',
+            parent=styles['Normal'],
+            fontSize=11,
+            alignment=1,
+            spaceAfter=10,
+            textColor=colors.HexColor('#34495E')
+        )
+        
+        # Informations spécifiques aux semestres
+        periode_texte = f"{titre_prefixe} {periode}"
+        if type_periode == "semestre" and ecole_type == "college":
+            if periode == "1":
+                periode_texte += " (basé sur T1 + T2)"
+            elif periode == "2":
+                periode_texte += " (basé sur T3)"
+        
+        info_parts = [
+            f"Classe: {classe_nom}",
+            f"Période: {periode_texte}",
+            f"Année: {annee_scolaire}",
+            f"Effectif: {len(donnees_moyennes)} élèves"
+        ]
+        
+        # Ajouter la matière si spécifiée
+        if matiere_id:
+            matiere = Matiere.query.get(matiere_id)
+            if matiere:
+                info_parts.insert(1, f"Matière: {matiere.libelle}")
+        
+        if mention:
+            info_parts.append(f"Mention: {mention}")
+        
+        info_text = " | ".join(info_parts)
+        elements.append(Paragraph(f"<b>{info_text}</b>", info_style))
+        
+        # Statistiques
+        if donnees_moyennes:
+            moyennes = [d['moyenne_generale'] for d in donnees_moyennes]
+            moyenne_classe = sum(moyennes) / len(moyennes) if moyennes else 0
+            max_moyenne = max(moyennes) if moyennes else 0
+            min_moyenne = min(moyennes) if moyennes else 0
+            
+            stats_style = ParagraphStyle(
+                'StatsStyle',
+                parent=styles['Normal'],
+                fontSize=10,
+                alignment=1,
+                spaceAfter=12,
+                textColor=colors.HexColor('#2C3E50')
+            )
+            
+            stats_text = f"Moyenne classe: {moyenne_classe:.2f}/20 | Max: {max_moyenne:.2f}/20 | Min: {min_moyenne:.2f}/20"
+            elements.append(Paragraph(f"<i>{stats_text}</i>", stats_style))
+        
+        # Date de génération
+        date_style = ParagraphStyle(
+            'DateStyle',
+            parent=styles['Normal'],
+            fontSize=9,
+            alignment=1,
+            spaceAfter=8,
+            textColor=colors.gray
+        )
+        
+        elements.append(Paragraph(f"Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}", date_style))
+        elements.append(Spacer(1, 10))
+        
+        # Tableau des moyennes (identique à la version précédente mais adapté)
+        if donnees_moyennes:
+            headers = ['Rang', 'Nom et Prénoms', 'Moyenne', 'Mention', 'Appréciation']
+            table_data = [headers]
+            
+            style_commands = []
+            
+            for row_index, donnee in enumerate(donnees_moyennes, 1):
+                eleve = donnee['eleve']
+                is_ex_aequo = donnee.get('ex_aequo', False)
+                
+                rang_texte = get_rang_avec_suffixe(
+                    donnee['classement'], 
+                    eleve.sexe,
+                    is_ex_aequo
+                )
+                
+                table_data.append([
+                    rang_texte,
+                    f"{eleve.nom} {eleve.prenoms}" if eleve else '-',
+                    f"{donnee['moyenne_generale']:.2f}/20",
+                    donnee['mention'],
+                    donnee['appreciation']
+                ])
+                
+                if is_ex_aequo:
+                    style_commands.append(('FONTNAME', (0, row_index), (0, row_index), 'Helvetica-Oblique'))
+                    style_commands.append(('TEXTCOLOR', (0, row_index), (0, row_index), colors.HexColor('#666666')))
+            
+            total_width = doc.width
+            column_widths = [
+                total_width * 0.12,
+                total_width * 0.30,
+                total_width * 0.15,
+                total_width * 0.15,
+                total_width * 0.28
+            ]
+            
+            table = Table(table_data, colWidths=column_widths, repeatRows=1)
+            
+            base_style = [
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2C3E50')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                ('TOPPADDING', (0, 0), (-1, 0), 6),
+                
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 9),
+                ('ALIGN', (0, 1), (0, -1), 'CENTER'),
+                ('ALIGN', (1, 1), (1, -1), 'LEFT'),
+                ('ALIGN', (2, 1), (2, -1), 'CENTER'),
+                ('ALIGN', (3, 1), (3, -1), 'CENTER'),
+                ('ALIGN', (4, 1), (4, -1), 'LEFT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('WORDWRAP', (1, 1), (4, -1), True),
+                
+                ('BACKGROUND', (2, 1), (2, -1), colors.HexColor('#F8F9FA')),
+                
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CCCCCC')),
+                
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [
+                    colors.HexColor('#FFFFFF'), 
+                    colors.HexColor('#F5F5F5')
+                ]),
+                
+                ('LINEBEFORE', (2, 0), (2, -1), 1, colors.HexColor('#E9ECEF')),
+                ('LINEAFTER', (2, 0), (2, -1), 1, colors.HexColor('#E9ECEF')),
+                
+                ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ]
+            
+            table_style = TableStyle(base_style + style_commands)
+            table.setStyle(table_style)
+            
+            elements.append(table)
+            
+            # Légende pour les ex-aequo
+            nb_ex_aequo = sum(1 for d in donnees_moyennes if d.get('ex_aequo', False))
+            if nb_ex_aequo > 0:
+                legende_style = ParagraphStyle(
+                    'LegendeStyle',
+                    parent=styles['Normal'],
+                    fontSize=8,
+                    alignment=0,
+                    spaceBefore=8,
+                    textColor=colors.gray
+                )
+                elements.append(Spacer(1, 4))
+                elements.append(Paragraph(
+                    "<i>* Les suffixes '-ex' indiquent des élèves ex-aequo (même moyenne), classés par ordre alphabétique du nom.</i>", 
+                    legende_style
+                ))
+                
+                # Info spécifique aux semestres
+                if type_periode == "semestre":
+                    semestre_info_style = ParagraphStyle(
+                        'SemestreInfoStyle',
+                        parent=styles['Normal'],
+                        fontSize=8,
+                        alignment=0,
+                        spaceBefore=4,
+                        textColor=colors.HexColor('#2C3E50')
+                    )
+                    if ecole_type == "college":
+                        if periode == "1":
+                            elements.append(Paragraph(
+                                "<i>** Le semestre 1 regroupe les notes des trimestres 1 et 2.</i>", 
+                                semestre_info_style
+                            ))
+                        elif periode == "2":
+                            elements.append(Paragraph(
+                                "<i>** Le semestre 2 correspond au trimestre 3.</i>", 
+                                semestre_info_style
+                            ))
+                    else:
+                        elements.append(Paragraph(
+                            "<i>** En lycée, les semestres correspondent aux trimestres 1 et 2.</i>", 
+                            semestre_info_style
+                        ))
+        
+        else:
+            no_data_style = ParagraphStyle(
+                'NoDataStyle',
+                parent=styles['Normal'],
+                fontSize=14,
+                alignment=1,
+                textColor=colors.gray,
+                spaceAfter=20
+            )
+            elements.append(Paragraph("Aucune moyenne trouvée", no_data_style))
+        
+        doc.build(elements)
+        buffer.seek(0)
+        
+        print("✅ Buffer PDF moyennes semestre généré avec succès")
+        return buffer
+        
+    except Exception as e:
+        print(f"❌ Erreur génération PDF moyennes semestre: {str(e)}")
+        traceback.print_exc()
+        raise
 
 def generer_nom_fichier_moyennes(classe_nom, matiere_id, trimestre, annee_scolaire, mention, extension):
     """Génère un nom de fichier pour l'export des moyennes"""
@@ -2940,7 +4558,7 @@ def generate_moyennes_pdf_buffer(donnees_moyennes, ecole_id, classe_nom, matiere
             if ecole:
                 ecole_nom = ecole.nom
         
-        titre_principal = f"CLASSEMENT DES MOYENNES - {ecole_nom.upper()}"
+        titre_principal = f"CLASSEMENT DES MOYENNES"
         print(f"🎯 Titre PDF moyennes: {titre_principal}")
         
         # Ajouter l'en-tête
@@ -3151,6 +4769,210 @@ def generate_moyennes_pdf_buffer(donnees_moyennes, ecole_id, classe_nom, matiere
         
     except Exception as e:
         print(f"❌ Erreur génération PDF moyennes: {str(e)}")
+        traceback.print_exc()
+        raise
+
+def generate_notes_excel_buffer_periode(notes, ecole_id, classe_nom, matiere_nom, ecole_type, periode, annee_scolaire):
+    """Génère un buffer Excel avec les notes pour une période avec colonnes dynamiques"""
+    try:
+        # Création du workbook
+        buffer = io.BytesIO()
+        wb = Workbook()
+        ws = wb.active
+        
+        ecole_nom = "Toutes écoles"
+        if ecole_id:
+            ecole = Ecole.query.get(ecole_id)
+            if ecole:
+                ecole_nom = ecole.nom
+        
+        ws.title = f"Notes {ecole_nom}"[:31]
+        
+        # Informations avec période adaptée
+        titre_periode = f"Semestre {periode}" if ecole_type != "college" else f"Trimestre {periode}"
+        
+        # Informations de l'export
+        infos_parts = [
+            f"Classe: {classe_nom}",
+            f"Matière: {matiere_nom}",
+            f"Période: {titre_periode}",
+            f"Année: {annee_scolaire}",
+            f"Total: {len(notes)} notes"
+        ]
+        
+        if classe_nom == "Toutes les classes":
+            infos_parts.insert(1, "(avec colonne 'Classe' incluse)")
+        if matiere_nom == "Toutes les matières":
+            infos_parts.insert(2, "(avec colonne 'Matière' incluse)")
+        
+        infos_supp = " | ".join(infos_parts)
+        
+        # Ajouter l'en-tête
+        start_row = add_excel_header(ws, ecole_id, "LISTE DES NOTES", infos_supp)
+        
+        # Style des bordures
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # ✅ AMÉLIORATION : En-têtes dynamiques
+        headers = ['N°', 'Élève']
+        
+        # Ajouter colonne "Classe" si on exporte toutes les classes
+        if classe_nom == "Toutes les classes":
+            headers.append('Classe')
+        
+        # Ajouter colonne "Matière" si on exporte toutes les matières
+        if matiere_nom == "Toutes les matières":
+            headers.append('Matière')
+        
+        # Ajouter les colonnes de notes
+        headers.extend(['Note 1', 'Note 2', 'Note 3', 'Note Comp', 'Coefficient'])
+        
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=start_row, column=col)
+            cell.value = header
+            cell.fill = PatternFill(start_color="34495E", end_color="34495E", fill_type="solid")
+            cell.font = Font(color="FFFFFF", bold=True, size=9)
+            cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            cell.border = thin_border
+        
+        # ✅ AMÉLIORATION : Données dynamiques
+        for index, note in enumerate(notes, 1):
+            eleve = note.eleve
+            matiere = note.matiere
+            row_num = start_row + index
+            
+            # Récupérer le nom de la classe de l'élève
+            classe_eleve = note.eleve.classe.nom if note.eleve and note.eleve.classe else '-'
+            
+            # Formatage des notes
+            note1 = note.note1 if note.note1 is not None else "-"
+            note2 = note.note2 if note.note2 is not None else "-"
+            note3 = note.note3 if note.note3 is not None else "-"
+            note_comp = note.note_comp if note.note_comp is not None else "-"
+            
+            # Construire la ligne dynamiquement
+            col_index = 1
+            ws.cell(row=row_num, column=col_index, value=index)
+            col_index += 1
+            
+            ws.cell(row=row_num, column=col_index, value=f"{eleve.nom} {eleve.prenoms}" if eleve else '-')
+            col_index += 1
+            
+            # Ajouter colonne "Classe" si nécessaire
+            if classe_nom == "Toutes les classes":
+                ws.cell(row=row_num, column=col_index, value=classe_eleve)
+                col_index += 1
+            
+            # Ajouter colonne "Matière" si nécessaire
+            if matiere_nom == "Toutes les matières":
+                ws.cell(row=row_num, column=col_index, value=matiere.libelle if matiere else '-')
+                col_index += 1
+            
+            # Ajouter les notes
+            ws.cell(row=row_num, column=col_index, value=note1)
+            col_index += 1
+            
+            ws.cell(row=row_num, column=col_index, value=note2)
+            col_index += 1
+            
+            ws.cell(row=row_num, column=col_index, value=note3)
+            col_index += 1
+            
+            ws.cell(row=row_num, column=col_index, value=note_comp)
+            col_index += 1
+            
+            ws.cell(row=row_num, column=col_index, value=note.coefficient if note.coefficient else 1)
+            
+            # Appliquer les bordures à toute la ligne
+            for col in range(1, len(headers) + 1):
+                ws.cell(row=row_num, column=col).border = thin_border
+                ws.cell(row=row_num, column=col).font = Font(size=9)
+        
+        # ✅ AMÉLIORATION : Largeurs de colonnes dynamiques
+        column_widths = {
+            'A': 6,    # N°
+            'B': 25,   # Élève
+        }
+        
+        current_col = 'C'
+        if classe_nom == "Toutes les classes":
+            column_widths[current_col] = 15  # Classe
+            current_col = chr(ord(current_col) + 1)
+        
+        if matiere_nom == "Toutes les matières":
+            column_widths[current_col] = 20  # Matière
+            current_col = chr(ord(current_col) + 1)
+        
+        # Notes (toujours présentes)
+        for i in range(5):  # Note 1, Note 2, Note 3, Note Comp, Coefficient
+            column_widths[current_col] = 10
+            current_col = chr(ord(current_col) + 1)
+        
+        # Ajuster la largeur de la colonne Élève si nécessaire
+        if classe_nom == "Toutes les classes" and matiere_nom == "Toutes les matières":
+            column_widths['B'] = 20  # Élève moins large
+        elif classe_nom == "Toutes les classes" or matiere_nom == "Toutes les matières":
+            column_widths['B'] = 22  # Élève moyennement large
+        
+        for col, width in column_widths.items():
+            ws.column_dimensions[col].width = width
+        
+        # Alignement dynamique
+        for row in range(start_row, ws.max_row + 1):
+            # Colonnes à centrer : N° et toutes les notes
+            ws[f'A{row}'].alignment = Alignment(horizontal='center', vertical='center')
+            
+            # Déterminer la dernière colonne de texte
+            last_text_col = 'B'  # Commence à Élève
+            
+            if classe_nom == "Toutes les classes":
+                ws[f'C{row}'].alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+                last_text_col = 'C'
+                
+                if matiere_nom == "Toutes les matières":
+                    ws[f'D{row}'].alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+                    last_text_col = 'D'
+            elif matiere_nom == "Toutes les matières":
+                ws[f'C{row}'].alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+                last_text_col = 'C'
+            
+            # Élève aligné à gauche
+            ws[f'B{row}'].alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+            
+            # Notes alignées au centre
+            notes_start_col = chr(ord(last_text_col) + 1)
+            for col_letter in [notes_start_col, 
+                              chr(ord(notes_start_col) + 1),
+                              chr(ord(notes_start_col) + 2),
+                              chr(ord(notes_start_col) + 3),
+                              chr(ord(notes_start_col) + 4)]:
+                ws[f'{col_letter}{row}'].alignment = Alignment(horizontal='center', vertical='center')
+        
+        # Alternance des couleurs
+        for row in range(start_row + 1, ws.max_row + 1):
+            if row % 2 == 0:
+                for col in range(1, len(headers) + 1):
+                    ws.cell(row=row, column=col).fill = PatternFill(
+                        start_color="F8F9FA", end_color="F8F9FA", fill_type="solid"
+                    )
+        
+        # Hauteur des lignes
+        for row in range(start_row, ws.max_row + 1):
+            ws.row_dimensions[row].height = 20
+        
+        wb.save(buffer)
+        buffer.seek(0)
+        
+        print("✅ Buffer Excel généré avec colonnes dynamiques")
+        return buffer
+        
+    except Exception as e:
+        print(f"❌ Erreur génération Excel notes période: {str(e)}")
         traceback.print_exc()
         raise
 

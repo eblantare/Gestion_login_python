@@ -1,3 +1,4 @@
+# models/ecoles.py - VERSION CORRIGÉE
 import uuid
 import re
 from extensions import db, BaseModel
@@ -23,7 +24,7 @@ class Ecole(BaseModel):
     prefecture = db.Column(db.String(200), nullable=True)
     dre = db.Column(db.String(100), nullable=True)
 
-    # NOUVEAU : Logo de l'école
+    # Logo de l'école
     logo_filename = db.Column(db.String(255), nullable=True)
 
     # Chef d'établissement
@@ -31,52 +32,105 @@ class Ecole(BaseModel):
     chef_etablissement_titre = db.Column(db.String(100), default="LE CHEF D'ÉTABLISSEMENT")
     chef_etablissement_civilite = db.Column(db.String(10), default="M.")
 
-    # Relation avec Utilisateur - chemin complet
-    # utilisateurs = relationship("gestion_login.gestion_login.models.Utilisateur", back_populates="ecole")
+    # ✅ AJOUT : Cycles disponibles (collège/lycée) SEULEMENT
+    cycles_disponibles = db.Column(db.JSON, default=lambda: {'college': True, 'lycee': False})
 
-        # ⚠️ CORRECTION : Méthode pour récupérer les utilisateurs sans relation directe
+    # ⚠️ SUPPRIMÉ : Pas de systeme_evaluation ici, c'est dans la relation
+    
+    # ⚠️ CORRECTION : Méthode pour récupérer les utilisateurs sans relation directe
     def get_utilisateurs(self):
         """Récupère les utilisateurs de l'école sans relation circulaire"""
         from gestion_login.gestion_login.models import Utilisateur
         return Utilisateur.query.filter_by(ecole_id=self.id).all()
-    # GARDEZ toutes les relations mais avec des noms UNIQUES pour backref
-    classes = relationship("Classe", backref="ecole", cascade="all, delete-orphan")
-    eleves = relationship("Eleve", backref="ecole", cascade="all, delete-orphan")
-    enseignants = relationship("Enseignant", backref="ecole", cascade="all, delete-orphan")
-    matieres = relationship("Matiere", backref="ecole", cascade="all, delete-orphan")
-    appreciations = relationship("Appreciations", backref="ecole", cascade="all, delete-orphan")
-    notes = relationship("Note", backref="ecole", cascade="all, delete-orphan")
-    paiements = relationship("Paiement", backref="ecole", cascade="all, delete-orphan")
-    services = relationship("Service", backref="ecole", cascade="all, delete-orphan")
-
-    # SUPPRIMEZ les paramètres 'overlaps' qui causent des problèmes
-
-    @staticmethod
-    def validate_phone_number(phone):
-        """Valide le format international du numéro de téléphone"""
-        if not phone:
-            return True, None
-        
-        pattern = r'^\+[1-9]\d{1,14}$'
-        if re.match(pattern, phone.replace(' ', '')):
-            return True, None
-        else:
-            return False, "Format invalide. Utilisez le format international: +228 XX XX XX XX"
-
-    @staticmethod
-    def validate_email(email):
-        """Valide le format d'email"""
-        if not email:
-            return True, None
-        
-        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        if re.match(pattern, email):
-            return True, None
-        else:
-            return False, "Format d'email invalide"
 
     def __repr__(self):
         return f'<Ecole {self.nom}>'
+    
+        # ✅ AJOUT : Méthodes de validation STATIQUES (à ajouter)
+    @staticmethod
+    def validate_phone_number(phone):
+        """Validation simple des numéros de téléphone"""
+        if not phone:
+            return True, "Numéro vide"
+        
+        # Nettoyer le numéro
+        phone_clean = ''.join(filter(str.isdigit, str(phone)))
+        
+        # Validation basique : doit avoir entre 8 et 15 chiffres
+        if len(phone_clean) < 8 or len(phone_clean) > 15:
+            return False, "Le numéro doit contenir entre 8 et 15 chiffres"
+        
+        # Format international commençant par 00 ou +
+        if phone.startswith('00') or phone.startswith('+'):
+            if len(phone_clean) < 10:
+                return False, "Numéro international trop court"
+        
+        return True, "Numéro valide"
+    
+    @staticmethod
+    def validate_email(email):
+        """Validation simple des emails"""
+        if not email:
+            return True, "Email vide"
+        
+        # Expression régulière simple pour valider un email
+        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        
+        if not re.match(pattern, email):
+            return False, "Format d'email invalide"
+        
+        return True, "Email valide"
+    
+    # ✅ AJOUT : Méthodes utilitaires pour les cycles
+    def a_college(self):
+        """Vérifie si l'école propose le cycle collège"""
+        return self.cycles_disponibles.get('college', False)
+    
+    def a_lycee(self):
+        """Vérifie si l'école propose le cycle lycée"""
+        return self.cycles_disponibles.get('lycee', False)
+    
+    def a_les_deux_cycles(self):
+        """Vérifie si l'école propose les deux cycles"""
+        return self.a_college() and self.a_lycee()
+    
+    def get_cycles_display(self):
+        """Retourne une représentation textuelle des cycles disponibles"""
+        cycles = []
+        if self.a_college():
+            cycles.append('Collège')
+        if self.a_lycee():
+            cycles.append('Lycée')
+        
+        if not cycles:
+            return 'Aucun cycle défini'
+        elif len(cycles) == 1:
+            return cycles[0]
+        else:
+            return ' + '.join(cycles)
+    
+    # ✅ NOUVELLE : Méthode pour obtenir le système d'évaluation
+    def get_systeme_evaluation(self):
+        """Retourne le système d'évaluation de l'école via la relation"""
+        if hasattr(self, 'config_systeme_evaluation'):
+            return self.config_systeme_evaluation
+        return None
+    
+    def est_trimestriel(self):
+        """Vérifie si l'école utilise le système trimestriel"""
+        systeme = self.get_systeme_evaluation()
+        if systeme:
+            return systeme.type_systeme == 'trimestriel'
+        # Par défaut : trimestriel
+        return True
+    
+    def est_semestriel(self):
+        """Vérifie si l'école utilise le système semestriel"""
+        systeme = self.get_systeme_evaluation()
+        if systeme:
+            return systeme.type_systeme == 'semestriel'
+        # Par défaut : pas semestriel
+        return False
 
 # Validation avant insertion/mise à jour
 @event.listens_for(Ecole, 'before_insert')

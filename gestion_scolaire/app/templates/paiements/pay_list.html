@@ -226,6 +226,78 @@
             max-height: 60vh;
         }
     }
+    /* Styles pour la barre de recherche améliorée */
+#filterForm {
+  min-height: 40px;
+  padding: 2px 0;
+}
+
+/* Éviter le débordement sur les petits écrans */
+@media (max-width: 1200px) {
+  #filterForm {
+    gap: 5px;
+  }
+  
+  .search-bar-paiements {
+    width: 200px !important;
+  }
+  
+  .filter-select {
+    width: 150px !important;
+  }
+}
+
+@media (max-width: 992px) {
+  #filterForm {
+    overflow-x: auto;
+    padding-bottom: 5px;
+  }
+  
+  .search-bar-paiements {
+    width: 180px !important;
+  }
+  
+  .filter-select {
+    width: 140px !important;
+  }
+  
+  .per-page-select {
+    width: 100px !important;
+  }
+}
+
+/* Sur mobile très petit, masquer certains éléments */
+@media (max-width: 768px) {
+  #filterForm {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .search-bar-paiements,
+  .filter-select,
+  .per-page-select {
+    min-width: 150px;
+  }
+  
+  .btn-export-list span {
+    display: none;
+  }
+  
+  .btn-export-list i {
+    margin-right: 0 !important;
+  }
+}
+
+/* Assurer que tout reste aligné verticalement */
+.flex-shrink-0 {
+  flex-shrink: 0;
+}
+
+/* Pagination compacte */
+.pagination-compact .page-link {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+}
 </style>
 {% endblock %}
 
@@ -236,94 +308,91 @@
 
   <!-- 🔍 Barre de recherche + filtres + bouton ajout + pagination SUR UNE LIGNE -->
   <div class="row mb-3 align-items-center">
-    <div class="col-12">
-      <form method="get" class="d-flex align-items-center gap-2 flex-nowrap w-100 justify-content-between" id="filterForm">
-        <!-- Groupe gauche : Recherche + Filtre classe -->
-        <div class="d-flex align-items-center gap-2 flex-nowrap">
-             <!-- Dans la barre de recherche, remplacez le bouton : -->
-       <div class="input-group rounded-pill border overflow-hidden search-bar-paiements">
-         <input type="text" name="search" value="{{ search }}" class="form-control border-0" placeholder="Rechercher un élève, code, libellé...">
-         <button class="btn btn-primary search-btn" type="submit">  <!-- type="submit" au lieu de type="button" -->
-         <i class="bi bi-search"></i>
-         </button>
+  <div class="col-12">
+    <form method="get" class="d-flex align-items-center gap-2 flex-nowrap w-100" id="filterForm" style="flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;">
+      
+      <!-- Recherche -->
+      <div class="input-group rounded-pill border overflow-hidden search-bar-paiements flex-shrink-0">
+        <input type="text" name="search" value="{{ search }}" class="form-control border-0" placeholder="Rechercher...">
+        <button class="btn btn-primary search-btn" type="submit">
+          <i class="bi bi-search"></i>
+        </button>
       </div>
 
-          <!-- Filtre classe -->
-          <select name="classe_id" class="form-select rounded-pill filter-select" style="width: 200px;">
-            <option value="">Toutes les classes</option>
-            {% for c in classes %}
-              <option value="{{ c.id }}" {% if classe_id|string == c.id|string %}selected{% endif %}>{{ c.nom }}</option>
-            {% endfor %}
-          </select>
-        </div>
+      <!-- Filtre classe -->
+      <select name="classe_id" class="form-select rounded-pill filter-select flex-shrink-0" style="width: 180px;">
+        <option value="">Toutes les classes</option>
+        {% for c in classes %}
+          <option value="{{ c.id }}" {% if classe_id|string == c.id|string %}selected{% endif %}>{{ c.nom }}</option>
+        {% endfor %}
+      </select>
 
-        <!-- Groupe droit : Filtre page + Bouton + Pagination -->
-        <div class="d-flex align-items-center gap-2 flex-nowrap">
-          <!-- Sélecteur nombre par page -->
-          <select name="per_page" class="form-select rounded-pill per-page-select" style="width: 120px;">
-            {% for n in [5,10,20,50,100] %}
-              <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}/page</option>
-            {% endfor %}
-          </select>
+      <!-- Sélecteur nombre par page -->
+      <select name="per_page" class="form-select rounded-pill per-page-select flex-shrink-0" style="width: 110px;">
+        {% for n in [5,10,20,50,100] %}
+          <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}/page</option>
+        {% endfor %}
+      </select>
 
-              <!-- 🔽 BOUTON D'EXPORT DE LA LISTE (NOUVEAU) -->
-           {% if user_role in ['admin', 'administrateur'] %}
-             <button type="button" 
-                class="btn btn-outline-info btn-export-list" 
+      <!-- Bouton export (optionnel pour admin) -->
+      {% if user_role in ['admin', 'administrateur'] %}
+        <button type="button" 
+                class="btn btn-outline-info btn-export-list flex-shrink-0" 
                 id="btnExportList"
-                title="Exporter la liste des paiements de la classe sélectionnée"
-                {% if not classe_id %}disabled{% endif %}>
-                <i class="bi bi-download me-1"></i>Exporter
-            </button>
-           {% endif %}
+                title="Exporter la liste des paiements"
+                {% if not classe_id %}disabled{% endif %}
+                style="white-space: nowrap;">
+          <i class="bi bi-download me-1"></i>Exporter
+        </button>
+      {% endif %}
 
-          <!-- Bouton d'ajout -->
-          {% if user_role in ['admin', 'administrateur'] %}
-            <button type="button" class="btn btn-success btn-add-circle" data-bs-toggle="modal" data-bs-target="#paiementModal" title="Ajouter un paiement">
-              <i class="bi bi-plus-lg"></i>
-            </button>
-          {% endif %}
+      <!-- Bouton d'ajout -->
+      {% if user_role in ['admin', 'administrateur'] %}
+        <button type="button" class="btn btn-success btn-add-circle flex-shrink-0" data-bs-toggle="modal" data-bs-target="#paiementModal" title="Ajouter un paiement">
+          <i class="bi bi-plus-lg"></i>
+        </button>
+      {% endif %}
 
-          <!-- Pagination compacte -->
-          {% if paiements and pagination.pages > 0 %}
-            <div class="pagination-compact">
-              <nav aria-label="Navigation compacte">
-                <ul class="pagination pagination-sm mb-0">
-                  {% if pagination.has_prev %}
-                    <li class="page-item">
-                      <a class="page-link" href="?page={{ pagination.prev_num }}&search={{ search }}&classe_id={{ classe_id }}&per_page={{ per_page }}" title="Page précédente">
-                        <i class="bi bi-chevron-left"></i>
-                      </a>
-                    </li>
-                  {% else %}
-                    <li class="page-item disabled">
-                      <span class="page-link"><i class="bi bi-chevron-left"></i></span>
-                    </li>
-                  {% endif %}
-                  
-                  <li class="page-item active">
-                    <span class="page-link">{{ pagination.page }}/{{ pagination.pages }}</span>
-                  </li>
-                  
-                  {% if pagination.has_next %}
-                    <li class="page-item">
-                      <a class="page-link" href="?page={{ pagination.next_num }}&search={{ search }}&classe_id={{ classe_id }}&per_page={{ per_page }}" title="Page suivante">
-                        <i class="bi bi-chevron-right"></i>
-                      </a>
-                    </li>
-                  {% else %}
-                    <li class="page-item disabled">
-                      <span class="page-link"><i class="bi bi-chevron-right"></i></span>
-                    </li>
-                  {% endif %}
-                </ul>
-              </nav>
-            </div>
-          {% endif %}
+      <!-- Pagination compacte - AJOUTER UNE CLASSE POUR LE SHRINK -->
+      {% if paiements and pagination.pages > 0 %}
+        <div class="pagination-compact flex-shrink-0">
+          <nav aria-label="Navigation compacte">
+            <ul class="pagination pagination-sm mb-0">
+              {% if pagination.has_prev %}
+                <li class="page-item">
+                  <a class="page-link" href="?page={{ pagination.prev_num }}&search={{ search }}&classe_id={{ classe_id }}&per_page={{ per_page }}" title="Page précédente">
+                    <i class="bi bi-chevron-left"></i>
+                  </a>
+                </li>
+              {% else %}
+                <li class="page-item disabled">
+                  <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+                </li>
+              {% endif %}
+              
+              <li class="page-item active">
+                <span class="page-link">{{ pagination.page }}/{{ pagination.pages }}</span>
+              </li>
+              
+              {% if pagination.has_next %}
+                <li class="page-item">
+                  <a class="page-link" href="?page={{ pagination.next_num }}&search={{ search }}&classe_id={{ classe_id }}&per_page={{ per_page }}" title="Page suivante">
+                    <i class="bi bi-chevron-right"></i>
+                  </a>
+                </li>
+              {% else %}
+                <li class="page-item disabled">
+                  <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+                </li>
+              {% endif %}
+            </ul>
+          </nav>
         </div>
-      </form>
-    </div>
+      {% endif %}
+      
+    </form>
   </div>
+</div>
 
   <!-- Tableau paiements avec scroll VERTICAL et HORIZONTAL -->
   <div class="table-container">

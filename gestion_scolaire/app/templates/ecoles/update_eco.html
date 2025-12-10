@@ -10,8 +10,7 @@
           <input type="hidden" name="id" id="editEco_id">
           
           <div class="row g-3">
-            <!-- Ligne 1 : 2 champs -->
-
+            <!-- Ligne 1 : Logo -->
             <div class="col-12">
               <label for="editEco_logo" class="form-label">Logo de l'école</label>
               <input type="file" name="logo" id="editEco_logo" class="form-control" 
@@ -25,6 +24,32 @@
                 <div class="form-text">Logo actuel</div>
               </div>
             </div>
+            
+            <!-- CYCLES DISPONIBLES -->
+            <div class="col-12">
+              <label class="form-label">Cycles disponibles <span class="text-danger">*</span></label>
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="cycle_college" id="editEco_cycle_college" value="1">
+                    <label class="form-check-label" for="editEco_cycle_college">
+                      <i class="bi bi-mortarboard-fill me-1"></i>Collège
+                    </label>
+                    <div class="form-text">Gestion par trimestres (1, 2, 3)</div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="cycle_lycee" id="editEco_cycle_lycee" value="1">
+                    <label class="form-check-label" for="editEco_cycle_lycee">
+                      <i class="bi bi-book-fill me-1"></i>Lycée
+                    </label>
+                    <div class="form-text">Gestion par semestres (1, 2)</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             <div class="col-md-6">
               <label for="editEco_code" class="form-label">Code</label>
               <input id="editEco_code" name="code" class="form-control" placeholder="Code de l'école" required>
@@ -124,6 +149,25 @@
             <div class="col-md-6">
               <label for="editEco_devise" class="form-label">Devise</label>
               <input id="editEco_devise" name="devise" class="form-control" placeholder="Devise de l'école">
+            </div>
+            
+            <!-- Ligne 8 : Chef d'établissement -->
+            <div class="col-md-4">
+              <label for="editEco_chef_civilite" class="form-label">Civilité Chef</label>
+              <select name="chef_etablissement_civilite" id="editEco_chef_civilite" class="form-select">
+                <option value="M.">M.</option>
+                <option value="Mme">Mme</option>
+                <option value="Mlle">Mlle</option>
+              </select>
+            </div>
+            <div class="col-md-8">
+              <label for="editEco_chef_nom" class="form-label">Nom Chef d'établissement</label>
+              <input name="chef_etablissement_nom" id="editEco_chef_nom" class="form-control" placeholder="Nom du chef d'établissement">
+            </div>
+            <div class="col-12">
+              <label for="editEco_chef_titre" class="form-label">Titre Chef d'établissement</label>
+              <input name="chef_etablissement_titre" id="editEco_chef_titre" class="form-control" 
+                     placeholder="LE CHEF D'ÉTABLISSEMENT" value="LE CHEF D'ÉTABLISSEMENT">
             </div>
           </div>
         </div>

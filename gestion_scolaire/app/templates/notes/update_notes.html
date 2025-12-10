@@ -9,6 +9,15 @@
         <form id="editNoteForm">
           <input type="hidden" name="note_id" id="edit_note_id">
           
+          <!-- Sélection du cycle (lecture seule car déjà défini) -->
+          <div class="mb-3">
+            <label class="form-label">Cycle</label>
+            <div class="form-control bg-light">
+              <span id="edit_cycle_display">Collège</span>
+              <input type="hidden" name="cycle_type" id="edit_cycle_type" value="college">
+            </div>
+          </div>
+
           <div class="mb-3">
             <label for="edit_enseignant_id" class="form-label">Enseignant</label>
             <select name="enseignant_id" id="edit_enseignant_id" class="form-select" required>
@@ -41,6 +50,7 @@
           </div>
 
           <div class="mb-3">
+            <label for="edit_coefficient" class="form-label">Coefficient</label>
             <select name="coefficient" id="edit_coefficient" class="form-select">
               <option value="1">1</option>
               <option value="2">2</option>
@@ -52,6 +62,7 @@
           </div>
 
           <div class="mb-3">
+            <label for="edit_trimestre" class="form-label" id="edit_trimestre_label">Trimestre</label>
             <select name="trimestre" id="edit_trimestre" class="form-select" required>
               <option value="1">Trimestre 1</option>
               <option value="2">Trimestre 2</option>
@@ -60,6 +71,7 @@
           </div>
 
           <div class="mb-3">
+            <label for="edit_annee_scolaire" class="form-label">Année scolaire</label>
             <select name="annee_scolaire" id="edit_annee_scolaire" class="form-select" required>
               <option value="">-- Sélectionnez une année --</option>
               {% for annee in annees_scolaires %}
@@ -69,6 +81,7 @@
           </div>
 
           <div class="mb-3">
+            <label for="edit_etat" class="form-label">État</label>
             <select name="etat" id="edit_etat" class="form-select">
               <option value="Actif">Actif</option>
               <option value="Inactif">Inactif</option>
