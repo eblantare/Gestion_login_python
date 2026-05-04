@@ -2,12 +2,13 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 
-    'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:;"> -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- NE PAS METTRE DE CSP ICI - Elle est définie par Flask dans run.py -->
+    
     <title>{% block title %}Gestion scolaire{% endblock %}</title>
 
-    <!-- Bootstrap CSS -->
+    <!-- Bootstrap CSS local -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
 
     <!-- DataTables CSS -->
@@ -21,20 +22,52 @@
     <link href="{{ url_for('static', filename='css/select2.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/select2-bootstrap-5-theme.min.css') }}" rel="stylesheet">
     
-    <!-- Styles CSS de base seulement -->
+    <!-- Styles CSS de base -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ebase.css') }}">
     
     {% block styles %}
+    <!-- Styles spécifiques aux pages -->
+    
+    <!-- Autres CSS (chargés uniquement si les fichiers existent) -->
+    {% if request.endpoint and 'ecoles' in request.endpoint %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/ecoles.css') }}">
+    {% endif %}
+    
+    {% if request.endpoint and 'classes' in request.endpoint %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/classes.css') }}">
+    {% endif %}
+    
+    {% if request.endpoint and 'appreciations' in request.endpoint %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/appreciations.css') }}">
+    {% endif %}
+    
+    {% if request.endpoint and 'eleves' in request.endpoint %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/eleves.css') }}">
+    {% endif %}
+    
+    {% if request.endpoint and 'matieres' in request.endpoint %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/matieres.css') }}">
+    {% endif %}
+    
+    {% if request.endpoint and 'notes' in request.endpoint %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/notes.css') }}">
+    {% endif %}
+    
+    {% if request.endpoint and 'enseignants' in request.endpoint %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/enseignants.css') }}">
+    {% endif %}
+    
+    {% if request.endpoint and 'services' in request.endpoint %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/services.css') }}">
+    {% endif %}
+    
+    {% if request.endpoint and 'paiements' in request.endpoint %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/paiements.css') }}">
+    {% endif %}
+    
+    {% if request.endpoint and 'moyennes' in request.endpoint %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/moyennes.css') }}">
+    {% endif %}
     {% endblock %}
 </head>
 <body>
@@ -45,149 +78,262 @@
                 <i class="bi bi-house-fill me-2"></i>Gestion scolaire
             </a>
 
-            <div class="ms-auto d-flex align-items-center">
-                  <!-- Sélecteur d'école - VERSION FINALE -->
-               <!-- ebase.html - MODIFICATION -->
-<!-- Sélecteur d'école - VERSION CORRIGÉE -->
-{% if current_user.is_authenticated and all_ecoles %}
-<div class="ecole-selector-container me-3">
-    <div class="ecole-selector">
-        <div class="input-group input-group-sm" style="width: 300px;">
-            <span class="input-group-text {% if is_system_admin %}bg-primary text-white{% else %}bg-secondary text-white{% endif %}">
-                <i class="bi bi-building"></i>
-            </span>
-            <select class="form-select form-select-sm select2-ecole" id="ecoleSelect" 
-                data-placeholder="{% if is_system_admin %}Sélectionnez une école{% else %}Votre école{% endif %}"
-                data-url="{{ url_for('main.select_ecole') }}"
-                data-user-role="{{ current_user.role }}"
-                data-user-ecole-id="{{ current_user.ecole_id }}"
-                {% if not is_system_admin %}disabled{% endif %}>
-                
-                {% if is_system_admin %}
-                    <!-- Admin système : toutes les écoles -->
-                    <option value="">Toutes les écoles</option>
-                    {% for ecole in all_ecoles %}
-                        <option value="{{ ecole.id }}" 
-                            {% if selected_ecole_id == ecole.id|string %}selected="selected"{% endif %}>
-                            {{ ecole.nom }}
-                        </option>
-                    {% endfor %}
-                {% else %}
-                    <!-- Autres utilisateurs : seulement leur école -->
-                    {% for ecole in all_ecoles %}
-                        {% if ecole.id|string == current_user.ecole_id|string %}
-                        <option value="{{ ecole.id }}" selected="selected">
-                            {{ ecole.nom }}
-                        </option>
-                        {% endif %}
-                    {% endfor %}
-                {% endif %}
-            </select>
-        </div>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
 
-        <!-- Affichage simple du statut -->
-        {% if is_system_admin %}
-            {% if selected_ecole %}
-                <small class="text-success mt-1 d-block">
-                    <i class="bi bi-check-circle"></i>
-                    École sélectionnée: <strong>{{ selected_ecole.nom }}</strong>
-                </small>
-            {% else %}
-                <small class="text-warning mt-1 d-block">
-                    <i class="bi bi-exclamation-triangle"></i>
-                    Mode toutes les écoles
-                </small>
-            {% endif %}
-        {% else %}
-            {% if all_ecoles %}
-                {% set user_ecole = all_ecoles|selectattr('id', 'equalto', current_user.ecole_id|string)|first %}
-                {% if user_ecole %}
-                <small class="text-muted mt-1 d-block">
-                    <i class="bi bi-building"></i>
-                    Votre école: <strong>{{ user_ecole.nom }}</strong>
-                </small>
-                {% endif %}
-            {% endif %}
-        {% endif %}
-    </div>
-</div>
-{% endif %}
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <!-- Menu principal -->
+                <ul class="navbar-nav me-auto">
+                    {% if current_user.is_authenticated %}
+                    <!-- Dropdown pour Modules - VERSION CORRIGÉE -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="modulesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-gear me-1"></i>Modules
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="modulesDropdown">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('eleves.liste_eleves') }}">
+                                    <i class="bi bi-people-fill me-2"></i>Élèves
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('enseignants.liste_enseignants') }}">
+                                    <i class="bi bi-person-badge-fill me-2"></i>Enseignants
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('classes.liste_classes') }}">
+                                    <i class="bi bi-building me-2"></i>Classes
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('matieres.list_mat') }}">
+                                    <i class="bi bi-book-fill me-2"></i>Matières
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('notes.liste_notes') }}">
+                                    <i class="bi bi-journal-text me-2"></i>Notes
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('moyennes.liste_moyennes') }}">
+                                    <i class="bi bi-graph-up me-2"></i>Moyennes
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('appreciations.liste_appr') }}">
+                                    <i class="bi bi-chat-square-text me-2"></i>Appréciations
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('paiements.liste_paiements') }}">
+                                    <i class="bi bi-currency-dollar me-2"></i>Paiements
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('services.exportations') }}">
+                                    <i class="bi bi-download me-2"></i>Exportations
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    
+                    <!-- Pour les administrateurs -->
+                    {% if current_user.role in ['admin', 'administrateur', 'directeur'] %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('auth.listUsers') }}">
+                            <i class="bi bi-people me-1"></i>Utilisateurs
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    <!-- Pour les administrateurs système -->
+                    {% if current_user.is_authenticated and current_user.username == 'admin' %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('ecoles.liste_ecoles') }}">
+                            <i class="bi bi-gear-wide-connected me-1"></i>Écoles
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% endif %}
+                </ul>
 
-                <!-- Lien retour -->
-                <a href="{{ url_for('main.index') }}" 
-                   class="btn btn-outline-light btn-sm me-3 d-flex align-items-center"
-                   data-bs-toggle="tooltip" 
-                   data-bs-placement="bottom" 
-                   title="Revenir au tableau de bord">
-                    <i class="bi bi-speedometer2 me-1"></i>
-                    <span>Dashboard</span>
-                </a>
-                
-                <!-- Signatures -->
-                {% if user_role in ['admin', 'administrateur'] %}
-                <a href="{{ url_for('ecoles.admin_signatures') }}" 
-                   class="btn btn-outline-light btn-sm me-2 d-flex align-items-center"
-                   data-bs-toggle="tooltip" 
-                   data-bs-placement="bottom" 
-                   title="Administration des signatures">
-                    <i class="bi bi-pen-fill me-1"></i>
-                    <span>Signatures</span>
-                </a>
-                {% endif %}
+                <div class="d-flex align-items-center ms-auto">
+                    <!-- Sélecteur d'école -->
+                    {% if current_user.is_authenticated and all_ecoles %}
+                    <div class="ecole-selector-container me-3">
+                        <div class="ecole-selector">
+                            <div class="input-group input-group-sm" style="width: 300px;">
+                                <span class="input-group-text {% if is_system_admin %}bg-primary text-white{% else %}bg-secondary text-white{% endif %}">
+                                    <i class="bi bi-building"></i>
+                                </span>
+                                <select class="form-select form-select-sm select2-ecole" id="ecoleSelect" 
+                                    data-placeholder="{% if is_system_admin %}Sélectionnez une école{% else %}Votre école{% endif %}"
+                                    data-url="{{ url_for('main.select_ecole') }}"
+                                    data-user-role="{{ current_user.role }}"
+                                    data-user-ecole-id="{{ current_user.ecole_id }}"
+                                    {% if not is_system_admin %}disabled{% endif %}>
+                                    
+                                    {% if is_system_admin %}
+                                        <option value="">Toutes les écoles</option>
+                                        {% for ecole in all_ecoles %}
+                                            <option value="{{ ecole.id }}" 
+                                                {% if selected_ecole_id == ecole.id|string %}selected="selected"{% endif %}>
+                                                {{ ecole.nom }}
+                                            </option>
+                                        {% endfor %}
+                                    {% else %}
+                                        {% for ecole in all_ecoles %}
+                                            {% if ecole.id|string == current_user.ecole_id|string %}
+                                            <option value="{{ ecole.id }}" selected="selected">
+                                                {{ ecole.nom }}
+                                            </option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    {% endif %}
+                                </select>
+                            </div>
 
-                <!-- Nom d'utilisateur -->
-                {% if current_user.is_authenticated %}
-                <div class="dropdown">
-                    <button class="btn btn-outline-light btn-sm dropdown-toggle d-flex align-items-center" 
-                            type="button" data-bs-toggle="dropdown">
-                        <i class="bi bi-person-circle me-1"></i>
-                        <span>{{ current_user.username }}</span>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="#">
-                            <i class="bi bi-person me-2"></i>Profil
-                        </a></li>
-                        <li><a class="dropdown-item" href="#">
-                            <i class="bi bi-gear me-2"></i>Paramètres
-                        </a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">
-                                <i class="bi bi-box-arrow-right me-2"></i>Déconnexion
-                            </a>
-                        </li>
-                    </ul>
+                            {% if is_system_admin %}
+                                {% if selected_ecole %}
+                                    <small class="text-success mt-1 d-block">
+                                        <i class="bi bi-check-circle"></i>
+                                        École sélectionnée: <strong>{{ selected_ecole.nom }}</strong>
+                                    </small>
+                                {% else %}
+                                    <small class="text-warning mt-1 d-block">
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                        Mode toutes les écoles
+                                    </small>
+                                {% endif %}
+                            {% else %}
+                                {% if all_ecoles %}
+                                    {% set user_ecole = all_ecoles|selectattr('id', 'equalto', current_user.ecole_id|string)|first %}
+                                    {% if user_ecole %}
+                                    <small class="text-muted mt-1 d-block">
+                                        <i class="bi bi-building"></i>
+                                        Votre école: <strong>{{ user_ecole.nom }}</strong>
+                                    </small>
+                                    {% endif %}
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Lien retour -->
+                    <a href="{{ url_for('main.index') }}" 
+                       class="btn btn-outline-light btn-sm me-3 d-flex align-items-center"
+                       data-bs-toggle="tooltip" 
+                       data-bs-placement="bottom" 
+                       title="Revenir au tableau de bord">
+                        <i class="bi bi-speedometer2 me-1"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    
+                    <!-- Signatures -->
+                    {% if current_user.role in ['admin', 'administrateur'] %}
+                    <a href="{{ url_for('ecoles.admin_signatures') }}" 
+                       class="btn btn-outline-light btn-sm me-2 d-flex align-items-center"
+                       data-bs-toggle="tooltip" 
+                       data-bs-placement="bottom" 
+                       title="Administration des signatures">
+                        <i class="bi bi-pen-fill me-1"></i>
+                        <span>Signatures</span>
+                    </a>
+                    {% endif %}
+
+                    <!-- Nom d'utilisateur -->
+                    {% if current_user.is_authenticated %}
+                    <div class="dropdown">
+                        <button class="btn btn-outline-light btn-sm dropdown-toggle d-flex align-items-center" 
+                                type="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle me-1"></i>
+                            <span>{{ current_user.username }}</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <h6 class="dropdown-header">
+                                    <i class="bi bi-person me-1"></i>
+                                    {{ current_user.nom_complet }}
+                                </h6>
+                            </li>
+                            <li>
+                                <h6 class="dropdown-header">
+                                    <span class="badge {% if current_user.role == 'admin' %}bg-danger{% else %}bg-primary{% endif %}">
+                                        {{ current_user.role|title }}
+                                    </span>
+                                </h6>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            
+                            <li>
+                                <a class="dropdown-item" href="#" onclick="showProfileInfo()">
+                                    <i class="bi bi-person me-2"></i>Mon Profil
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#" onclick="showSettingsInfo()">
+                                    <i class="bi bi-gear me-2"></i>Paramètres
+                                </a>
+                            </li>
+                            
+                            {% if current_user.role in ['admin', 'administrateur', 'directeur'] %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('auth.listUsers') }}">
+                                    <i class="bi bi-users-cog me-2"></i>Gestion Utilisateurs
+                                </a>
+                            </li>
+                            {% endif %}
+                            
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">
+                                    <i class="bi bi-box-arrow-right me-2"></i>Déconnexion
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    {% else %}
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-outline-light btn-sm">
+                        <i class="bi bi-box-arrow-in-right me-1"></i>
+                        Connexion
+                    </a>
+                    {% endif %}
                 </div>
-                {% else %}
-                <a href="{{ url_for('auth.login') }}" class="btn btn-outline-light btn-sm">
-                    <i class="bi bi-box-arrow-in-right me-1"></i>
-                    Connexion
-                </a>
-                {% endif %}
             </div>
         </div>
     </nav>
 
     <!-- Contenu principal -->
-    <div class="container mt-4">
+    <div class="container-fluid mt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category if category != 'message' else 'info' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
         {% block content %}{% endblock %}
     </div>
 
-    <!-- jQuery DOIT ÊTRE AVANT Select2 -->
+    <!-- Scripts en bas de page -->
     <script src="{{ url_for('static', filename='js/jquery-3.7.0.min.js') }}"></script>
-
-    <!-- Bootstrap JS -->
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
-
-    <!-- DataTables -->
     <script src="{{ url_for('static', filename='js/jquery.dataTables.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dataTables.bootstrap5.min.js') }}"></script>
-
-    <!-- Select2 JS locaux -->
     <script src="{{ url_for('static', filename='js/select2.min.js') }}"></script>
-
-    <!-- Script ebase.js (TOUJOURS chargé) -->
     <script src="{{ url_for('static', filename='js/ebase.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modal-fix.js') }}"></script>
 
     <!-- Chargement conditionnel des scripts spécifiques -->
     {% if request.endpoint and 'enseignants' in request.endpoint %}
@@ -202,46 +348,180 @@
     <script src="{{ url_for('static', filename='js/eleves.js') }}"></script>
     {% endif %}
 
-     {% if request.endpoint and 'matieres' in request.endpoint %}
+    {% if request.endpoint and 'matieres' in request.endpoint %}
     <script src="{{ url_for('static', filename='js/matieres.js') }}"></script>
     {% endif %}
 
-     {% if request.endpoint and 'paiements' in request.endpoint %}
+    {% if request.endpoint and 'paiements' in request.endpoint %}
     <script src="{{ url_for('static', filename='js/paiements.js') }}"></script>
     {% endif %}
 
-     {% if request.endpoint and 'ecoles' in request.endpoint %}
+    {% if request.endpoint and 'ecoles' in request.endpoint %}
     <script src="{{ url_for('static', filename='js/ecoles.js') }}"></script>
     {% endif %}
 
-     {% if request.endpoint and 'notes' in request.endpoint %}
+    {% if request.endpoint and 'notes' in request.endpoint %}
     <script src="{{ url_for('static', filename='js/notes.js') }}"></script>
     {% endif %}
 
-     {% if request.endpoint and 'moyennes' in request.endpoint %}
+    {% if request.endpoint and 'moyennes' in request.endpoint %}
     <script src="{{ url_for('static', filename='js/moyennes.js') }}"></script>
     {% endif %}
 
-     {% if request.endpoint and 'classes' in request.endpoint %}
+    {% if request.endpoint and 'classes' in request.endpoint %}
     <script src="{{ url_for('static', filename='js/classes.js') }}"></script>
     {% endif %}
 
-     {% if request.endpoint and 'services' in request.endpoint %}
+    {% if request.endpoint and 'services' in request.endpoint %}
     <script src="{{ url_for('static', filename='js/services.js') }}"></script>
     {% endif %}
 
-     {% if request.endpoint and 'admin_signatures' in request.endpoint %}
+    {% if request.endpoint and 'admin_signatures' in request.endpoint %}
     <script src="{{ url_for('static', filename='js/admin_signatures.js') }}"></script>
     {% endif %}
-    <!-- Bloc scripts pour les autres pages (compatibilité) -->
+
     {% block scripts %}
-    <!-- Les autres scripts seront chargés de manière conditionnelle ci-dessus -->
     {% endblock %}
+
+    <!-- Scripts inline -->
+    <script>
+        function showProfileInfo() {
+            alert('Fonctionnalité "Mon Profil" - À implémenter\n\nNom: {{ current_user.nom_complet }}\nRôle: {{ current_user.role|title }}\nÉcole: {{ current_user.ecole_nom }}');
+        }
+        
+        function showSettingsInfo() {
+            alert('Fonctionnalité "Paramètres" - À implémenter\n\nCette fonctionnalité sera disponible dans une prochaine mise à jour.');
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('ebase.html - DOM chargé');
+            
+            document.querySelectorAll('link[rel="stylesheet"], script').forEach(function(tag) {
+                tag.addEventListener('error', function(e) {
+                    console.warn('Fichier non trouvé:', e.target.src || e.target.href);
+                    e.preventDefault();
+                });
+            });
+        });
+    </script>
 
     <!-- Notifications -->
     <div aria-live="polite" aria-atomic="true" 
          class="position-fixed top-0 end-0 p-3" style="z-index: 9999;">
         <div id="notificationContainer"></div>
     </div>
+
+    <!-- Toasts pour notifications -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100">
+        <div id="successToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header bg-success text-white">
+                <i class="bi bi-check-circle me-2"></i>
+                <strong class="me-auto">Succès</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="successMessage">Opération réussie</div>
+        </div>
+        
+        <div id="errorToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header bg-danger text-white">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong class="me-auto">Erreur</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="errorMessage">Une erreur est survenue</div>
+        </div>
+        
+        <div id="loadingToast" class="toast" role="alert" aria-live="polite" aria-atomic="true" data-bs-autohide="false">
+            <div class="toast-header bg-info text-white">
+                <i class="bi bi-hourglass-split me-2"></i>
+                <strong class="me-auto">Chargement</strong>
+            </div>
+            <div class="toast-body" id="loadingMessage">Traitement en cours...</div>
+        </div>
+    </div>
+
+    <!-- Scripts unifiés -->
+    <script>
+        // Correction z-index pour Select2
+        (function() {
+            function fixSelect2() {
+                var dropdowns = document.querySelectorAll('.select2-dropdown');
+                dropdowns.forEach(function(dd) {
+                    dd.style.zIndex = '9999999';
+                    dd.style.position = 'absolute';
+                });
+                var containers = document.querySelectorAll('.select2-container--open');
+                containers.forEach(function(c) {
+                    c.style.zIndex = '9999999';
+                });
+            }
+            
+            setTimeout(fixSelect2, 100);
+            
+            if (typeof $ !== 'undefined') {
+                $(document).on('select2:open', function() {
+                    setTimeout(fixSelect2, 10);
+                });
+            }
+            
+            var observer = new MutationObserver(fixSelect2);
+            observer.observe(document.body, { childList: true, subtree: true });
+            
+            console.log('🔧 Select2 corrigé');
+        })();
+
+        // CORRECTION POUR LE DROPDOWN MODULES - Affichage au-dessus
+        document.addEventListener('DOMContentLoaded', function() {
+            // Sélectionner tous les dropdowns de la navbar
+            var dropdownMenus = document.querySelectorAll('.navbar .dropdown-menu');
+            
+            dropdownMenus.forEach(function(menu) {
+                // Stocker les styles par défaut
+                var defaultStyles = {
+                    top: '',
+                    bottom: '',
+                    marginTop: '',
+                    marginBottom: '',
+                    transform: ''
+                };
+                
+                // Écouter l'événement d'ouverture
+                menu.parentElement.querySelector('.dropdown-toggle').addEventListener('show.bs.dropdown', function() {
+                    var button = this;
+                    var dropdownMenu = button.nextElementSibling;
+                    var buttonRect = button.getBoundingClientRect();
+                    var menuHeight = dropdownMenu.offsetHeight;
+                    var spaceBelow = window.innerHeight - buttonRect.bottom;
+                    var spaceAbove = buttonRect.top;
+                    
+                    // Si pas assez de place en dessous, afficher au-dessus
+                    if (spaceBelow < menuHeight && spaceAbove > menuHeight) {
+                        dropdownMenu.style.top = 'auto';
+                        dropdownMenu.style.bottom = '100%';
+                        dropdownMenu.style.marginTop = '0';
+                        dropdownMenu.style.marginBottom = '0.5rem';
+                        dropdownMenu.style.transform = 'translateY(0)';
+                    } else {
+                        // Affichage normal en dessous
+                        dropdownMenu.style.top = '100%';
+                        dropdownMenu.style.bottom = 'auto';
+                        dropdownMenu.style.marginTop = '0.5rem';
+                        dropdownMenu.style.marginBottom = '0';
+                        dropdownMenu.style.transform = 'translateY(0)';
+                    }
+                });
+                
+                // Réinitialiser lors de la fermeture
+                menu.parentElement.querySelector('.dropdown-toggle').addEventListener('hide.bs.dropdown', function() {
+                    var dropdownMenu = this.nextElementSibling;
+                    dropdownMenu.style.top = '';
+                    dropdownMenu.style.bottom = '';
+                    dropdownMenu.style.marginTop = '';
+                    dropdownMenu.style.marginBottom = '';
+                    dropdownMenu.style.transform = '';
+                });
+            });
+        });
+    </script>
 </body>
 </html>

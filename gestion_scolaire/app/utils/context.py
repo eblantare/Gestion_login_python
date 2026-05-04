@@ -4,65 +4,79 @@ from flask import session
 from ..models import Ecole
 from flask_login import current_user
 from .permissions import is_system_admin, is_ecole_admin
-
+import uuid
 # context.py - MODIFICATIONS CRITIQUES
 def inject_ecole_context_global():
-    """Context processor corrigé - TOUJOURS fournir all_ecoles"""
-    print("🎯 CONTEXT PROCESSOR EXÉCUTÉ!")
-    
+    """Injecte le contexte de l'école dans tous les templates"""
     context = {
-        'is_system_admin': False,
-        'is_ecole_admin': False,
-        'all_ecoles': [],  # ← TOUJOURS initialiser
+        'all_ecoles': [],
+        'selected_ecole': None,
         'selected_ecole_id': None,
-        'selected_ecole': None
+        'is_system_admin': False
     }
     
-    if not current_user.is_authenticated:
-        return context
-    
     try:
-        # Détermination des droits
-        context['is_system_admin'] = is_system_admin()
-        context['is_ecole_admin'] = is_ecole_admin()
+        # 1. Vérifier si l'utilisateur est connecté
+        if not current_user.is_authenticated:
+            return context
         
-        # CORRECTION CRITIQUE : TOUJOURS peupler all_ecoles selon les droits
-        if context['is_system_admin']:
-            # Admin système voit toutes les écoles
+        # 2. Déterminer si c'est un admin système
+        is_system_admin = (current_user.is_authenticated and 
+                          hasattr(current_user, 'username') and 
+                          current_user.username == 'admin')
+        context['is_system_admin'] = is_system_admin
+        
+        # 3. Récupérer toutes les écoles (pour l'admin) ou l'école de l'utilisateur
+        if is_system_admin:
+            # Admin système: toutes les écoles
             context['all_ecoles'] = Ecole.query.order_by(Ecole.nom).all()
-            print(f"✅ CONTEXT: Admin système - {len(context['all_ecoles'])} écoles chargées")
         else:
-            # Utilisateurs normaux voient leur école
-            user_ecole_id = getattr(current_user, 'ecole_id', None)
-            if user_ecole_id:
-                user_ecole = Ecole.query.get(user_ecole_id)
+            # Utilisateur normal: seulement son école
+            if current_user.ecole_id:
+                user_ecole = Ecole.query.get(current_user.ecole_id)
                 if user_ecole:
                     context['all_ecoles'] = [user_ecole]
-                    print(f"✅ CONTEXT: Utilisateur normal - école: {user_ecole.nom}")
-                else:
-                    # Fallback sécurisé
-                    fallback_ecole = Ecole.query.first()
-                    if fallback_ecole:
-                        context['all_ecoles'] = [fallback_ecole]
         
-        # Gestion de la sélection d'école
-        selected_ecole_id = session.get('selected_ecole_id')
-        context['selected_ecole_id'] = selected_ecole_id
+        # 4. Déterminer l'école sélectionnée
+        selected_ecole_id = None
         
+        # Priorité 1: session (pour l'admin système)
+        if 'selected_ecole_id' in session:
+            selected_ecole_id = session['selected_ecole_id']
+            print(f"DEBUG context: Using session ecole_id={selected_ecole_id}")
+        
+        # Priorité 2: école de l'utilisateur (si pas d'admin)
+        elif not is_system_admin and current_user.ecole_id:
+            selected_ecole_id = str(current_user.ecole_id)
+            print(f"DEBUG context: Using user ecole_id={selected_ecole_id}")
+        
+        # Priorité 3: première école disponible (pour admin sans sélection)
+        elif is_system_admin and context['all_ecoles']:
+            selected_ecole_id = str(context['all_ecoles'][0].id)
+            print(f"DEBUG context: Using first ecole for admin: {selected_ecole_id}")
+        
+        # 5. Récupérer l'objet école sélectionnée
         if selected_ecole_id:
-            context['selected_ecole'] = Ecole.query.get(selected_ecole_id)
-        elif context['all_ecoles'] and not context['is_system_admin']:
-            # Pour les non-admins, utiliser leur première école comme sélectionnée
-            context['selected_ecole'] = context['all_ecoles'][0]
-            context['selected_ecole_id'] = str(context['all_ecoles'][0].id)
+            try:
+                ecole_uuid = uuid.UUID(selected_ecole_id)
+                selected_ecole = Ecole.query.get(ecole_uuid)
+                if selected_ecole:
+                    context['selected_ecole'] = selected_ecole
+                    context['selected_ecole_id'] = str(selected_ecole.id)
+                    
+                    # Mettre à jour current_user.ecole_id pour cette requête
+                    if is_system_admin:
+                        current_user._ecole_id = selected_ecole.id
+                        current_user._ecole_nom = selected_ecole.nom
+                    print(f"DEBUG context: Selected ecole={selected_ecole.nom}")
+            except Exception as e:
+                print(f"DEBUG context error: {e}")
         
-        # Debug
-        print(f"📊 CONTEXT FINAL: is_system_admin={context['is_system_admin']}, all_ecoles={len(context['all_ecoles'])}, selected_ecole_id={context['selected_ecole_id']}")
+        return context
         
     except Exception as e:
-        print(f"❌ CONTEXT ERROR: {str(e)}")
-    
-    return context
+        print(f"ERROR in inject_ecole_context_global: {e}")
+        return context
 
 # Cette fonction n'est plus nécessaire si vous utilisez directement le context processor
 def register_context_processor(app):

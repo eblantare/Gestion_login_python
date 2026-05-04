@@ -1,40 +1,43 @@
+# run.py - VERSION SIMPLIFIÉE SANS TABLEAU SERVICE
 import os
 from urllib.parse import quote_plus
-from flask import Flask, send_from_directory,jsonify
+from flask import Flask, send_from_directory, redirect, url_for
 from dotenv import load_dotenv
-import uuid
-from flask_sqlalchemy import session
-# Ajouter le package courant au sys.path pour éviter ModuleNotFound
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from extensions import db, login_manager, mail
 from gestion_login.gestion_login.routes import auth_bp
 from datetime import timedelta
-# Import des blueprints
-from gestion_scolaire.app.routes import (
-    main_bp, eleves_bp, appreciations_bp, classes_bp, matieres_bp,
-    enseignants_bp, paiements_bp, notes_bp, moyennes_bp,enseignements_bp,
-    ecoles_bp,services_bp, bulletins_export_bp
-)
+
+# IMPORT DIRECT DES BLUEPRINTS
+from gestion_scolaire.app.routes.main import main_bp
+from gestion_scolaire.app.routes.eleves import eleves_bp
+from gestion_scolaire.app.routes.appreciations import appreciations_bp
+from gestion_scolaire.app.routes.classes import classes_bp
+from gestion_scolaire.app.routes.matieres import matieres_bp
+from gestion_scolaire.app.routes.enseignants import enseignants_bp
+from gestion_scolaire.app.routes.paiements import paiements_bp
+from gestion_scolaire.app.routes.notes import notes_bp
+from gestion_scolaire.app.routes.moyennes import moyennes_bp
+from gestion_scolaire.app.routes.enseignements import enseignements_bp
+from gestion_scolaire.app.routes.ecoles import ecoles_bp
+from gestion_scolaire.app.routes.services import services_bp
+from gestion_scolaire.app.routes.bulletins_export import bulletins_export_bp
 
 load_dotenv()
 
 def create_default_admin():
     """Crée l'utilisateur admin par défaut s'il n'existe pas"""
     try:
-        # Import différé pour éviter les problèmes circulaires
         from gestion_login.gestion_login.models import Utilisateur
         
-        # Vérifier si l'admin existe déjà
         existing_admin = Utilisateur.query.filter_by(username='admin').first()
         if existing_admin:
-            print("✅ Utilisateur admin existe déjà")
+            print("✅ Admin existe déjà")
             return True
 
-        # CORRECTION : Ne pas passer l'ID, laisser la base le générer
         admin_user = Utilisateur(
-            # SUPPRIMEZ la ligne id=uuid.uuid4() - la base générera l'UUID automatiquement
             nom="Admin",
             prenoms="System", 
             sexe="Masculin",
@@ -49,15 +52,12 @@ def create_default_admin():
         db.session.add(admin_user)
         db.session.commit()
         
-        print("✅ Utilisateur admin créé avec succès!")
-        print("📧 Identifiants: admin / Admin@123")
+        print("✅ Admin créé - Identifiants: admin / Admin@123")
         return True
         
     except Exception as e:
         db.session.rollback()
         print(f"❌ Erreur création admin: {e}")
-        import traceback
-        traceback.print_exc()
         return False
 
 def create_app():
@@ -100,7 +100,6 @@ def create_app():
     def load_user(user_id):
         from gestion_login.gestion_login.models import Utilisateur
         try:
-            # CORRECTION : Pas besoin de UUID() car l'ID est déjà un string
             return db.session.get(Utilisateur, user_id)
         except:
             return None
@@ -117,19 +116,16 @@ def create_app():
     app.register_blueprint(notes_bp, url_prefix="/notes")
     app.register_blueprint(moyennes_bp, url_prefix="/moyennes")
     app.register_blueprint(enseignements_bp, url_prefix="/enseignements")
-    
-    # 🔥 CORRECTION CRITIQUE : Supprimer le url_prefix supplémentaire
-    app.register_blueprint(ecoles_bp)  # Le préfixe /admin/ecoles est déjà dans le blueprint
-    
+    app.register_blueprint(ecoles_bp)
     app.register_blueprint(services_bp, url_prefix='/services')
-    # app.register_blueprint(moyennes_export_bp, url_prefix='/moyennes')
     app.register_blueprint(bulletins_export_bp, url_prefix='/')
-
+    
     # Middleware login
     from gestion_login.gestion_login.utils import login_required_middleware
     login_required_middleware(app, protected_paths=[
         "/eleves", "/enseignants", "/matieres", "/classes",
-        "/appreciations", "/paiements", "/notes", "/moyennes","/enseignements","/ecoles","/services", "/listUsers"
+        "/appreciations", "/paiements", "/notes", "/moyennes",
+        "/enseignements", "/ecoles", "/services", "/listUsers"
     ])
 
     # Route spéciale pour uploads
@@ -150,52 +146,109 @@ def create_app():
         )
         return send_from_directory(logos_folder, filename)
 
-    # ✅ CONTEXT PROCESSOR GLOBAL - AJOUTEZ CETTE PARTIE
+    # ✅ ROUTE RACINE - REDIRIGE VERS LA PAGE DE LOGIN
+    @app.route('/')
+    def index():
+        """Redirige vers la page de connexion"""
+        return redirect(url_for('auth.login'))
+
+    # ✅ CONTEXT PROCESSOR GLOBAL
     from gestion_scolaire.app.utils.context import inject_ecole_context_global
     
     @app.context_processor
     def inject_ecole_global():
-        print("🔧 CONTEXT PROCESSOR GLOBAL APPELÉ!")
+        """Injecte le contexte de l'école dans tous les templates"""
         result = inject_ecole_context_global()
-        print(f"🔧 CONTEXT RESULT GLOBAL: {len(result.get('ecoles', []))} école(s)")
         return result
     
-    print("✅ Context processor global configuré")
+    # ========== DÉSACTIVER/DÉFINIR CSP PERMISSIVE ==========
+    @app.after_request
+    def add_security_headers(response):
+        """Définit une CSP permissive pour autoriser les scripts inline"""
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "font-src 'self' https://cdn.jsdelivr.net data:; "
+            "img-src 'self' data: https:; "
+            "connect-src 'self'; "
+            "frame-src 'self';"
+        )
+        return response
 
     # Commande CLI pour créer l'admin manuellement
     @app.cli.command("create-admin")
     def create_admin_cli():
         """Crée un utilisateur admin par défaut (commande manuelle)"""
         create_default_admin()
+    
     return app
-     
 
-
-from sqlalchemy import text
 if __name__ == "__main__":
     app = create_app()
     with app.app_context():
         try:
-            # Créer le schéma et les tables
+            from sqlalchemy import text, inspect
+            
+            # Créer le schéma si nécessaire
             db.session.execute(text("CREATE SCHEMA IF NOT EXISTS geslog_schema;"))
             db.session.commit()
             
-            # CORRECTION : Importer les modèles APRÈS la création du contexte
-            from gestion_scolaire.app.models.ecoles import Ecole
+            # Importer les modèles de base d'abord
             from gestion_scolaire.app.models import (
-                Eleve, Classe, Enseignant, Matiere,
-                Note, Moyenne, Appreciations, Paiement, Service, Enseignement
+                Ecole, Classe, Matiere, Enseignant,
+                Eleve, Note, Moyenne, Appreciations, 
+                Paiement, Service, Enseignement,
+                SystemeEvaluation
             )
             
-            db.create_all()
-            print("✅ Tables créées avec succès")
+            # Liste des modèles à créer (dans l'ordre logique)
+            models_to_create = [
+                Ecole,  # Table racine
+                Matiere,
+                Classe,
+                Enseignant,
+                Eleve,
+                Note,
+                Moyenne,
+                Appreciations,
+                Paiement,
+                Service,
+                Enseignement,
+                SystemeEvaluation
+            ]
+            
+            # Créer les tables si elles n'existent pas (messages simplifiés)
+            created_count = 0
+            for Model in models_to_create:
+                try:
+                    Model.__table__.create(db.engine, checkfirst=True)
+                    created_count += 1
+                except Exception:
+                    pass  # Table existe déjà, on ignore
+            
+            if created_count > 0:
+                print(f"✅ {created_count} tables créées/validées")
+            else:
+                print("✅ Toutes les tables existent déjà")
+            
+            # Vérification rapide des tables essentielles
+            inspector = inspect(db.engine)
+            tables = inspector.get_table_names(schema="geslog_schema")
+            
+            essential_tables = ['ecoles', 'classes', 'matieres', 'utilisateurs']
+            missing_essential = [t for t in essential_tables if t not in tables]
+            
+            if missing_essential:
+                print(f"⚠️  Tables manquantes: {missing_essential}")
             
             # Créer l'admin par défaut automatiquement
             create_default_admin()
             
         except Exception as e:
-            print(f"❌ Erreur lors de l'initialisation: {e}")
-            import traceback
-            traceback.print_exc()
-        
-    app.run(debug=True, port=5000)
+            print(f"❌ Erreur d'initialisation: {e}")
+            db.session.rollback()
+    
+    print(f"🚀 Application démarrée sur http://localhost:5000")
+    print(f"🔗 Page de connexion: http://localhost:5000/login")
+    app.run(debug=True, port=5000, host='0.0.0.0')

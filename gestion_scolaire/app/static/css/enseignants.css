@@ -75,35 +75,224 @@
 }
 
 /* ======================= */
-/* CELLULE ÉTAT - CORRIGÉE */
+/* CELLULE ÉTAT - AMÉLIORÉE */
 /* ======================= */
 
 .etat {
-    min-width: 120px;
+    min-width: 140px;
     white-space: normal !important;
     overflow: visible !important;
 }
 
 .etat .badge {
-    font-size: 0.65rem;
-    padding: 0.2rem 0.3rem;
-    min-width: 60px;
+    font-size: 0.7rem;
+    padding: 0.3rem 0.5rem;
+    min-width: 70px;
     display: inline-block;
+    cursor: pointer;
+    /* transition: all 0.2s ease; */
 }
 
-/* Select d'action - CORRIGÉ */
+.etat .badge:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+/* Styles pour les badges selon l'état */
+.etat .bg-success { background-color: #198754 !important; }
+.etat .bg-secondary { background-color: #6c757d !important; }
+.etat .bg-warning { background-color: #ffc107 !important; color: #000 !important; }
+.etat .bg-info { background-color: #0dcaf0 !important; }
+
+/* Select d'action - AMÉLIORÉ */
 .select-action.form-select {
     border: 1px solid #dee2e6 !important;
-    font-size: 0.65rem !important;
-    padding: 0.15rem 0.25rem !important;
-    height: 24px !important;
-    width: 85px !important;
-    border-radius: 0.2rem !important;
+    font-size: 0.75rem !important;
+    padding: 0.25rem 0.5rem !important;
+    height: 28px !important;
+    width: 110px !important;
+    border-radius: 0.25rem !important;
     background-color: white !important;
     color: #212529 !important;
-    line-height: 1 !important;
+    line-height: 1.2 !important;
     margin-top: 0.15rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
+
+.select-action.form-select:focus {
+    border-color: #0d6efd !important;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
+}
+
+.select-action.form-select:hover {
+    border-color: #adb5bd !important;
+}
+
+/* Options du select d'action */
+.select-action.form-select option {
+    font-size: 0.75rem;
+    padding: 6px;
+}
+
+/* Container pour l'état et les actions */
+.etat-action-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Pour les écrans mobiles */
+@media (max-width: 768px) {
+    .etat {
+        min-width: 120px;
+    }
+    
+    .etat .badge {
+        font-size: 0.65rem;
+        min-width: 60px;
+        padding: 0.2rem 0.4rem;
+    }
+    
+    .select-action.form-select {
+        width: 95px !important;
+        font-size: 0.7rem !important;
+        height: 26px !important;
+    }
+}
+
+/* Animation pour le changement d'état */
+@keyframes etatChange {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.etat-changing {
+    animation: etatChange 0.5s ease;
+}
+
+/* Transition douce pour les couleurs */
+.etat .badge {
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ======================= */
+/* CELLULE ÉTAT - SUR LA MÊME LIGNE */
+/* ======================= */
+
+.col-etat {
+    min-width: 220px; /* Augmenter la largeur pour accommoder les deux éléments */
+    white-space: nowrap !important;
+    overflow: visible !important;
+}
+
+.etat-action-container {
+    display: flex;
+    flex-direction: row; /* Changer de column à row */
+    align-items: center;
+    gap: 8px; /* Espacement entre les éléments */
+    justify-content: flex-start;
+}
+
+/* Badge d'état - taille fixe */
+.etat-badge {
+    font-size: 0.75rem !important;
+    padding: 0.3rem 0.6rem !important;
+    min-width: 80px !important;
+    display: inline-block !important;
+    text-align: center;
+    flex-shrink: 0; /* Empêche le badge de rétrécir */
+}
+
+/* Select d'action - ajusté pour la ligne */
+.select-action.form-select {
+    border: 1px solid #dee2e6 !important;
+    font-size: 0.75rem !important;
+    padding: 0.25rem 0.5rem !important;
+    height: 32px !important;
+    width: 130px !important; /* Légèrement plus large */
+    border-radius: 0.25rem !important;
+    background-color: white !important;
+    color: #212529 !important;
+    line-height: 1.2 !important;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0; /* Empêche le select de rétrécir */
+}
+
+/* Style pour l'ensemble des deux éléments */
+.etat-et-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px; /* Hauteur minimale pour aligner verticalement */
+}
+
+/* Responsive pour tablettes */
+@media (max-width: 992px) {
+    .col-etat {
+        min-width: 200px;
+    }
+    
+    .etat-badge {
+        min-width: 70px !important;
+        font-size: 0.7rem !important;
+        padding: 0.25rem 0.5rem !important;
+    }
+    
+    .select-action.form-select {
+        width: 115px !important;
+        font-size: 0.7rem !important;
+        height: 30px !important;
+    }
+}
+
+/* Responsive pour mobiles */
+@media (max-width: 768px) {
+    .col-etat {
+        min-width: 180px;
+    }
+    
+    .etat-et-actions {
+        flex-direction: column; /* Revenir à colonne sur mobile si nécessaire */
+        gap: 4px;
+        align-items: flex-start;
+    }
+    
+    .etat-badge {
+        min-width: 65px !important;
+        font-size: 0.65rem !important;
+        padding: 0.2rem 0.4rem !important;
+    }
+    
+    .select-action.form-select {
+        width: 100px !important;
+        font-size: 0.65rem !important;
+        height: 28px !important;
+    }
+}
+
+/* Très petits écrans */
+@media (max-width: 576px) {
+    .col-etat {
+        min-width: 160px;
+    }
+    
+    .etat-badge {
+        min-width: 60px !important;
+        font-size: 0.6rem !important;
+    }
+    
+    .select-action.form-select {
+        width: 90px !important;
+        font-size: 0.6rem !important;
+        height: 26px !important;
+    }
+}
+
 
 /* ======================= */
 /* CELLULE ACTIONS - CORRIGÉE */
@@ -464,4 +653,95 @@
 
 #dependanceErrorModal .alert {
     border-left: 4px solid #dc3545;
+}
+
+/* ======================= */
+/* MODAL DE CONFIRMATION D'ÉTAT */
+/* ======================= */
+
+#confirmationEtatModal .modal-header {
+    background: linear-gradient(135deg, #ffc107, #fd7e14);
+    color: white;
+}
+
+#confirmationEtatModal .modal-title i {
+    color: white;
+}
+
+#confirmationEtatModal .modal-body {
+    padding: 1.5rem;
+}
+
+#confirmationEtatModal #confirmationEtatMessage {
+    font-size: 1.1rem;
+    line-height: 1.5;
+    white-space: pre-line;
+}
+
+#confirmationEtatModal .alert-info {
+    border-left: 4px solid #0dcaf0;
+}
+
+#confirmationEtatModal .modal-footer {
+    border-top: 1px solid #dee2e6;
+    padding: 1rem 1.5rem;
+}
+
+#confirmationEtatModal #confirmEtatBtn {
+    background: linear-gradient(135deg, #ffc107, #fd7e14);
+    border: none;
+    color: white;
+    font-weight: 600;
+    min-width: 120px;
+    padding: 0.5rem 1.5rem;
+}
+
+#confirmationEtatModal #confirmEtatBtn:hover {
+    background: linear-gradient(135deg, #fd7e14, #e8590c);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(253, 126, 20, 0.3);
+}
+
+#confirmationEtatModal #cancelEtatBtn {
+    min-width: 100px;
+    padding: 0.5rem 1.5rem;
+}
+
+/* Animation pour le changement d'état */
+.etat-changing {
+    animation: pulseEtat 0.5s ease-in-out;
+}
+
+@keyframes pulseEtat {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Style pour les notifications */
+.toast-container {
+    z-index: 1100;
+}
+
+.toast.bg-success {
+    background: linear-gradient(135deg, #198754, #146c43) !important;
+}
+
+.toast.bg-danger {
+    background: linear-gradient(135deg, #dc3545, #b02a37) !important;
+}
+
+.toast.bg-warning {
+    background: linear-gradient(135deg, #ffc107, #e0a800) !important;
+}
+
+.toast.bg-info {
+    background: linear-gradient(135deg, #0dcaf0, #0aa2c0) !important;
+}
+
+/* Amélioration du select désactivé */
+.select-action.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background-color: #f8f9fa;
 }

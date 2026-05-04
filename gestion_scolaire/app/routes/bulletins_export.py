@@ -145,6 +145,107 @@ def create_default_logo():
     except Exception as e:
         print(f"❌ Erreur création logo par défaut: {e}")
         return None
+def calculer_appreciations_automatiques(eleve_data, trimestre, annee_scolaire):
+    """
+    Calcule automatiquement les appréciations pour un élève
+    Retourne un dictionnaire avec les valeurs pour chaque critère
+    """
+    moyenne_generale = eleve_data.get('moyenne_generale', 0)
+    
+    # Récupérer les notes pour l'assiduité
+    notes_brutes = eleve_data.get('notes', [])
+    
+    # Compter les matières avec des notes valides
+    matieres_avec_notes = 0
+    for note_obj in notes_brutes:
+        if hasattr(note_obj, 'note1') and note_obj.note1 is not None and note_obj.note1 > 0:
+            matieres_avec_notes += 1
+        elif hasattr(note_obj, 'note2') and note_obj.note2 is not None and note_obj.note2 > 0:
+            matieres_avec_notes += 1
+        elif hasattr(note_obj, 'note3') and note_obj.note3 is not None and note_obj.note3 > 0:
+            matieres_avec_notes += 1
+        elif hasattr(note_obj, 'note_comp') and note_obj.note_comp is not None and note_obj.note_comp > 0:
+            matieres_avec_notes += 1
+    
+    total_matieres = len(notes_brutes) if notes_brutes else 1
+    taux_completion = (matieres_avec_notes / total_matieres * 100) if total_matieres > 0 else 0
+    
+    # 1. CONDUITE (basée sur la moyenne générale)
+    if moyenne_generale >= 16:
+        conduite = 'Très Bonne'
+    elif moyenne_generale >= 14:
+        conduite = 'Bonne'
+    elif moyenne_generale >= 12:
+        conduite = 'Satisfaisante'
+    elif moyenne_generale >= 10:
+        conduite = 'Moyenne'
+    else:
+        conduite = 'À Améliorer'
+    
+    # 2. TRAVAIL (basé sur l'assiduité - taux de complétion des notes)
+    if taux_completion >= 95:
+        travail = 'Très Régulier'
+    elif taux_completion >= 85:
+        travail = 'Régulier'
+    elif taux_completion >= 70:
+        travail = 'Assez Régulier'
+    elif taux_completion >= 50:
+        travail = 'Peu Régulier'
+    else:
+        travail = 'Très Irrégulier'
+    
+    # 3. HONNEUR (Oui ou Non selon la moyenne générale)
+    if moyenne_generale >= 14:
+        honneur = 'Oui'
+    else:
+        honneur = 'Non'
+    
+    # 4. ENCOURAGEMENT (basé sur la progression)
+    if trimestre > 1:
+        try:
+            from ..models import Moyenne
+            moyenne_prec = Moyenne.query.filter_by(
+                eleve_id=eleve_data['eleve'].id,
+                trimestre=trimestre - 1,
+                annee_scolaire=annee_scolaire
+            ).first()
+            moy_prec = moyenne_prec.moy_trim if moyenne_prec and moyenne_prec.moy_trim else 0
+        except:
+            moy_prec = 0
+        
+        if moy_prec > 0 and moyenne_generale > moy_prec:
+            progression = moyenne_generale - moy_prec
+            if progression >= 2:
+                encouragement = 'Progression Remarquable'
+            elif progression >= 1:
+                encouragement = 'En Progression'
+            else:
+                encouragement = 'À Maintenir'
+        else:
+            encouragement = 'À Améliorer'
+    else:
+        if moyenne_generale >= 12:
+            encouragement = 'Bon Départ'
+        elif moyenne_generale >= 10:
+            encouragement = 'Peut Mieux Faire'
+        else:
+            encouragement = 'Attention Nécessaire'
+    
+    return {
+        'conduite': conduite,
+        'travail': travail,
+        'honneur': honneur,
+        'encouragement': encouragement
+    }
+
+def get_moyenne_trimestre(eleve_id, trimestre, annee_scolaire):
+    """Récupère la moyenne d'un trimestre précédent"""
+    moyenne = Moyenne.query.filter_by(
+        eleve_id=eleve_id,
+        trimestre=trimestre,
+        annee_scolaire=annee_scolaire
+    ).first()
+    return moyenne.moy_trim if moyenne and moyenne.moy_trim else 0
 
 @bulletins_export_bp.route("/services/classes", methods=["GET"])
 def get_classes_for_export():
@@ -296,7 +397,7 @@ def arrondir_moyenne_specifique(valeur):
 # ==================== FONCTION get_eleve_data CORRIGÉE (CALCULS STATISTIQUES CORRIGÉS) ====================
 
 def get_eleve_data(eleve_id, trimestre, annee_scolaire):
-    """Récupère toutes les données nécessaires pour un élève donné - VERSION CORRIGÉE"""
+    """Récupère toutes les données nécessaires pour un élève donné - AVEC DÉDOUBLONNAGE PAR MATIÈRE"""
     
     eleve = Eleve.query.options(joinedload(Eleve.classe)).filter_by(id=eleve_id).first()
     if not eleve:
@@ -309,7 +410,7 @@ def get_eleve_data(eleve_id, trimestre, annee_scolaire):
         annee_scolaire=annee_scolaire
     ).first()
     
-    # Récupérer TOUTES les notes de l'élève (uniquement celles qui existent)
+    # Récupérer TOUTES les notes de l'élève
     notes = Note.query.filter_by(
         eleve_id=eleve_id,
         trimestre=trimestre,
@@ -319,36 +420,53 @@ def get_eleve_data(eleve_id, trimestre, annee_scolaire):
         joinedload(Note.enseignement).joinedload(Enseignement.enseignant).joinedload(Enseignant.utilisateur)
     ).all()
 
-    # On utilise uniquement les notes qui existent réellement
-    notes_completes = notes
+    # ========== CORRECTION : DÉDOUBLONNAGE PAR MATIÈRE ==========
+    # Garder une seule note par matière (celle avec la meilleure note_comp ou la plus récente)
+    notes_par_matiere = {}
+    for note in notes:
+        matiere_id = note.matiere_id
+        if matiere_id not in notes_par_matiere:
+            notes_par_matiere[matiere_id] = note
+        else:
+            existing = notes_par_matiere[matiere_id]
+            # Comparer la note de composition (la plus élevée)
+            note_comp_current = note.note_comp or 0
+            note_comp_existing = existing.note_comp or 0
+            
+            if note_comp_current > note_comp_existing:
+                notes_par_matiere[matiere_id] = note
+            elif note_comp_current == note_comp_existing:
+                # Si égalité, prendre la plus récente
+                if note.date_saisie and existing.date_saisie:
+                    if note.date_saisie > existing.date_saisie:
+                        notes_par_matiere[matiere_id] = note
+    
+    notes_completes = list(notes_par_matiere.values())
+    
+    # Debug pour voir les doublons
+    if len(notes) != len(notes_completes):
+        print(f"⚠️ Dédoublonnage pour élève {eleve.nom} {eleve.prenoms}: {len(notes)} notes → {len(notes_completes)} notes uniques")
+        for matiere_id, note in notes_par_matiere.items():
+            print(f"   - Matière: {note.matiere.libelle}, Enseignant: {note.enseignement.enseignant.utilisateur.nom if note.enseignement and note.enseignement.enseignant else 'N/A'}")
 
-    # Calculer les moyennes pour chaque note AVEC LA NOUVELLE LOGIQUE
+    # Calculer les moyennes pour chaque note
     notes_calculees = []
     for note in notes_completes:
-        # 1. Calculer moyenne_notes (remplace M.CL) - moyenne des notes 1,2,3 de l'élève
         moyenne_notes = calculer_moyenne_notes_eleve_matiere(note)
-        
-        # 2. Calculer moyenne_classe (statistique de la classe)
         moyenne_classe = calculer_moyenne_classe_par_matiere(
             note.matiere_id, eleve.classe_id, trimestre, annee_scolaire
         )
-        
-        # 3. Calculer moyenne matière (M.MAT)
         moy_matiere = calculer_moyenne_matiere(moyenne_notes, getattr(note, 'note_comp', 0))
-        
-        # 4. Calculer moyenne pondérée
         coefficient = getattr(note, 'coefficient', 0) or 0
         moy_ponderee = calculer_moyenne_ponderee(moy_matiere, coefficient)
-        
-        # Déterminer si la matière a des notes valides
         has_notes_valides = (moyenne_notes > 0 or (getattr(note, 'note_comp', 0) and getattr(note, 'note_comp', 0) > 0))
         
         notes_calculees.append({
             'note_obj': note,
-            'moyenne_notes': moyenne_notes,  # REMPLACE M.CL
+            'moyenne_notes': moyenne_notes,
             'moyenne_classe': moyenne_classe,
-            'moyenne_matiere': moy_matiere,  # M.MAT
-            'moyenne_ponderee': moy_ponderee,  # M.Coef
+            'moyenne_matiere': moy_matiere,
+            'moyenne_ponderee': moy_ponderee,
             'coefficient': coefficient if has_notes_valides else 0,
             'has_notes_valides': has_notes_valides
         })
@@ -364,7 +482,6 @@ def get_eleve_data(eleve_id, trimestre, annee_scolaire):
         note = note_calc['note_obj']
         matiere_id = note.matiere_id
         
-        # Calculer la moyenne de classe pour cette matière
         notes_matiere_classe = Note.query.filter_by(
             matiere_id=matiere_id,
             trimestre=trimestre,
@@ -391,7 +508,6 @@ def get_eleve_data(eleve_id, trimestre, annee_scolaire):
     # Calcul des classements par matière
     classements_par_matiere = {}
     for matiere in set([n['note_obj'].matiere_id for n in notes_calculees]):
-        # Récupérer toutes les M.MAT de la matière pour le classement
         moyennes_eleves_matiere = []
         for eleve_classe in Eleve.query.filter_by(classe_id=eleve.classe_id).all():
             note_eleve = Note.query.filter_by(
@@ -411,10 +527,7 @@ def get_eleve_data(eleve_id, trimestre, annee_scolaire):
                     })
         
         if moyennes_eleves_matiere:
-            # Trier par M.MAT décroissante
             moyennes_triees = sorted(moyennes_eleves_matiere, key=lambda x: x['moy_matiere'], reverse=True)
-            
-            # Calculer les rangs avec gestion des ex-aequo
             current_rank = 1
             previous_moyenne = None
             
@@ -430,34 +543,28 @@ def get_eleve_data(eleve_id, trimestre, annee_scolaire):
                 
                 previous_moyenne = current_moyenne
     
-    # Totaux par catégorie - AVEC LA NOUVELLE LOGIQUE
+    # Totaux par catégorie
     total_coeff_litteraire = total_moy_coef_litteraire = 0
     total_coeff_scientifique = total_moy_coef_scientifique = 0
     total_coeff_specialise = total_moy_coef_specialise = 0
     
     for note_calc in notes_calculees:
         note = note_calc['note_obj']
-        moyenne_notes = note_calc['moyenne_notes']  # M.CL remplacé par moyenne_notes
-        moyenne_classe = note_calc['moyenne_classe']
-        moyenne_matiere = note_calc['moyenne_matiere']  # M.MAT
+        moyenne_notes = note_calc['moyenne_notes']
+        moyenne_matiere = note_calc['moyenne_matiere']
         coefficient = note_calc['coefficient']
-        moyenne_ponderee = note_calc['moyenne_ponderee']  # M.Coef
         
-        moy_clas = moyennes_par_matiere.get(note.matiere_id, 0)
-        rang = classements_par_matiere.get(note.matiere_id, '-')
-        
-        # Afficher la vraie note_comp
         vraie_note_comp = getattr(note, 'note_comp', 0) or 0
         
         matiere_data = {
             'libelle': note.matiere.libelle,
-            'moyenne_notes': round(moyenne_notes, 2),  # REMPLACE moy_clas
+            'moyenne_notes': round(moyenne_notes, 2),
             'note_comp': round(vraie_note_comp, 2),
             'moy_mat': round(moyenne_matiere, 2),
             'coefficient': coefficient,
-            'moy_coef': round(moyenne_ponderee, 2),
-            'rang': rang,
-            'observation': getattr(note, 'observation', ''),
+            'moy_coef': round(moyenne_matiere * coefficient, 2),
+            'rang': classements_par_matiere.get(note.matiere_id, '-'),
+            'observation': get_observation_for_note(moyenne_matiere),
             'enseignant': note.enseignement.enseignant.utilisateur.nom if note.enseignement and note.enseignement.enseignant else 'Non assigné',
             'signature': ''
         }
@@ -465,11 +572,9 @@ def get_eleve_data(eleve_id, trimestre, annee_scolaire):
         moy_mat_val = matiere_data['moy_mat']
         coefficient_val = matiere_data['coefficient']
         
-        # Classification basée sur les types
         matiere_type = note.matiere.type or 'Autres'
         libelle_lower = note.matiere.libelle.lower()
 
-        # Classification spécifique
         if 'education physique' in libelle_lower or 'eps' in libelle_lower or 'sport' in libelle_lower:
             matieres_specialisees.append(matiere_data)
             if coefficient_val > 0:
@@ -505,18 +610,16 @@ def get_eleve_data(eleve_id, trimestre, annee_scolaire):
     moyenne_scientifique = max(0, round(moyenne_scientifique, 2))
     moyenne_specialise = max(0, round(moyenne_specialise, 2))
 
-    # ==================== CALCUL DE LA MOYENNE GÉNÉRALE CORRIGÉ ====================
-    # Moy_trim = (somme des moy_coef) / (somme des coef)
+    # Calcul de la moyenne générale
     total_coeff = total_coeff_litteraire + total_coeff_scientifique + total_coeff_specialise
     total_moy_coef = total_moy_coef_litteraire + total_moy_coef_scientifique + total_moy_coef_specialise
     moyenne_generale = total_moy_coef / total_coeff if total_coeff > 0 else 0
     
-    # ==================== CALCUL DES STATISTIQUES DE CLASSE CORRIGÉ ====================
+    # Calcul des statistiques de classe
     tous_eleves_classe = Eleve.query.filter_by(classe_id=eleve.classe_id).all()
     moyennes_eleves_classe = []
     
     for eleve_classe in tous_eleves_classe:
-        # Essayer d'abord de récupérer la moyenne depuis la table Moyenne
         moyenne_db = Moyenne.query.filter_by(
             eleve_id=eleve_classe.id,
             trimestre=trimestre,
@@ -526,7 +629,6 @@ def get_eleve_data(eleve_id, trimestre, annee_scolaire):
         if moyenne_db and moyenne_db.moy_trim and moyenne_db.moy_trim > 0:
             moyennes_eleves_classe.append(moyenne_db.moy_trim)
         else:
-            # Sinon calculer la moyenne à partir des notes
             notes_eleve = Note.query.filter_by(
                 eleve_id=eleve_classe.id,
                 trimestre=trimestre,
@@ -550,18 +652,10 @@ def get_eleve_data(eleve_id, trimestre, annee_scolaire):
                     moyenne_eleve_calculee = total_moy_coef_eleve / total_coeff_eleve
                     moyennes_eleves_classe.append(moyenne_eleve_calculee)
     
-    # CORRECTION : Calcul des statistiques selon les nouvelles règles
     if moyennes_eleves_classe:
-        # 2. Moy_faible = plus petite moyenne supérieure à 0
         moy_faible = min([m for m in moyennes_eleves_classe if m > 0])
-        
-        # 3. Moy_forte = plus grande moyenne
         moy_forte = max(moyennes_eleves_classe)
-        
-        # 4. Moy_classe = (moy_faible + moy_forte) / 2
         moy_class = (moy_faible + moy_forte) / 2
-        
-        # 5. Effectif = nombre d'élèves ayant une moyenne
         effectif_composant = len(moyennes_eleves_classe)
     else:
         moy_forte = 0
@@ -577,7 +671,7 @@ def get_eleve_data(eleve_id, trimestre, annee_scolaire):
         effectif_composant=effectif_composant
     )
 
-    # Préparation des données pour les rangs
+    # Rangs par catégorie
     eleve_moyennes_data = {
         'moyenne_litteraire': moyenne_litteraire,
         'moyenne_scientifique': moyenne_scientifique,
@@ -585,7 +679,6 @@ def get_eleve_data(eleve_id, trimestre, annee_scolaire):
         'moyenne_generale': moyenne_generale
     }
 
-    # Rangs par catégorie
     rangs_categories = calculer_rangs_categories(
         eleve_moyennes_data, 
         eleve.classe_id, 
@@ -603,7 +696,6 @@ def get_eleve_data(eleve_id, trimestre, annee_scolaire):
         moyenne_generale
     )
     
-    # Utiliser la moyenne de la base si elle existe, sinon utiliser la moyenne calculée
     if moyenne_eleve_db and moyenne_eleve_db.moy_trim and moyenne_eleve_db.moy_trim > 0:
         moyenne_generale_finale = moyenne_eleve_db.moy_trim
     else:
@@ -624,7 +716,7 @@ def get_eleve_data(eleve_id, trimestre, annee_scolaire):
         'moyenne_scientifique': round(moyenne_scientifique, 2),
         'moyenne_specialise': round(moyenne_specialise, 2),
         'rangs_categories': rangs_categories,
-        'notes': notes
+        'notes': notes_completes
     }
 
 
@@ -1705,10 +1797,10 @@ def create_unified_bulletin_pdf(eleve_data, trimestre, annee_scolaire, mode='nor
     buffer = io.BytesIO()
     
     if mode == 'compact':
-        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=6*mm, bottomMargin=8*mm, leftMargin=6*mm, rightMargin=6*mm)
+        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=5*mm, bottomMargin=5*mm, leftMargin=6*mm, rightMargin=6*mm)
         elements = create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc, ecole_id)
     else:
-        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=8*mm, bottomMargin=12*mm, leftMargin=8*mm, rightMargin=8*mm)
+        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=6*mm, bottomMargin=6*mm, leftMargin=8*mm, rightMargin=8*mm)
         elements = create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc, ecole_id)
     
     doc.build(elements)
@@ -1762,7 +1854,7 @@ def ajouter_espace_html(valeur1, valeur2, largeur_espace=3):
     return f"{valeur1}{espace}{valeur2}"
 
 def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, ecole_id=None):
-    """Crée le contenu du bulletin normal - AVEC GESTION DES SEMESTRES/TRIMESTRES CORRIGÉE"""
+    """Crée le contenu du bulletin normal - AVEC GESTION DES SEMESTRES/TRIMESTRES ET APPRÉCIATIONS AUTO"""
     if doc is None:
         from reportlab.lib.pagesizes import A4
         temp_doc = SimpleDocTemplate(None, pagesize=A4)
@@ -1814,7 +1906,6 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
     
     # ✅ CORRECTION : Détection du type d'établissement (Lycée ou Collège)
     if ecole:
-        # Utiliser la nouvelle fonction de détection
         type_etablissement = detecter_type_etablissement(ecole)
         is_lycee = (type_etablissement == "lycee")
         
@@ -1824,13 +1915,12 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
             print(f"🏫 Type établissement détecté: COLLÈGE (Trimestres)")
     else:
         print("❌ ERREUR CRITIQUE: Aucune école trouvée!")
-        # Créer une école par défaut pour éviter les erreurs
         ecole_nom = "ÉCOLE NON DÉFINIE"
         ecole_localite = ""
         ecole_boite_postale = ""
         ecole_telephone = ""
         ecole_devise = "Travail - Liberté - Patrie"
-        is_lycee = False  # Par défaut, collège
+        is_lycee = False
     
     # Variables dynamiques
     if ecole:
@@ -1873,37 +1963,26 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
         print(f"⚠️ Logo non trouvé: {logo_path}")
         logo = create_text_logo(ecole_nom)
     
-    # ✅✅✅ CORRECTION CRITIQUE : STRUCTURE DE L'ENTÊTE OPTIMISÉE
-    # Structure verticale centrée avec la logique demandée
+    # ✅✅✅ STRUCTURE DE L'ENTÊTE OPTIMISÉE
     center_content = [
-        # Logo en haut
         logo,
-        Spacer(1, 1*mm),  # Espace après le logo
-        
-        # En bas du logo : le nom de l'école
+        Spacer(1, 1*mm),
         Paragraph(f"<b>{ecole_nom}</b>", ParagraphStyle('CenterHeader', parent=styles['Normal'], fontSize=10, alignment=1, spaceAfter=1, fontName='Helvetica-Bold')),
-        
-        # En bas du nom de l'école : le téléphone
         Paragraph(f"Tél: {ecole_telephone}", ParagraphStyle('CenterSub', parent=styles['Normal'], fontSize=8, alignment=1, spaceAfter=1)),
-        
-        # En bas : la devise de l'école
         Paragraph(f"Devise: {ecole_devise}", ParagraphStyle('CenterSub', parent=styles['Normal'], fontSize=8, alignment=1))
     ]
     
-    # Contenu gauche inchangé
     left_content = [
         Paragraph("<b>MINISTÈRE DE L'EDUCATION NATIONALE</b>", ParagraphStyle('LeftHeader', parent=styles['Normal'], fontSize=9, alignment=0, spaceAfter=1, fontName='Helvetica-Bold')),
         Paragraph("D.R.E: MARITIME", ParagraphStyle('LeftSub', parent=styles['Normal'], fontSize=8, alignment=0, spaceAfter=1)),
         Paragraph("I.E.S.G: TSEVIE", ParagraphStyle('LeftSub', parent=styles['Normal'], fontSize=8, alignment=0))
     ]
     
-    # Contenu droit inchangé
     right_content = [
         Paragraph("<b>RÉPUBLIQUE TOGOLAISE</b>", ParagraphStyle('RightHeader', parent=styles['Normal'], fontSize=9, alignment=2, spaceAfter=1, fontName='Helvetica-Bold')),
         Paragraph("Travail - Liberté - Patrie", ParagraphStyle('RightSub', parent=styles['Normal'], fontSize=8, alignment=2, fontName='Helvetica-Bold'))
     ]
     
-    # Construction du tableau d'entête
     header_data = [[
         Table([[cell] for cell in left_content], colWidths=[doc_width/3], style=TableStyle([
             ('VALIGN', (0, 0), (-1, -1), 'TOP'), ('LEFTPADDING', (0, 0), (-1, -1), 0), ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
@@ -1924,34 +2003,28 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
     elements.append(header_table)
     elements.append(Spacer(1, 2*mm))
     
-        # ✅✅✅ CORRECTION : Titre adapté selon le type d'établissement avec effectif
-    # Récupérer l'effectif depuis la classe elle-même
+    # Titre avec effectif
     classe_id = eleve_data['eleve'].classe_id
     classe = Classe.query.get(classe_id)
     effectif_total = classe.effectif if classe and hasattr(classe, 'effectif') else Eleve.query.filter_by(classe_id=classe_id).count()
     
-    # Formatage du titre avec Année scolaire et Effectif sur la même ligne
     if is_lycee:
         title_text = f"<b>BULLETIN DU SEMESTRE {trimestre}</b><br/><font size='8'>Année scolaire: {annee_scolaire}   •   Effectif: {effectif_total} élèves</font>"
-        print(f"📋 Titre bulletin: Semestre {trimestre} (Lycée), Effectif: {effectif_total}")
     else:
         title_text = f"<b>BULLETIN DU TRIMESTRE {trimestre}</b><br/><font size='8'>Année scolaire: {annee_scolaire}   •   Effectif: {effectif_total} élèves</font>"
-        print(f"📋 Titre bulletin: Trimestre {trimestre} (Collège), Effectif: {effectif_total}")
 
     title = Paragraph(title_text, title_style)
     elements.append(title)
     elements.append(Spacer(1, 2*mm))
     
-    # ✅✅✅ CORRECTION : STRUCTURE OPTIMISÉE "IDENTITÉ DE L'ÉLÈVE" AVEC LABELS PETITS ET VALEURS GRANDES
+    # IDENTITÉ DE L'ÉLÈVE
     identite_title = Paragraph("<b>IDENTITÉ DE L'ÉLÈVE</b>", identite_title_style)
     elements.append(identite_title)
     
     eleve = eleve_data['eleve']
     classe = eleve.classe
     
-    # ✅✅✅ CORRECTION : STRUCTURE AVEC LABELS (PETITS) ET VALEURS (GRANDES) DANS DES CELLULES SÉPARÉES
     identite_data = [
-        # Ligne 1 : 3 paires label-valeur
         [
             Paragraph("Matricule:", identite_label_style),
             Paragraph(f"{eleve.matricule}", identite_value_style),
@@ -1960,7 +2033,6 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
             Paragraph("Date naissance:", identite_label_style),
             Paragraph(f"{eleve.date_naissance.strftime('%d/%m/%Y') if eleve.date_naissance else 'N/A'}", identite_value_style)
         ],
-        # Ligne 2 : 3 paires label-valeur
         [
             Paragraph("Classe:", identite_label_style),
             Paragraph(f"{classe.nom}", identite_value_style),
@@ -1971,14 +2043,8 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
         ]
     ]
     
-    # ✅✅✅ CORRECTION : RÉPARTITION ÉQUILIBRÉE DES COLONNES POUR ÉVITER LES DÉBORDEMENTS
     identite_table = Table(identite_data, colWidths=[
-        doc_width * 0.10,  # Label Matricule
-        doc_width * 0.18,  # Valeur Matricule
-        doc_width * 0.12,  # Label Nom & Prénoms
-        doc_width * 0.28,  # Valeur Nom & Prénoms
-        doc_width * 0.12,  # Label Date naissance
-        doc_width * 0.20   # Valeur Date naissance
+        doc_width * 0.10, doc_width * 0.18, doc_width * 0.12, doc_width * 0.28, doc_width * 0.12, doc_width * 0.20
     ])
     
     identite_table.setStyle(TableStyle([
@@ -1988,14 +2054,13 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
         ('PADDING', (0, 0), (-1, -1), 4),
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8F9FA')),
         ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.HexColor('#FFFFFF'), colors.HexColor('#F8F9FA')]),
-        # Bordures plus épaisses pour séparer les lignes
         ('LINEBELOW', (0, 0), (-1, 0), 0.5, colors.HexColor('#E5E7EB')),
     ]))
     
     elements.append(identite_table)
     elements.append(Spacer(1, 2*mm))
     
-    # Tableau des notes - COLONNES CORRIGÉES (M.CL → MOY. NOTES)
+    # Tableau des notes
     headers = ['DISCIPLINE', 'MOY.NOTES', 'NOTE', 'M.MAT', 'COEF', 'M.COEF', 'RANG', 'OBS', 'PROF', 'SIGN']
     
     def create_matiere_section_compact(matiere_type, matieres_list, section_title, moyenne_categorie, rang_categorie=None):
@@ -2009,21 +2074,19 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
         data = [headers]
     
         for matiere in matieres_list:
-            moyenne_notes = matiere['moyenne_notes'] or 0  # REMPLACE moy_clas
+            moyenne_notes = matiere['moyenne_notes'] or 0
             note_comp = matiere['note_comp'] or 0
             moy_mat = matiere['moy_mat'] or 0
             coefficient = matiere['coefficient'] or 1
             moy_coef = matiere['moy_coef'] or 0
-
             rang = matiere['rang']
             rang_str = format_classement(rang) if rang != '-' else '-'
             observation = get_observation_for_note(moy_mat)
-
-            # COLONNE DISCIPLINE ÉLARGIE
             libelle = matiere['libelle']        
+            
             row = [
                 Paragraph(libelle, small_text_style),
-                Paragraph(f"{moyenne_notes:.1f}", small_text_style),  # MOY.NOTES au lieu de M.CL
+                Paragraph(f"{moyenne_notes:.1f}", small_text_style),
                 Paragraph(f"{note_comp:.1f}", small_text_style),
                 Paragraph(f"{moy_mat:.1f}", small_text_style),
                 Paragraph(str(coefficient), small_text_style),
@@ -2043,18 +2106,10 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
             '', '', '', ''
         ])
     
-        # ✅ CORRECTION : COLONNES RÉAJUSTÉES POUR ÉVITER LES DÉBORDEMENTS
         section_table = Table(data, colWidths=[
-            doc_width * 0.20,  # DISCIPLINE (réduit)
-            doc_width * 0.06,  # MOY.NOTES
-            doc_width * 0.06,  # NOTE
-            doc_width * 0.06,  # M.MAT
-            doc_width * 0.05,  # COEF
-            doc_width * 0.07,  # M.COEF
-            doc_width * 0.06,  # RANG
-            doc_width * 0.12,  # OBS
-            doc_width * 0.20,  # PROF (augmenté)
-            doc_width * 0.05   # SIGN
+            doc_width * 0.20, doc_width * 0.06, doc_width * 0.06, doc_width * 0.06,
+            doc_width * 0.05, doc_width * 0.07, doc_width * 0.06, doc_width * 0.12,
+            doc_width * 0.15, doc_width * 0.12
         ])
     
         section_table.setStyle(TableStyle([
@@ -2079,7 +2134,7 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
         section_elements.append(Spacer(1, 0.1*mm))
         return section_elements
     
-    # Sections matières avec version corrigée
+    # Sections matières
     for matieres, categorie, titre in [
         (eleve_data['matieres_litteraires'], 'litteraire', "MATIÈRES LITTÉRAIRES"),
         (eleve_data['matieres_scientifiques'], 'scientifique', "MATIÈRES SCIENTIFIQUES"), 
@@ -2088,63 +2143,40 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
         if matieres:
             moyenne_categorie = eleve_data.get(f'moyenne_{categorie}', 0)
             section_elements = create_matiere_section_compact(
-                categorie.capitalize(), 
-                matieres, 
-                titre,
-                moyenne_categorie,
+                categorie.capitalize(), matieres, titre, moyenne_categorie,
                 eleve_data['rangs_categories'].get(categorie)
             )
             if section_elements:
                 elements.extend(section_elements)
     
-    # Totaux et moyenne générale - TABLEAU AVEC MÊMES LARGEURS QUE LES SOUS-TABLEAUX
+    # Totaux
     stats = eleve_data.get('stats_classe')
     if not stats:
         StatsClasse = namedtuple('StatsClasse', ['moy_forte', 'moy_faible', 'moy_class', 'effectif_composant'])
         stats = StatsClasse(moy_forte=0, moy_faible=0, moy_class=0, effectif_composant=0)
     
-    moy_forte = stats.moy_forte or 0 if stats else 0
-    moy_faible = stats.moy_faible or 0 if stats else 0
-    moy_class = stats.moy_class or 0 if stats else 0
-
     total_coeff_val = eleve_data['total_coeff'] or 0
     total_moy_coef_val = eleve_data['total_moy_coef'] or 0
     moyenne_generale_val = eleve_data['moyenne_generale'] or 0
     moyenne_generale_arrondie = arrondir_moyenne_metier(moyenne_generale_val)
 
-    # ✅✅✅ CORRECTION : Préfixe adapté selon le type d'établissement
     if is_lycee:
-        prefixe_moyenne = "MOY.S"  # Semestre
-        print(f"📊 Préfixe moyenne: {prefixe_moyenne} (Lycée)")
+        prefixe_moyenne = "Moy.Sem"
     else:
-        prefixe_moyenne = "MOY.T"  # Trimestre
-        print(f"📊 Préfixe moyenne: {prefixe_moyenne} (Collège)")
+        prefixe_moyenne = "Moy.Trim"
     
     totaux_data = [[
-        Paragraph("<b>TOTAUX</b>", small_text_style), 
-        '', 
-        '', 
-        '',
+        Paragraph("<b>TOTAUX</b>", small_text_style), '', '', '',
         Paragraph(f"<b>{total_coeff_val}</b>", small_text_style),
-        Paragraph(f"<b>{total_moy_coef_val:.1f}</b>", small_text_style), 
-        '', 
-        '',
+        Paragraph(f"<b>{total_moy_coef_val:.1f}</b>", small_text_style), '', '',
         Paragraph(f"<b>{prefixe_moyenne}{trimestre}: {moyenne_generale_arrondie:.1f}</b>", small_text_style),
         Paragraph(f"<b>{format_classement(eleve_data.get('rang_general', 'N/A'))}</b>", small_text_style)
     ]]
     
-    # ✅ CORRECTION : EXACTEMENT les mêmes largeurs que les sous-tableaux de matières
     totaux_table = Table(totaux_data, colWidths=[
-        doc_width * 0.20,  # DISCIPLINE - MÊME LARGEUR
-        doc_width * 0.06,  # MOY.NOTES - MÊME LARGEUR
-        doc_width * 0.06,  # NOTE - MÊME LARGEUR
-        doc_width * 0.06,  # M.MAT - MÊME LARGEUR
-        doc_width * 0.05,  # COEF - MÊME LARGEUR
-        doc_width * 0.07,  # M.COEF - MÊME LARGEUR
-        doc_width * 0.06,  # RANG - MÊME LARGEUR
-        doc_width * 0.12,  # OBS - MÊME LARGEUR
-        doc_width * 0.20,  # PROF - MÊME LARGEUR
-        doc_width * 0.05   # SIGN - MÊME LARGEUR
+        doc_width * 0.20, doc_width * 0.06, doc_width * 0.06, doc_width * 0.06,
+        doc_width * 0.05, doc_width * 0.07, doc_width * 0.06, doc_width * 0.12,
+        doc_width * 0.15, doc_width * 0.12
     ])
     totaux_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F8F9FA')),
@@ -2155,107 +2187,81 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#ADB5BD')),
         ('PADDING', (0, 0), (-1, -1), 3),
-        ('ALIGN', (0, 0), (0, 0), 'LEFT'),  # Alignement à gauche pour "TOTAUX"
-        ('ALIGN', (8, 0), (9, 0), 'CENTER'),  # Alignement centré pour moyenne et rang
-        # Fusion des cellules vides pour un meilleur visuel
-        ('SPAN', (1, 0), (3, 0)),  # Fusion des 3 cellules vides
-        ('SPAN', (6, 0), (7, 0)),  # Fusion des 2 cellules vides
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ('ALIGN', (8, 0), (9, 0), 'CENTER'),
+        ('SPAN', (1, 0), (3, 0)),
+        ('SPAN', (6, 0), (7, 0)),
     ]))
 
     elements.append(Spacer(1, 1*mm))
     elements.append(totaux_table)
     
-    # Récapitulatif - STRUCTURE OPTIMISÉE
+    # Récapitulatif
     moyennes_trimestres = get_moyennes_avec_fallback(eleve_data['eleve'].id, trimestre, annee_scolaire)
-
-    # CORRECTION: Forcer la cohérence - utiliser la même valeur pour le trimestre courant
     if trimestre in moyennes_trimestres:
-       moyennes_trimestres[trimestre]['moyenne'] = moyenne_generale_val
+        moyennes_trimestres[trimestre]['moyenne'] = moyenne_generale_val
 
-    # 1. STATISTIQUES CLASSE - Structure compacte avec arrondi métier
+    moy_forte = stats.moy_forte or 0
+    moy_faible = stats.moy_faible or 0
+    moy_class = stats.moy_class or 0
+
     moy_forte_arrondie = arrondir_moyenne_metier(moy_forte)
     moy_faible_arrondie = arrondir_moyenne_metier(moy_faible)
     moy_class_arrondie = arrondir_moyenne_metier(moy_class)
 
-     # Récupérer l'effectif de la classe directement depuis la table Classe
     classe_id = eleve_data['eleve'].classe_id
     classe = Classe.query.get(classe_id)
     effectif_total = classe.effectif if classe and hasattr(classe, 'effectif') else Eleve.query.filter_by(classe_id=classe_id).count()
 
-    # Utiliser Paragraph pour interpréter le HTML
-   # CORRECTION : Utiliser des espaces HTML
     stats_classe_lines = [
-       Paragraph(f"<b>Moy.forte:</b> {moy_forte_arrondie:.1f}&nbsp;&nbsp;&nbsp;<b>Moy.faible:</b> {moy_faible_arrondie:.1f}", small_text_style),
-       Paragraph(f"<b>Moy.classe:</b> {moy_class_arrondie:.1f}", small_text_style)
+        Paragraph(f"<b>Moy.forte:</b> {moy_forte_arrondie:.1f}&nbsp;&nbsp;&nbsp;<b>Moy.faible:</b> {moy_faible_arrondie:.1f}", small_text_style),
+        Paragraph(f"<b>Moy.classe:</b> {moy_class_arrondie:.1f}", small_text_style)
     ]
 
-    # ✅ CORRECTION : Gestion des périodes selon le type d'établissement
+    max_periodes = 2 if is_lycee else 3
     moyennes_lines = []
-    max_periodes = 2 if is_lycee else 3  # Lycée: 2 semestres, Collège: 3 trimestres
 
     for periode_num in range(1, max_periodes + 1):
         if periode_num <= trimestre and moyennes_trimestres.get(periode_num, {}).get('moyenne', 0) > 0:
-           moy = moyennes_trimestres[periode_num]['moyenne']
-           moy_arrondie = arrondir_moyenne_metier(moy)
-           rang = format_classement(moyennes_trimestres[periode_num]['rang'])
-        
-        # CORRECTION CRITIQUE : Utiliser effectif_composant au lieu de effectif_total
-           effectif_composant = moyennes_trimestres[periode_num].get('effectif_composant', 0)
-        
-        # Fallback si effectif_composant n'est pas défini
-           if effectif_composant == 0:
-            # Calculer effectif_composant directement
-             classe_id = eleve_data['eleve'].classe_id
-             effectif_composant = db.session.query(Eleve).join(Note).filter(
-                Eleve.classe_id == classe_id,
-                Note.trimestre == periode_num,
-                Note.annee_scolaire == annee_scolaire,
-                db.or_(
-                    Note.note1.isnot(None),
-                    Note.note2.isnot(None),
-                    Note.note3.isnot(None),
-                    Note.note_comp.isnot(None)
-                )
-            ).distinct().count()
-        
-        # ✅ CORRECTION : Label adapté selon le type
-           if is_lycee:
-             prefixe = "Sem."
-           else:
-             prefixe = "Trim."
-        
-        # Utiliser Paragraph pour interpréter le HTML
-           moyennes_lines.append(Paragraph(
-              f"{prefixe}{periode_num}: <b>{moy_arrondie:.1f}</b>&nbsp;&nbsp;&nbsp;<b>{rang}</b> sur <b>{effectif_composant}</b>", 
-              small_text_style
-        ))
+            moy = moyennes_trimestres[periode_num]['moyenne']
+            moy_arrondie = arrondir_moyenne_metier(moy)
+            rang = format_classement(moyennes_trimestres[periode_num]['rang'])
+            effectif_composant = moyennes_trimestres[periode_num].get('effectif_composant', 0)
+            
+            if effectif_composant == 0:
+                effectif_composant = db.session.query(Eleve).join(Note).filter(
+                    Eleve.classe_id == classe_id,
+                    Note.trimestre == periode_num,
+                    Note.annee_scolaire == annee_scolaire,
+                    db.or_(
+                        Note.note1.isnot(None), Note.note2.isnot(None),
+                        Note.note3.isnot(None), Note.note_comp.isnot(None)
+                    )
+                ).distinct().count()
+            
+            prefixe = "Sem." if is_lycee else "Trim."
+            moyennes_lines.append(Paragraph(
+                f"{prefixe}{periode_num}: <b>{moy_arrondie:.1f}</b>&nbsp;&nbsp;&nbsp;<b>{rang}</b> sur <b>{effectif_composant}</b>", 
+                small_text_style
+            ))
 
-
-    # ✅ CORRECTION : Moyenne annuelle adaptée au type d'établissement
     if (is_lycee and trimestre == 2) or (not is_lycee and trimestre == 3):
         moyennes_valides = []
-        
         for periode_num in range(1, max_periodes + 1):
             if periode_num in moyennes_trimestres and moyennes_trimestres[periode_num]['moyenne'] > 0:
                 moyennes_valides.append(moyennes_trimestres[periode_num]['moyenne'])
-    
         if moyennes_valides:
             moyenne_annuelle = sum(moyennes_valides) / len(moyennes_valides)
             moyenne_annuelle_arrondie = arrondir_moyenne_metier(moyenne_annuelle)
             moyennes_lines.append(f"Moy.ann: {moyenne_annuelle_arrondie:.1f}")
 
-    # Observation des moyennes
-    moyenne_generale = eleve_data.get('moyenne_generale', 0)
-    observation_auto = get_observation_for_trimestre(moyenne_generale)
+    observation_auto = get_observation_for_trimestre(moyenne_generale_val)
 
     stats_decision_data = [
-        # En-tête
         ['STATISTIQUES CLASSE', 'MOYENNES', 'OBSERVATION', 'DÉCISION DU CONSEIL'],
-        
-        # Première ligne avec toutes les données - Chaque élément est maintenant un tableau de Paragraph
         [
-            [stats_classe_lines[0], stats_classe_lines[1]],  # Tableau de Paragraphs
-            moyennes_lines,  # Liste de Paragraphs
+            [stats_classe_lines[0], stats_classe_lines[1]],
+            moyennes_lines,
             observation_auto,
             "[DÉCISION]\n[À COMPLÉTER]"
         ]
@@ -2265,37 +2271,67 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#34495E')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 8), 
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
         ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-        ('FONTSIZE', (0, 1), (-1, 1), 7), 
+        ('FONTSIZE', (0, 1), (-1, 1), 7),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('GRID', (0, 0), (-1, -1), 0.3, colors.grey), 
+        ('GRID', (0, 0), (-1, -1), 0.3, colors.grey),
         ('PADDING', (0, 0), (-1, -1), 3),
         ('ALIGN', (0, 1), (0, 1), 'LEFT'),
         ('ALIGN', (1, 1), (1, 1), 'LEFT'),
-        # Lignes de séparation internes pour les moyennes
         ('LINEBELOW', (1, 0), (1, 0), 1, colors.white),
-        # CORRECTION 3: Ajustement spécifique pour la colonne MOYENNES
-        ('LEFTPADDING', (1, 1), (1, 1), 8),  # Plus d'espace à gauche
-        ('RIGHTPADDING', (1, 1), (1, 1), 8), # Plus d'espace à droit
+        ('LEFTPADDING', (1, 1), (1, 1), 8),
+        ('RIGHTPADDING', (1, 1), (1, 1), 8),
     ]))
 
     elements.append(Spacer(1, 1*mm))
     elements.append(stats_decision_table)
     
-    # Section appréciations compacte
+        # ============================================
+    # SECTION APPRÉCIATIONS - SIMPLE ET CLAIR (SANS ERREUR .hex)
+    # ============================================
     elements.append(Spacer(1, 1*mm))
     
-    appreciations_data = [['Conduite: [ ]', 'Travail: [ ]', 'Honneur: [ ]', 'Encouragement: [ ]']]
+    # Calculer les appréciations automatiques
+    appreciations_auto = calculer_appreciations_automatiques(eleve_data, trimestre, annee_scolaire)
+    
+    # Définir les couleurs selon la valeur (en utilisant des codes hexadécimaux directement)
+    def get_color_code(valeur):
+        if 'Très' in valeur or 'Oui' in valeur or 'Progression Remarquable' in valeur:
+            return '#28A745'  # Vert
+        elif 'Bien' in valeur or 'Régulier' in valeur:
+            return '#17A2B8'  # Bleu
+        elif 'Satisfaisante' in valeur or 'Assez' in valeur or 'Bon Départ' in valeur:
+            return '#FFC107'  # Jaune
+        elif 'Moyenne' in valeur or 'Peut' in valeur or 'À Maintenir' in valeur:
+            return '#FD7E14'  # Orange
+        else:
+            return '#DC3545'  # Rouge
+    
+    # Style de base pour le texte
+    base_style = ParagraphStyle('BaseStyle', parent=styles['Normal'], fontSize=7, alignment=1,
+                                 fontName='Helvetica')
+    
+    # Créer les 4 libellés avec leurs couleurs
+    conduite_text = f'Conduite: <font color="{get_color_code(appreciations_auto["conduite"])}"><b>{appreciations_auto["conduite"]}</b></font>'
+    travail_text = f'Travail: <font color="{get_color_code(appreciations_auto["travail"])}"><b>{appreciations_auto["travail"]}</b></font>'
+    honneur_text = f'Honneur: <font color="{get_color_code(appreciations_auto["honneur"])}"><b>{appreciations_auto["honneur"]}</b></font>'
+    encouragement_text = f'Encouragement: <font color="{get_color_code(appreciations_auto["encouragement"])}"><b>{appreciations_auto["encouragement"]}</b></font>'
+    
+    appreciations_data = [[
+        Paragraph(conduite_text, base_style),
+        Paragraph(travail_text, base_style),
+        Paragraph(honneur_text, base_style),
+        Paragraph(encouragement_text, base_style)
+    ]]
+    
     appreciations_table = Table(appreciations_data, colWidths=[doc_width*0.25, doc_width*0.25, doc_width*0.25, doc_width*0.25])
     appreciations_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F8F9FA')),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 7),  # Réduit
         ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
         ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
         ('GRID', (0, 0), (-1, 0), 0.3, colors.grey),
-        ('PADDING', (0, 0), (-1, 0), 2),   # Réduit
+        ('PADDING', (0, 0), (-1, 0), 2),
     ]))
     
     elements.append(appreciations_table)
@@ -2303,28 +2339,24 @@ def create_bulletin_content(eleve_data, trimestre, annee_scolaire, doc=None, eco
     # Pied de page avec signatures
     elements.append(Spacer(1, 2*mm))
 
-    # ✅✅✅ CORRECTION CRITIQUE : Utilisation de la fonction améliorée create_signatures_section
     try:
-        # Passer explicitement l'ID de l'école
         ecole_id_to_pass = ecole_id if ecole_id else (ecole.id if ecole else None)
         signatures_table = create_signatures_section(doc_width, eleve_data, include_titulaire=True, ecole_id=ecole_id_to_pass)
         elements.append(signatures_table)
         print(f"✅ Section signatures générée avec succès")
     except Exception as e:
         print(f"❌ Erreur génération signatures: {str(e)}")
-        # Section signatures de secours
         error_style = ParagraphStyle('ErrorStyle', parent=styles['Normal'], fontSize=8, alignment=1, 
                                     textColor=colors.red, spaceAfter=5)
         elements.append(Paragraph("⚠️ Erreur génération signatures", error_style))
         elements.append(Spacer(1, 10*mm))
     
-    elements.append(Spacer(1, 2*mm))
-
+    # Note finale
     note_bas = Paragraph("<b><font size='6'>NB: Original unique - Copies autorisées</font></b>",
-                ParagraphStyle('NoteStyle', parent=styles['Normal'], fontSize=6, alignment=1, 
-                             textColor=colors.black, fontName='Helvetica-Bold'))  # Réduit
+            ParagraphStyle('NoteStyle', parent=styles['Normal'], fontSize=5, alignment=1, 
+                         textColor=colors.black, fontName='Helvetica-Bold'))
     elements.append(note_bas)
-
+    
     return elements
 
 
@@ -2608,8 +2640,8 @@ def create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc=N
             doc_width * 0.10,  # MOY
             doc_width * 0.08,  # COEF
             doc_width * 0.12,  # M.COEF
-            doc_width * 0.10,  # RANG
-            doc_width * 0.25   # OBS
+            doc_width * 0.12,  # RANG
+            doc_width * 0.23   # OBS
         ])
     
         section_table.setStyle(TableStyle([
@@ -2680,8 +2712,8 @@ def create_bulletin_content_compact(eleve_data, trimestre, annee_scolaire, doc=N
         doc_width * 0.10,  # MOY
         doc_width * 0.08,  # COEF
         doc_width * 0.12,  # M.COEF
-        doc_width * 0.20,  # MOYENNE + RANG
-        doc_width * 0.15   # RANG
+        doc_width * 0.15,  # MOYENNE + RANG
+        doc_width * 0.20   # RANG
     ])
     totaux_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F8F9FA')),
@@ -2948,7 +2980,7 @@ def export_bulletin():
 
 @bulletins_export_bp.route("/export/bulletins-classe", methods=["GET"])
 def export_bulletins_classe():
-    """Export PDF de tous les bulletins d'une classe - ROUTE CORRIGÉE"""
+    """Export PDF de tous les bulletins d'une classe - SANS PAGES BLANCHES"""
     try:
         classe_id = request.args.get("classe_id", type=str)
         trimestre = request.args.get("trimestre", type=int, default=1)
@@ -2959,7 +2991,6 @@ def export_bulletins_classe():
         is_semestre = request.args.get("is_semestre", type=str, default="false").lower() == "true"
         
         print(f"🎯 Export bulletins classe - Classe: {classe_id}, Trimestre: {trimestre}")
-        print(f"🏫 Type école: {ecole_type}, Semestre: {is_semestre}, École ID: {ecole_id}")
         
         # Vérification des paramètres
         if not classe_id or str(classe_id).strip() in ['', 'null', 'undefined', 'None', 'none', 'NaN']:
@@ -2974,20 +3005,6 @@ def export_bulletins_classe():
                 "error": "Paramètre annee_scolaire requis", 
                 "code": "MISSING_ACADEMIC_YEAR"
             }), 400
-        
-        # Validation de la période
-        if ecole_type == "lycee" or is_semestre:
-            if trimestre not in [1, 2]:
-                return jsonify({
-                    "error": f"Période invalide pour un lycée: {trimestre}. Les semestres valides sont 1 ou 2",
-                    "code": "INVALID_PERIOD"
-                }), 400
-        else:
-            if trimestre not in [1, 2, 3]:
-                return jsonify({
-                    "error": f"Période invalide pour un collège: {trimestre}. Les trimestres valides sont 1, 2 ou 3",
-                    "code": "INVALID_PERIOD"
-                }), 400
         
         # Conversion UUID
         try:
@@ -3064,7 +3081,6 @@ def export_bulletins_classe():
                     
             except Exception as e:
                 print(f"❌ Erreur génération bulletin {eleve.nom}: {str(e)}")
-                # Message d'erreur
                 error_style = ParagraphStyle(
                     'ErrorStyle', 
                     parent=getSampleStyleSheet()['Normal'], 
@@ -3084,7 +3100,7 @@ def export_bulletins_classe():
                 "code": "NO_DATA_TO_EXPORT"
             }), 404
         
-        # Construction du PDF
+        # Construction du PDF - ReportLab ajoutera automatiquement les sauts de page
         doc.build(all_elements)
         buffer.seek(0)
         

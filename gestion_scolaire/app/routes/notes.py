@@ -28,14 +28,95 @@ notes_bp = Blueprint('notes', __name__)
 
 # ========== CONFIGURATION DE SÉCURITÉ ==========
 class SecurityConfig:
-    MAX_PER_PAGE = 100
+    MAX_PER_PAGE = 1000  # CHANGÉ: de 100 à 1000 pour permettre 250,500,1000
     DEFAULT_PER_PAGE = 10
     MAX_EXPORT_ROWS = 1000
     ALLOWED_TRIMESTRES = [1, 2, 3]
     MAX_SEARCH_LENGTH = 100
-    # Types de matières autorisés
     ALLOWED_MATIERE_TYPES = ["Matière scientifique", "Matière littéraire", "Autres"]
 
+def validate_periode(cycle_type, periode_value):
+    """Validation de la période selon le cycle"""
+    if periode_value is None:
+        return False  # None n'est pas valide, on ne doit pas entrer dans le bloc
+    if cycle_type == 'lycee':
+        return periode_value in [1, 2]
+    else:
+        return periode_value in [1, 2, 3]
+
+def get_unique_matieres(ecole_id=None):
+    """Récupère les matières avec déduplication intelligente"""
+    toutes_matieres = Matiere.query.filter(
+        Matiere.type.in_(SecurityConfig.ALLOWED_MATIERE_TYPES)
+    ).all()
+    
+    # Nettoyer les libellés pour la comparaison
+    def clean_libelle(libelle):
+        """Nettoie le libellé pour détecter les doublons"""
+        if not libelle:
+            return ""
+        # Convertir en minuscules
+        cleaned = libelle.lower().strip()
+        # Remplacer les variantes courantes
+        cleaned = cleaned.replace('ies', 'ie')
+        cleaned = cleaned.replace(' et ', ' ')
+        cleaned = cleaned.replace(' de ', ' ')
+        cleaned = cleaned.replace(' la ', ' ')
+        cleaned = cleaned.replace(' le ', ' ')
+        cleaned = cleaned.replace('les ', '')
+        cleaned = cleaned.replace('des ', '')
+        # Supprimer les espaces multiples
+        cleaned = ' '.join(cleaned.split())
+        return cleaned
+    
+    # Dictionnaire pour stocker les matières uniques
+    matieres_uniques = {}
+    
+    for matiere in toutes_matieres:
+        cle_nettoyee = clean_libelle(matiere.libelle)
+        
+        if cle_nettoyee not in matieres_uniques:
+            # Première occurrence - la garder
+            matieres_uniques[cle_nettoyee] = {
+                "id": str(matiere.id),
+                "libelle": matiere.libelle,
+                "libelle_original": matiere.libelle,
+                "type": matiere.type,
+                "is_parent": False
+            }
+        else:
+            # Doublon trouvé - logger l'information
+            print(f"⚠️ Doublon détecté: '{matieres_uniques[cle_nettoyee]['libelle']}' et '{matiere.libelle}'")
+            # Option: marquer pour suppression ou correction
+    
+    # Trier par libellé
+    matieres_list = sorted(
+        matieres_uniques.values(), 
+        key=lambda x: x["libelle"]
+    )
+    
+    # Regrouper par type
+    matieres_par_type = {}
+    for matiere in matieres_list:
+        type_name = matiere["type"]
+        if type_name not in matieres_par_type:
+            matieres_par_type[type_name] = []
+        matieres_par_type[type_name].append(matiere)
+    
+    # Construire la structure hiérarchique
+    matieres_hierarchiques = []
+    for type_name, matieres_du_type in matieres_par_type.items():
+        if matieres_du_type:
+            type_groupe = {
+                "id": f"type_{type_name.lower().replace(' ', '_')}",
+                "libelle": type_name,
+                "is_parent": True,
+                "children": matieres_du_type
+            }
+            matieres_hierarchiques.append(type_groupe)
+    
+    return matieres_hierarchiques
+    
 # ========== FONCTIONS DE VALIDATION ET SÉCURITÉ ==========
 def validate_annee_scolaire(annee):
     """Validation stricte du format année scolaire"""
@@ -61,6 +142,15 @@ def safe_search_term(term):
     term = term.replace('%', '\\%').replace('_', '\\_')
     return term[:SecurityConfig.MAX_SEARCH_LENGTH]
 
+class SecurityConfig:
+    MAX_PER_PAGE = 1000  # CHANGÉ: de 100 à 1000 pour permettre 250,500,1000
+    DEFAULT_PER_PAGE = 10
+    MAX_EXPORT_ROWS = 1000
+    ALLOWED_TRIMESTRES = [1, 2, 3]
+    MAX_SEARCH_LENGTH = 100
+    ALLOWED_MATIERE_TYPES = ["Matière scientifique", "Matière littéraire", "Autres"]
+
+
 def validate_pagination_params(f):
     """Décorateur pour valider les paramètres de pagination"""
     @wraps(f)
@@ -68,6 +158,7 @@ def validate_pagination_params(f):
         per_page = request.args.get('per_page', SecurityConfig.DEFAULT_PER_PAGE, type=int)
         page = request.args.get('page', 1, type=int)
         
+        # CHANGÉ: Permettre les valeurs jusqu'à 1000
         if per_page > SecurityConfig.MAX_PER_PAGE or per_page < 1:
             per_page = SecurityConfig.DEFAULT_PER_PAGE
         if page < 1:
@@ -789,27 +880,21 @@ def liste_notes():
     matiere_id = data.get("matiere_id", type=str)
     enseignant_id = data.get("enseignant_id", type=str)
     classe_id = data.get("classe_id", type=str)
-    trimestre = data.get("trimestre", type=int)
+    
+    # CORRECTION: Récupérer trimestre correctement
+    trimestre_str = data.get("trimestre", "")
+    if trimestre_str and trimestre_str.strip():
+        try:
+            trimestre = int(trimestre_str)
+        except ValueError:
+            trimestre = None
+    else:
+        trimestre = None  # "Tous" est sélectionné
+    
     annee_scolaire = data.get("annee_scolaire", type=str)
-    cycle_type = data.get("cycle_type", "college")  # Nouveau paramètre
+    cycle_type = data.get("cycle_type", "college")
 
-    # DEBUG: Afficher les paramètres reçus
     print(f"🔍 Paramètres reçus - cycle_type: {cycle_type}, trimestre: {trimestre}, annee_scolaire: {annee_scolaire}")
-
-    # Valeurs par défaut selon le cycle
-    if not validate_periode(cycle_type, trimestre):
-        today = date.today()
-        if cycle_type == 'lycee':
-            # Semestre 1: Sept-Déc, Semestre 2: Janv-Juin
-            trimestre = 1 if today.month in [9, 10, 11, 12, 1, 2] else 2
-        else:
-            # Trimestre 1: Sept-Déc, Trimestre 2: Janv-Mars, Trimestre 3: Avril-Juin
-            if today.month in [9, 10, 11, 12]:
-                trimestre = 1
-            elif today.month in [1, 2, 3]:
-                trimestre = 2
-            else:
-                trimestre = 3
 
     if not annee_scolaire or not validate_annee_scolaire(annee_scolaire):
         today = date.today()
@@ -885,15 +970,15 @@ def liste_notes():
 
     # Filtrage par enseignant
     if enseignant_id and enseignant_id.lower() != "none":
-       try:
-          enseignant_uuid = UUID(enseignant_id)
-          query = query.join(Note.enseignement).filter(Enseignement.enseignant_id == enseignant_uuid)
-       except ValueError:
-          pass
+        try:
+            enseignant_uuid = UUID(enseignant_id)
+            query = query.join(Note.enseignement).filter(Enseignement.enseignant_id == enseignant_uuid)
+        except ValueError:
+            pass
     
-    # Filtrage par trimestre et année scolaire
-    if trimestre:
+    if trimestre is not None:
         query = query.filter(Note.trimestre == trimestre)
+    
     if annee_scolaire:
         query = query.filter(Note.annee_scolaire == annee_scolaire)
     
@@ -904,13 +989,25 @@ def liste_notes():
     
     eleves = Eleve.query.join(Classe).filter(Classe.ecole_id == ecole_id).all()
     
-    toutes_matieres = Matiere.query.filter(Matiere.type.in_(SecurityConfig.ALLOWED_MATIERE_TYPES)).all()
-    matieres_dict = {}
-    for matiere in toutes_matieres:
-       cle = matiere.libelle.strip().lower()
-       if cle not in matieres_dict:
-          matieres_dict[cle] = matiere
-    matieres = list(matieres_dict.values())
+    # =============================================
+    # CORRECTION : Utiliser get_unique_matieres() pour supprimer les doublons
+    # =============================================
+    # Cette fonction retourne une structure hiérarchique sans doublons
+    matieres_hierarchiques = get_unique_matieres(ecole_id)
+    
+    # Transformer en liste plate pour le select (car le template attend une liste simple)
+    matieres = []
+    for groupe in matieres_hierarchiques:
+        if groupe.get('children'):
+            for enfant in groupe['children']:
+                matieres.append({
+                    'id': enfant['id'],
+                    'libelle': enfant['libelle'],
+                    'type': enfant['type']
+                })
+    # =============================================
+    # FIN DE LA CORRECTION
+    # =============================================
     
     enseignants = Enseignant.query.filter_by(ecole_id=ecole_id).options(joinedload(Enseignant.utilisateur)).all()
     
@@ -945,8 +1042,8 @@ def liste_notes():
         annee_scolaire=annee_scolaire,
         annees_scolaires=annees_scolaires,
         ecole_id=ecole_id,
-        cycle_type=cycle_type,  # Nouveau paramètre
-        cycles=get_ecole_cycles(ecole_id)  # Informations sur les cycles
+        cycle_type=cycle_type,
+        cycles=get_ecole_cycles(ecole_id)
     )
 
 @notes_bp.route("/add", methods=["POST"])
@@ -1281,42 +1378,8 @@ def list_elements():
         classes = Classe.query.filter_by(ecole_id=ecole_id).all()
         enseignants = Enseignant.query.filter_by(ecole_id=ecole_id).options(joinedload(Enseignant.utilisateur)).all()
         
-        toutes_matieres = Matiere.query.filter(
-            Matiere.type.in_(SecurityConfig.ALLOWED_MATIERE_TYPES)
-        ).all()
-        
-        matieres_uniques_dict = {}
-        for matiere in toutes_matieres:
-            cle_unique = f"{matiere.libelle.strip().lower()}_{matiere.type}"
-            if cle_unique not in matieres_uniques_dict:
-                matieres_uniques_dict[cle_unique] = {
-                    "id": str(matiere.id),
-                    "libelle": matiere.libelle,
-                    "type": matiere.type,
-                    "is_parent": False
-                }
-        
-        matieres_uniques = list(matieres_uniques_dict.values())
-        
-        matieres_par_type = {}
-        for matiere in matieres_uniques:
-            type_name = matiere["type"]
-            if type_name not in matieres_par_type:
-                matieres_par_type[type_name] = []
-            matieres_par_type[type_name].append(matiere)
-        
-        matieres_hierarchiques = []
-        for type_name, matieres_list in matieres_par_type.items():
-            if matieres_list:
-                matieres_triees = sorted(matieres_list, key=lambda x: x["libelle"])
-                
-                type_groupe = {
-                    "id": f"type_{type_name.lower().replace(' ', '_')}",
-                    "libelle": type_name,
-                    "is_parent": True,
-                    "children": matieres_triees
-                }
-                matieres_hierarchiques.append(type_groupe)
+        # UTILISER LA NOUVELLE FONCTION DE DÉDUPLICATION
+        matieres_hierarchiques = get_unique_matieres(ecole_id)
         
         data = {
             "eleves": [
@@ -1580,12 +1643,7 @@ def get_periodes_for_cycle(cycle_type, trimestre_semestre_value):
             'value': trimestre_semestre_value
         }
 
-def validate_periode(cycle_type, periode_value):
-    """Validation de la période selon le cycle"""
-    if cycle_type == 'lycee':
-        return periode_value in [1, 2]
-    else:
-        return periode_value in [1, 2, 3]
+
 
 @notes_bp.route('/export/<format>')
 @login_required

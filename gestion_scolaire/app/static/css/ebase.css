@@ -1,4 +1,4 @@
-/* ebase.css - Version MODERNE et ÉLÉGANTE */
+/* ebase.css - Version CORRIGÉE avec dropdown qui s'affiche au-dessus */
 
 /* Reset et base moderne */
 * {
@@ -34,11 +34,54 @@ body::before {
     background: rgba(33, 37, 41, 0.95) !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+    position: relative;
+    z-index: 1030;
 }
 
 .navbar-brand {
     font-weight: 700;
     font-size: 1.3rem;
+}
+
+/* ============================================
+   CORRECTION DROPDOWN - AFFICHAGE AU-DESSUS
+   ============================================ */
+
+/* Positionnement de base des dropdowns dans la navbar */
+.navbar .dropdown-menu {
+    position: absolute !important;
+    margin-top: 0.5rem !important;
+    border-radius: 20px !important;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(20px);
+    background: rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    min-width: 250px;
+}
+
+/* Forcer l'affichage au-dessus quand nécessaire */
+.navbar .dropdown-menu.show {
+    display: block;
+}
+
+/* Animation fluide */
+.navbar .dropdown-menu {
+    transition: all 0.3s ease;
+}
+
+/* Éléments du dropdown */
+.dropdown-item {
+    border-radius: 12px;
+    margin: 0.2rem 0.5rem;
+    padding: 0.7rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.dropdown-item:hover {
+    background: linear-gradient(135deg, #667eea, #764ba2) !important;
+    color: white !important;
+    transform: translateX(5px);
 }
 
 /* BOUTONS CYLINDRIQUES ÉLÉGANTS */
@@ -172,29 +215,6 @@ body::before {
     font-size: 0.8rem;
 }
 
-/* Dropdown élégant */
-.dropdown-menu {
-    border-radius: 20px !important;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(20px);
-    background: rgba(255, 255, 255, 0.95) !important;
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-}
-
-.dropdown-item {
-    border-radius: 12px;
-    margin: 0.2rem 0.5rem;
-    padding: 0.7rem 1rem;
-    transition: all 0.3s ease;
-}
-
-.dropdown-item:hover {
-    background: linear-gradient(135deg, #667eea, #764ba2) !important;
-    color: white !important;
-    transform: translateX(5px);
-}
-
 /* Sélecteur d'école cylindrique */
 .ecole-selector .input-group {
     border-radius: 50px !important;
@@ -234,6 +254,31 @@ body::before {
     
     .ecole-selector .input-group {
         margin-bottom: 0.5rem;
+    }
+}
+
+/* Responsive pour les dropdowns sur mobile */
+@media (max-width: 991.98px) {
+    .navbar-nav .dropdown-menu {
+        position: static !important;
+        float: none !important;
+        width: auto !important;
+        margin-top: 0 !important;
+        background: rgba(255, 255, 255, 0.1) !important;
+        backdrop-filter: blur(10px);
+    }
+    
+    .navbar-nav .dropdown-menu .dropdown-item {
+        color: rgba(255, 255, 255, 0.9) !important;
+    }
+    
+    .navbar-nav .dropdown-menu .dropdown-item:hover {
+        background: rgba(255, 255, 255, 0.2) !important;
+        color: white !important;
+    }
+    
+    .navbar-nav .dropdown-menu .dropdown-divider {
+        border-color: rgba(255, 255, 255, 0.2);
     }
 }
 
@@ -297,7 +342,7 @@ body::before {
     z-index: 1990 !important;
 }
 
-/* IMPORTANT: S'assurer que le dashboard n'est pas affecté */
+/* Dashboard */
 body.edashboard {
     background-image: none !important;
 }
@@ -332,15 +377,12 @@ body.edashboard::before {
 }
 
 /* RESTAURATION DES ICÔNES FONT AWESOME */
-
-/* Icônes d'action standard */
 .fa-trash, .fa-edit, .fa-eye, .fa-search, .fa-plus, 
 .fa-save, .fa-times, .fa-download, .fa-upload, .fa-print {
     font-family: 'Font Awesome 6 Free' !important;
     font-weight: 900 !important;
 }
 
-/* Couleurs des icônes d'action */
 .fa-trash { color: #dc3545 !important; }
 .fa-edit { color: #ffc107 !important; }
 .fa-eye { color: #0dcaf0 !important; }
@@ -352,17 +394,14 @@ body.edashboard::before {
 .fa-upload { color: #0d6efd !important; }
 .fa-print { color: #6c757d !important; }
 
-/* Boutons avec icônes */
 .btn .fa {
     margin-right: 0.5rem;
 }
 
-/* Tailles des icônes */
 .fa-lg { font-size: 1.2rem !important; }
 .fa-xl { font-size: 1.5rem !important; }
 .fa-2x { font-size: 2rem !important; }
 
-/* Icônes dans les tableaux */
 .table .fa {
     opacity: 0.8;
     transition: all 0.3s ease;
@@ -373,12 +412,11 @@ body.edashboard::before {
     transform: scale(1.2);
 }
 
-/* Icônes dans la navbar */
 .navbar .fa {
     font-size: 1.1rem;
 }
 
-/* Indicateur de chargement pour les tableaux */
+/* Indicateur de chargement */
 .table-responsive.loading {
     position: relative;
 }
@@ -396,101 +434,39 @@ body.edashboard::before {
     font-weight: bold;
 }
 
-/* Assurer que DataTables se comporte bien */
 .dataTables_wrapper {
     position: relative;
 }
 
-/* Ajouter dans ebase.css */
-.disabled-selector {
-    opacity: 0.7;
-    pointer-events: none;
+/* CORRECTION SELECT2 */
+.select2-dropdown,
+.select2-container--open {
+    z-index: 9999999 !important;
 }
 
-.disabled-selector .input-group-text {
-    background-color: #6c757d !important;
-    border-color: #6c757d;
+/* ============================================
+   CORRECTION SUPPLÉMENTAIRE POUR DROPDOWN
+   ============================================ */
+
+/* Assurer que les dropdowns de la navbar ont le bon z-index */
+.navbar .dropdown-menu {
+    z-index: 1050;
 }
 
-.disabled-selector .select2-selection {
-    background-color: #e9ecef;
-    border-color: #6c757d;
+/* Pour les dropdowns qui pourraient être coupés par overflow */
+.navbar-nav {
+    overflow: visible !important;
 }
 
-.disabled-selector .form-text {
-    font-size: 0.75rem;
-    margin-top: 0.25rem;
+.navbar-collapse {
+    overflow: visible !important;
 }
 
-/* Ajouter dans ebase.css */
-.disabled-selector {
-    opacity: 0.7;
-    pointer-events: none;
+.navbar {
+    overflow: visible !important;
 }
 
-.disabled-selector .input-group-text {
-    background-color: #6c757d !important;
-    border-color: #6c757d;
-}
-
-.disabled-selector .select2-selection {
-    background-color: #e9ecef;
-    border-color: #6c757d;
-    cursor: not-allowed;
-}
-
-.disabled-selector .select2-selection__arrow {
-    display: none;
-}
-
-/* Styles pour les sélecteurs verrouillés */
-.disabled-selector .input-group-text {
-    background-color: #6c757d !important;
-    border-color: #6c757d !important;
-}
-
-.disabled-selector.admin-locked .input-group-text {
-    background-color: #dc3545 !important;
-    border-color: #dc3545 !important;
-}
-
-.disabled-selector.user-locked .input-group-text {
-    background-color: #6c757d !important;
-    border-color: #6c757d !important;
-}
-
-/* Style pour le sélecteur d'école admin système */
-.select2-ecole:not([disabled]) {
-    border-color: #0d6efd !important;
-}
-
-/* Indicateurs visuels */
-.ecole-status .bi-shield-lock {
-    color: #dc3545;
-}
-
-.ecole-status .bi-person-lock {
-    color: #6c757d;
-}
-
-.ecole-status .bi-unlock {
-    color: #0d6efd;
-}
-
-/* CORRECTION : Styles pour sélecteur actif même en lecture seule */
-.ecole-selector .form-select:not([disabled]) {
-    background: rgba(255, 255, 255, 0.9) !important;
-    border-color: #0d6efd !important;
-}
-
-/* Style admin système */
-.is-system-admin .ecole-selector .input-group-text {
-    background: linear-gradient(135deg, #667eea, #764ba2) !important;
-}
-
-/* Style lecture seule */
-.ecole-selector .form-select[disabled] {
-    background-color: #e9ecef !important;
-    opacity: 1 !important;
-    cursor: not-allowed;
+/* Correction pour le parent qui pourrait cacher le dropdown */
+.container-fluid {
+    overflow: visible !important;
 }

@@ -3,7 +3,7 @@ from flask_login import current_user, login_required
 from ..models import Ecole
 # CORRECTION : Importer depuis le bon chemin
 from ..utils import is_system_admin, system_admin_required, get_current_ecole_id
-import sys
+import uuid
 import os
 import re
 from uuid import UUID
@@ -185,64 +185,56 @@ def index():
 @main_bp.route('/select-ecole', methods=['POST'])
 @login_required
 def select_ecole():
-    """Sélectionner une école - version sécurisée"""
-    data = request.get_json()
-    ecole_id = data.get('ecole_id')
-    
-    print(f"🔍 SELECT ECOLE - User: {current_user.username}, EcoleID: {ecole_id}")
-    
-    # Vérifier les permissions
-    is_admin_system = is_system_admin()
-    user_ecole_id = getattr(current_user, 'ecole_id', None)
-    
-    # CORRECTION : Pour les non-admin système, forcer leur école
-    if not is_admin_system:
-        if user_ecole_id:
-            # Forcer l'école de l'utilisateur
-            ecole_id = str(user_ecole_id)
-            print(f"🔒 SELECT ECOLE - École verrouillée pour non-admin: {ecole_id}")
+    """Sélectionner une école pour la session"""
+    try:
+        data = request.json
+        ecole_id = data.get('ecole_id')
+        
+        print(f"DEBUG select_ecole: user={current_user.username}, requested ecole_id={ecole_id}")
+        
+        # Pour l'admin système
+        if current_user.is_system_admin and current_user.username == 'admin':
+            if ecole_id:
+                # Convertir en UUID si nécessaire
+                if isinstance(ecole_id, str):
+                    try:
+                        ecole_id = uuid.UUID(ecole_id)
+                    except:
+                        return jsonify({'success': False, 'error': 'ID école invalide'}), 400
+                
+                # Stocker dans la session
+                session['selected_ecole_id'] = str(ecole_id)
+                print(f"DEBUG: Admin selected ecole_id={ecole_id} (stored in session)")
+                
+                return jsonify({
+                    'success': True, 
+                    'message': f'École sélectionnée: {ecole_id}'
+                })
+            else:
+                # Effacer la sélection
+                session.pop('selected_ecole_id', None)
+                print("DEBUG: Admin cleared ecole selection")
+                return jsonify({'success': True, 'message': 'Sélection effacée'})
+        
+        # Pour les autres utilisateurs, utiliser leur école assignée
+        elif current_user.ecole_id:
+            # Forcer l'utilisation de l'école de l'utilisateur
+            session['selected_ecole_id'] = str(current_user.ecole_id)
+            print(f"DEBUG: Non-admin user using assigned ecole_id={current_user.ecole_id}")
+            return jsonify({
+                'success': True, 
+                'message': f'Utilisation de votre école: {current_user.ecole_id}'
+            })
+        
         else:
             return jsonify({
-                'success': False,
-                'error': 'Aucune école assignée'
+                'success': False, 
+                'error': 'Vous n\'êtes associé à aucune école'
             }), 400
-    
-    # Vérifier l'accès à l'école
-    if ecole_id and not validate_ecole_access(ecole_id):
-        return jsonify({
-            'success': False,
-            'error': 'Accès non autorisé à cette école'
-        }), 403
-    
-    # Récupérer l'école
-    if ecole_id:
-        ecole = Ecole.query.get(ecole_id)
-        if not ecole:
-            return jsonify({'error': 'École non trouvée'}), 404
-        
-        session['selected_ecole_id'] = ecole_id
-        session['selected_ecole_nom'] = ecole.nom
-        
-        print(f"✅ École sélectionnée: {ecole.nom}")
-        
-        return jsonify({
-            'success': True,
-            'message': f'École {ecole.nom} sélectionnée',
-            'ecole_nom': ecole.nom,
-            'is_locked': not is_admin_system  # Indiquer si verrouillé
-        })
-    else:
-        # Mode "toutes les écoles" - seulement pour les admins système
-        if not is_admin_system:
-            return jsonify({'error': 'Mode toutes les écoles non autorisé'}), 403
             
-        session.pop('selected_ecole_id', None)
-        session.pop('selected_ecole_nom', None)
-        
-        return jsonify({
-            'success': True, 
-            'message': 'Mode toutes les écoles activé'
-        })
+    except Exception as e:
+        current_app.logger.error(f"Erreur select_ecole: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @main_bp.route('/current-ecole', methods=['GET'])

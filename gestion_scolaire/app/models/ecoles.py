@@ -1,10 +1,9 @@
-# models/ecoles.py - VERSION CORRIGÉE
+# models/ecoles.py - VERSION SIMPLIFIÉE
 import uuid
 import re
 from extensions import db, BaseModel
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import event
-from sqlalchemy.orm import relationship
 
 class Ecole(BaseModel): 
     __tablename__ = 'ecoles' 
@@ -35,8 +34,6 @@ class Ecole(BaseModel):
     # ✅ AJOUT : Cycles disponibles (collège/lycée) SEULEMENT
     cycles_disponibles = db.Column(db.JSON, default=lambda: {'college': True, 'lycee': False})
 
-    # ⚠️ SUPPRIMÉ : Pas de systeme_evaluation ici, c'est dans la relation
-    
     # ⚠️ CORRECTION : Méthode pour récupérer les utilisateurs sans relation directe
     def get_utilisateurs(self):
         """Récupère les utilisateurs de l'école sans relation circulaire"""
@@ -46,7 +43,7 @@ class Ecole(BaseModel):
     def __repr__(self):
         return f'<Ecole {self.nom}>'
     
-        # ✅ AJOUT : Méthodes de validation STATIQUES (à ajouter)
+    # ✅ AJOUT : Méthodes de validation STATIQUES
     @staticmethod
     def validate_phone_number(phone):
         """Validation simple des numéros de téléphone"""
@@ -73,7 +70,6 @@ class Ecole(BaseModel):
         if not email:
             return True, "Email vide"
         
-        # Expression régulière simple pour valider un email
         pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         
         if not re.match(pattern, email):
@@ -121,7 +117,6 @@ class Ecole(BaseModel):
         systeme = self.get_systeme_evaluation()
         if systeme:
             return systeme.type_systeme == 'trimestriel'
-        # Par défaut : trimestriel
         return True
     
     def est_semestriel(self):
@@ -129,7 +124,63 @@ class Ecole(BaseModel):
         systeme = self.get_systeme_evaluation()
         if systeme:
             return systeme.type_systeme == 'semestriel'
-        # Par défaut : pas semestriel
+        return False
+    
+    # ✅ AJOUT : Méthodes utilitaires pour le tableau de service
+    def get_parametres_tableau_actifs(self):
+        """Retourne les paramètres actifs pour le tableau de service"""
+        try:
+            from .parametres_tableau import ParametresTableau
+            return ParametresTableau.query.filter_by(ecole_id=self.id).first()
+        except ImportError:
+            return None
+    
+    def creer_parametres_tableau_par_defaut(self):
+        """Crée des paramètres par défaut pour le tableau de service"""
+        try:
+            from .parametres_tableau import ParametresTableau
+            
+            if not self.get_parametres_tableau_actifs():
+                parametres = ParametresTableau(
+                    ecole_id=self.id,
+                    duree_cours_college=55,
+                    duree_cours_lycee_55=55,
+                    duree_cours_lycee_110=110
+                )
+                db.session.add(parametres)
+                db.session.commit()
+                return True
+        except ImportError:
+            print("⚠️ Modèle ParametresTableau non disponible")
+        
+        return False
+
+# Fonction pour configurer les relations après création des modèles
+def configurer_relations_tableau_service():
+    """Configure les relations pour le tableau de service après création des modèles"""
+    try:
+        from .parametres_tableau import ParametresTableau
+        from .tableau_service import TableauService
+        
+        # Configurer les relations dynamiquement
+        Ecole.parametres_tableau = db.relationship(
+            'ParametresTableau', 
+            backref='ecole', 
+            lazy='dynamic', 
+            cascade='all, delete-orphan'
+        )
+        
+        Ecole.tableaux_service = db.relationship(
+            'TableauService', 
+            backref='ecole', 
+            lazy='dynamic', 
+            cascade='all, delete-orphan'
+        )
+        
+        print("✅ Relations du tableau de service configurées")
+        return True
+    except ImportError as e:
+        print(f"⚠️ Impossible de configurer les relations du tableau de service: {e}")
         return False
 
 # Validation avant insertion/mise à jour

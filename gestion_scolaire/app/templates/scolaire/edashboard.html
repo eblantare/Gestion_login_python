@@ -9,18 +9,6 @@
 {% endblock %}
 
 {% block content %}
-<!-- DEBUG: Afficher les informations utilisateur -->
-<div class="container-fluid" style="display: none;">
-    <div class="alert alert-info">
-        <strong>DEBUG User Info:</strong><br>
-        User ID: {{ current_user.id }}<br>
-        Username: "{{ current_user.username }}"<br>
-        Role: "{{ current_user.role }}"<br>
-        Is Authenticated: {{ current_user.is_authenticated }}<br>
-        Is System Admin: {{ 'OUI' if current_user.is_authenticated and current_user.username == 'admin' else 'NON' }}
-    </div>
-</div>
-
 <!-- Header avec sélecteur d'école -->
 <div class="container-fluid mb-4">
     <div class="row align-items-center">
@@ -29,6 +17,19 @@
                 <i class="bi bi-speedometer2 me-2"></i>Tableau de bord
             </h1>
             <p class="text-white-50 mb-0">Gestion complète des données scolaires</p>
+        </div>
+        <div class="col-auto">
+            {% if selected_ecole %}
+            <div class="badge bg-success bg-opacity-25 text-success p-2">
+                <i class="bi bi-building me-1"></i>
+                {{ selected_ecole.nom }}
+            </div>
+            {% elif current_user.ecole_nom %}
+            <div class="badge bg-info bg-opacity-25 text-info p-2">
+                <i class="bi bi-building me-1"></i>
+                {{ current_user.ecole_nom }}
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -60,7 +61,7 @@
         {% for menu in menus %}
         <div class="col-sm-6 col-md-4 col-lg-3">
             <div class="menu-card {{ menu.color }}" 
-                 data-url="{{ menu.url }}">
+                 onclick="window.location.href='{{ menu.url }}'">
                 <i class="bi {{ menu.icon }}"></i>
                 <h5 class="fw-bold mb-2">{{ menu.title }}</h5>
                 <p class="small mb-3 opacity-75">{{ menu.desc }}</p>
@@ -72,14 +73,14 @@
         </div>
         {% endfor %}
 
-        {# Menu Écoles UNIQUEMENT pour system_admin (username = 'admin') #}
+        {# Menu Écoles UNIQUEMENT pour system_admin #}
         {% if current_user.is_authenticated and current_user.username == 'admin' %}
         <div class="col-sm-6 col-md-4 col-lg-3">
             <div class="menu-card bg-light text-dark system-admin-only" 
-                 data-url="{{ url_for('ecoles.liste_ecoles') }}">
-                <i class="bi bi-gear-fill"></i>
-                <h5 class="fw-bold mb-2">Écoles</h5>
-                <p class="small mb-3 opacity-75">Configuration système</p>
+                 onclick="window.location.href='{{ url_for('ecoles.liste_ecoles') }}'">
+                <i class="bi bi-gear-fill text-dark"></i>
+                <h5 class="fw-bold mb-2 text-dark">Écoles</h5>
+                <p class="small mb-3 opacity-75 text-dark">Configuration système</p>
                 
                 <span class="badge bg-warning text-dark position-absolute top-0 start-50 translate-middle mt-2">
                     <i class="bi bi-shield-check me-1"></i>System Admin
@@ -99,7 +100,7 @@
         <div class="text-center mt-5">
             <div class="alert alert-warning bg-dark border-warning text-white">
                 <i class="bi bi-shield-check me-2"></i>
-                Mode Administrateur Système - Accès complet à toutes les fonctionnalités
+                <strong>Mode Administrateur Système</strong> - Accès complet à toutes les fonctionnalités
             </div>
         </div>
         {% else %}
@@ -113,6 +114,69 @@
     {% endif %}
 </div>
 
-<!-- JS local dans gestion_scolaire -->
-<script src="{{ url_for('static', filename='js/e_dashboard.js') }}"></script>
+{% if current_user.username == 'admin' and not selected_ecole %}
+<div class="container mt-3">
+    <div class="alert alert-warning bg-dark border-warning text-white">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>Info :</strong> Vous êtes en mode administrateur système. 
+        Une école sera automatiquement sélectionnée lorsque vous accéderez au tableau de service.
+    </div>
+</div>
+{% endif %}
+
+<script>
+// Initialisation simple après chargement du DOM
+document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.menu-card');
+    cards.forEach(card => {
+        card.style.cursor = 'pointer';
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+            this.style.transition = 'transform 0.2s ease';
+        });
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+        
+        // S'assurer que toutes les cartes ont un comportement de clic
+        if (!card.hasAttribute('onclick')) {
+            const url = card.getAttribute('data-url');
+            if (url) {
+                card.onclick = function() {
+                    window.location.href = url;
+                };
+            }
+        }
+    });
+    
+    console.log('Dashboard initialisé avec', cards.length, 'cartes menu');
+});
+</script>
+
+<style>
+.menu-card {
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    min-height: 180px;
+}
+
+.menu-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+}
+
+.system-admin-only {
+    position: relative;
+}
+
+/* Correction importante pour que les dropdowns Select2 soient au-dessus des cartes */
+.select2-dropdown,
+.select2-container--open {
+    z-index: 99999 !important;
+}
+
+.dropdown-menu {
+    z-index: 100000 !important;
+}
+</style>
 {% endblock %}

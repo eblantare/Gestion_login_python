@@ -587,40 +587,115 @@ def get_ens(id):
 @enseignants_bp.route("/<string:ens_id>/changer_etat", methods=["POST"])
 @login_required
 def changer_etat(ens_id):
-    """Changer l'état d'un enseignant - CORRECTION : Sans @ecole_required pour admin système"""
+    """Changer l'état d'un enseignant"""
     if not is_admin():
         return jsonify({"error": "Accès refusé"}), 403
     
     user_is_system_admin = is_system_admin_enhanced()
     
-    if user_is_system_admin:
-        # Admin système peut changer l'état de n'importe quel enseignant
-        enseignant = Enseignant.query.filter_by(id=ens_id).first_or_404()
-    else:
-        # Autres admins : seulement les enseignants de leur école
-        ecole_id = get_current_ecole_id()
-        enseignant = Enseignant.query.filter_by(id=ens_id, ecole_id=ecole_id).first_or_404()
+    try:
+        # Récupérer l'enseignant selon les permissions
+        if user_is_system_admin:
+            enseignant = Enseignant.query.filter_by(id=ens_id).first_or_404()
+        else:
+            ecole_id = get_current_ecole_id()
+            enseignant = Enseignant.query.filter_by(id=ens_id, ecole_id=ecole_id).first_or_404()
 
-    data = request.get_json()
-    action = (data.get("action") or "").lower()
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "Données JSON requises"}), 400
+            
+        action = (data.get("action") or "").lower().strip()
 
-    # Définition du workflow
-    transitions = {
-        "inactif": {"activer": "Actif"},
-        "actif": {"muter": "Muté"},
-        "muté": {"retraiter": "Retraité"}
-    }
+        # Définition du workflow amélioré
+        transitions = {
+            "inactif": {"activer": "Actif", "reinitialiser": "Inactif"},
+            "actif": {"muter": "Muté", "reinitialiser": "Inactif"},
+            "muté": {"retraiter": "Retraité", "reinitialiser": "Inactif"},
+            "retraité": {"reinitialiser": "Inactif"}
+        }
 
-    current_etat = (enseignant.etat or "Inactif").lower()
-    next_etat = transitions.get(current_etat, {}).get(action)
+        # Normaliser l'état actuel
+        current_etat = (enseignant.etat or "Inactif").strip().lower()
+        
+        # Vérifier si l'action est valide
+        if current_etat not in transitions:
+            return jsonify({"error": f"État actuel '{enseignant.etat}' non géré"}), 400
+        
+        # Récupérer le nouvel état
+        next_etat = transitions[current_etat].get(action)
+        
+        if not next_etat:
+            allowed_actions = ", ".join(transitions[current_etat].keys())
+            return jsonify({
+                "error": f"Action '{action}' invalide pour l'état '{enseignant.etat}'",
+                "allowed_actions": allowed_actions
+            }), 400
 
-    if not next_etat:
-        return jsonify({"error": f"Action '{action}' invalide pour l'état {enseignant.etat}"}), 400
+        # Mettre à jour l'état
+        enseignant.etat = next_etat
+        
+        # Ajouter un log pour le suivi
+        current_app.logger.info(
+            f"Changement état enseignant {enseignant.id}: "
+            f"{enseignant.etat} → {next_etat} (action: {action})"
+        )
+        
+        db.session.commit()
 
-    enseignant.etat = next_etat
-    db.session.commit()
+        return jsonify({
+            "success": True,
+            "message": f"État mis à jour: {next_etat}",
+            "etat": enseignant.etat,
+            "action": action,
+            "previous_etat": current_etat
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Erreur changement état enseignant {ens_id}: {e}")
+        return jsonify({"error": f"Erreur serveur: {str(e)}"}), 500
+    
+@enseignants_bp.route("/<string:ens_id>/actions_disponibles", methods=["GET"])
+@login_required
+def get_actions_disponibles(ens_id):
+    """Récupérer les actions disponibles pour un enseignant"""
+    try:
+        user_is_system_admin = is_system_admin_enhanced()
+        
+        if user_is_system_admin:
+            enseignant = Enseignant.query.filter_by(id=ens_id).first_or_404()
+        else:
+            ecole_id = get_current_ecole_id()
+            enseignant = Enseignant.query.filter_by(id=ens_id, ecole_id=ecole_id).first_or_404()
 
-    return jsonify({"message": "État mis à jour", "etat": enseignant.etat})
+        current_etat = (enseignant.etat or "Inactif").lower()
+        
+        transitions = {
+            "inactif": ["activer", "reinitialiser"],
+            "actif": ["muter", "reinitialiser"],
+            "muté": ["retraiter", "reinitialiser"],
+            "retraité": ["reinitialiser"]
+        }
+        
+        actions = transitions.get(current_etat, [])
+        
+        return jsonify({
+            "success": True,
+            "enseignant_id": ens_id,
+            "current_etat": enseignant.etat,
+            "actions_disponibles": actions,
+            "workflow": [
+                {"from": "Inactif", "to": "Actif", "action": "activer"},
+                {"from": "Actif", "to": "Muté", "action": "muter"},
+                {"from": "Muté", "to": "Retraité", "action": "retraiter"},
+                {"from": "*", "to": "Inactif", "action": "reinitialiser"}
+            ]
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Erreur récupération actions: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @enseignants_bp.route("/options", methods=["GET"])
 @login_required

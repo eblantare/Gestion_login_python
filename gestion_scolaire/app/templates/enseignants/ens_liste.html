@@ -152,16 +152,47 @@
                     <td class="col-date_fonction">
                         {{ enseignant.date_fonction.strftime('%d/%m/%Y') if enseignant.date_fonction else 'N/A' }}
                     </td>
-                    <td class="col-etat">
-                        <span class="badge 
-                            {% if enseignant.etat == 'Actif' %}bg-success
-                            {% elif enseignant.etat == 'Inactif' %}bg-secondary
-                            {% elif enseignant.etat == 'Muté' %}bg-warning
-                            {% elif enseignant.etat == 'Retraité' %}bg-info
-                            {% else %}bg-secondary{% endif %}">
-                            {{ enseignant.etat }}
-                        </span>
-                    </td>
+                     <!-- Dans le tableau, remplacez la cellule État par : -->
+                  <td class="col-etat">
+                     <div class="etat-action-container">
+                       <!-- Badge d'état -->
+                     <span class="badge 
+                    {% if enseignant.etat == 'Actif' %}bg-success
+                    {% elif enseignant.etat == 'Inactif' %}bg-secondary
+                    {% elif enseignant.etat == 'Muté' %}bg-warning
+                    {% elif enseignant.etat == 'Retraité' %}bg-info
+                    {% else %}bg-secondary{% endif %}"
+                    data-bs-toggle="tooltip" 
+                    title="État actuel: {{ enseignant.etat }}">
+                    {{ enseignant.etat }}
+                  </span>
+        
+                 <!-- Select d'actions selon l'état -->
+                {% if user_role in ['admin', 'administrateur'] %}
+                <select class="form-select select-action" 
+                   data-enseignant-id="{{ enseignant.id }}"
+                   data-current-etat="{{ enseignant.etat }}"
+                   onchange="changerEtatEnseignant(this)">
+                <option value="">-- Action --</option>
+            
+                {% if enseignant.etat == 'Inactif' %}
+                 <option value="activer">→ Activer</option>
+                {% endif %}
+            
+                {% if enseignant.etat == 'Actif' %}
+                 <option value="muter">→ Muter</option>
+                {% endif %}
+            
+                {% if enseignant.etat == 'Muté' %}
+                  <option value="retraiter">→ Retraiter</option>
+                {% endif %}
+            
+                <!-- Toujours disponible -->
+                <option value="reinitialiser">→ Réinitialiser à Inactif</option>
+                </select>
+               {% endif %}
+             </div>
+             </td>
                     <td>
                         <div class="btn-group btn-group-sm">
                             <button class="btn btn-outline-primary btn-view" 
@@ -307,4 +338,5 @@
 {% block scripts %}
 {{ super() }}
 <script src="{{ url_for('static', filename='js/enseignants.js') }}"></script>
+<script src="{{ url_for('static', filename='js/enseignants_etat.js') }}"></script>
 {% endblock %}

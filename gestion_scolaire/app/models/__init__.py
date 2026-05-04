@@ -1,3 +1,4 @@
+# gestion_scolaire/app/models/__init__.py
 # Import explicite de tous les modèles
 from .eleves import Eleve
 from .classes import Classe
@@ -12,10 +13,13 @@ from .enseignements import Enseignement
 from .ecoles import Ecole
 from .systeme_evaluation import SystemeEvaluation
 
+
+
 # Liste des exports pour les imports *
 __all__ = [
     "Eleve", "Classe", "Enseignant", "Matiere",
     "Note", "Moyenne", "Appreciations",
     "Paiement", "Service", "Enseignement",
-    "Ecole",'SystemeEvaluation'
+    "Ecole", "SystemeEvaluation"
+   
 ]

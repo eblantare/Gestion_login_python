@@ -59,6 +59,7 @@ body.edashboard {
     border: 2px solid;
     backdrop-filter: blur(20px);
     background: rgba(255, 255, 255, 0.08);
+    z-index: 1;
 }
 
 /* Bordures colorées spécifiques à chaque carte */
@@ -172,4 +173,9 @@ body.edashboard {
     border: 1px solid rgba(255, 255, 255, 0.4);
     z-index: 2;
 }
-    
+
+/* Correction minimale pour Select2 */
+.select2-dropdown,
+.select2-container--open {
+    z-index: 999999 !important;
+}
